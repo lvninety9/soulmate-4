@@ -12,10 +12,50 @@
 // is not a permanent lock, and a determined immediate retry can still slip through (AGENTS.md's
 // own "no verbatim 3rd retry" rule discourages that anyway).
 //
+// State is persisted to disk (.subtask-gate-state.json, next to this file), not held in memory
+// — an independent blind test proved a plain in-memory Set does not survive across separate
+// `kilo run`/`--continue` invocations, which is this repo's own documented usage pattern
+// ("the next build — ideally in a fresh session"). Round 1 validation, see
+// wiki/rule-archive.md L06. Bun/Node's sync fs calls are fine here: state is a few bytes, one
+// user, no meaningful concurrency to race against.
+//
 // Auto-loaded by Kilo from .kilo/plugins/*.ts — no config.jsonc registration needed.
 
-const armed = new Set<string>()
-const recentlyStagedPrimer = new Set<string>()
+import { existsSync, readFileSync, writeFileSync } from "fs"
+import { join, dirname } from "path"
+import { fileURLToPath } from "url"
+
+const PLUGIN_DIR = (() => {
+  try {
+    // Bun/ESM: import.meta.url is always available for the executing module.
+    return dirname(fileURLToPath(import.meta.url))
+  } catch {
+    return join(process.cwd(), ".kilo", "plugins")
+  }
+})()
+const STATE_FILE = join(PLUGIN_DIR, ".subtask-gate-state.json")
+
+type State = { armed: Record<string, true>; stagedPrimer: Record<string, true> }
+
+function loadState(): State {
+  try {
+    if (existsSync(STATE_FILE)) {
+      const parsed = JSON.parse(readFileSync(STATE_FILE, "utf8"))
+      return { armed: parsed.armed ?? {}, stagedPrimer: parsed.stagedPrimer ?? {} }
+    }
+  } catch {
+    // Corrupt/unreadable state file: fail open (treat as unarmed) rather than crash the hook.
+  }
+  return { armed: {}, stagedPrimer: {} }
+}
+
+function saveState(state: State) {
+  try {
+    writeFileSync(STATE_FILE, JSON.stringify(state))
+  } catch {
+    // Best-effort persistence — a write failure here should not break the tool call itself.
+  }
+}
 
 const TOUCHES_PRIMER = /wiki\/handoffs\/SESSION_PRIMER\.md/
 const IS_GIT_ADD = /git\s+add\b/
@@ -33,23 +73,29 @@ export const SubtaskGate = async () => ({
     const sessionID = input?.sessionID
     if (!sessionID) return
 
-    if (armed.has(sessionID) && MUTATING_TOOLS.has(tool)) {
-      armed.delete(sessionID)
+    const state = loadState()
+
+    if (state.armed[sessionID] && MUTATING_TOOLS.has(tool)) {
+      delete state.armed[sessionID]
+      saveState(state)
       throw new Error(BLOCK_MESSAGE)
     }
 
     if (tool !== "bash") return
     const cmd = String(output?.args?.command ?? "")
+    let changed = false
 
     if (IS_GIT_ADD.test(cmd) && TOUCHES_PRIMER.test(cmd)) {
-      recentlyStagedPrimer.add(sessionID)
+      state.stagedPrimer[sessionID] = true
+      changed = true
     }
 
-    if (IS_GIT_COMMIT.test(cmd)) {
-      if (TOUCHES_PRIMER.test(cmd) || recentlyStagedPrimer.has(sessionID)) {
-        armed.add(sessionID)
-        recentlyStagedPrimer.delete(sessionID)
-      }
+    if (IS_GIT_COMMIT.test(cmd) && (TOUCHES_PRIMER.test(cmd) || state.stagedPrimer[sessionID])) {
+      state.armed[sessionID] = true
+      delete state.stagedPrimer[sessionID]
+      changed = true
     }
+
+    if (changed) saveState(state)
   },
 })
