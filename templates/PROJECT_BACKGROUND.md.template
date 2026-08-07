@@ -1,0 +1,63 @@
+<!--
+  Copy this file to project-root/wiki/PROJECT_BACKGROUND.md. Delete instructional comments
+  as you fill each section in — they're onboarding scaffolding, not permanent reminders.
+  Answer the questions under each heading — the answers ARE the document.
+  Start nearly empty; fill sections in as you actually learn each thing, not all at once.
+  Cap at ~150 lines (tune per project). Over cap → lint pass before the session ends:
+  collapse duplicate rows, drop stale entries, compress resolved gaps to one line.
+  Grep this file for the term you need — don't read it whole once it's past a few dozen lines
+  (AGENTS.md's "rule zero"). Unbounded growth here is still the #1 context-budget risk even with
+  grep-first discipline, since a badly-organized file makes grep unreliable too.
+  Learned Rules and Fixed Rules live here, not in AGENTS.md (unlike soulmate-3) — AGENTS.md is
+  the auto-loaded kernel here and stays tight on purpose; these two sections are grepped on
+  demand, same caps as soulmate-3 used inside its own AGENTS.md (Learned ≤10, Fixed ≤10 rows).
+-->
+
+# Project Background
+
+## Entity/role map
+
+<!-- What are the core "nouns" of this project (channels, services, modules, tenants, agents...)
+     and what does each one actually do? A name→role table, not prose. -->
+
+| Name | Role |
+|---|---|
+
+## Pipeline order
+
+<!-- When something happens end-to-end (a request comes in, a piece of content gets made, a job
+     runs), what's the actual sequence of stages? What triggers the next stage — a schedule, an
+     event, a human? -->
+
+## Numbering / ID systems
+
+<!-- Does this project have more than one numbering scheme (ticket IDs, phase numbers, version
+     codes, session counters...)? List each one and how it relates to the others — this is the
+     single most common source of stranger-confusion. -->
+
+## Glossary
+
+<!-- Terms, abbreviations, or internal jargon a competent engineer would NOT already know just
+     from reading the code — domain-specific, historical, or renamed from something else. -->
+
+## Status/priority vocabulary
+
+<!-- If docs use icons, tags, or priority labels (✅⏳🔴, P0/P1, etc.), define each one here or
+     point to the single authoritative place. -->
+
+## Learned Rules
+
+<!-- one-liners only, format: `- [L01] rule \`tag\` (evidence: session N)` — full write-up goes
+     in wiki/rule-archive.md, this is just the compressed pointer. Cap ≤10 entries. -->
+
+## Fixed Rules
+
+<!-- project-specific invariants that never expire — table, not prose. Cap ~8-10 rows. -->
+
+| Rule | Why |
+|---|---|
+
+## What's NOT here
+
+<!-- One line: what this file deliberately excludes (e.g. "current state — see SESSION_PRIMER.md
+     instead", "source-tree layout — see AGENTS.md's File map instead"). -->

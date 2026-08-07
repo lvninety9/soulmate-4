@@ -1,0 +1,36 @@
+<!--
+  Copy to wiki/subsystems/<name>-learnings.md — one per subsystem running the A-D
+  self-diagnosis pattern (see README "The A-D self-diagnosis pattern"). This is the
+  one state-cache file stage C writes to and stage D reads from.
+  Cadence and thresholds are per-subsystem tunables — record them here, not in
+  AGENTS.md's Fixed Rules (which is for project-wide invariants).
+  Delete the instructional comments below (including the worked-example one under
+  "Current guidance") once you've written your own subsystem's real guidance in.
+-->
+
+# <subsystem name> — learnings
+
+## Tuning
+
+- Snapshot cadence: <e.g. weekly>
+- Flag threshold: <e.g. "loss rate > 8% two periods running">
+- Minimum sample size before C is allowed to overwrite guidance: <e.g. 20 data points>
+
+## Current guidance (stage D reads this)
+
+<!--
+  Concrete, applicable rules — not analysis prose. D should be able to apply these
+  mechanically without re-reading how they were derived. Worked example, from the
+  bookstore-pricing case in the README:
+
+  - Category "textbooks": lower buy price 12% vs. list — resale/days-in-inventory
+    ratio has been below break-even for 3 consecutive snapshots (as of 2026-W14).
+  - Category "fiction-paperback": no adjustment — within target range.
+-->
+
+## Last updated
+
+- Snapshot date: <date>
+- Sample size this period: <N>
+- If sample size was below the minimum: this guidance is carried over unchanged from
+  the prior snapshot (state-cache behavior — don't force a conclusion on thin data).

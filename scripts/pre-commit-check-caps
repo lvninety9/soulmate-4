@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Optional git pre-commit hook: blocks a commit if any Soulmate 4 doc cap is exceeded, or if
+# too many files are staged at once.
+#
+# This is a SECOND, later-stage backstop — unlike soulmate-3, this repo also has a real
+# mid-session mechanical block (.kilo/plugins/subtask-gate.ts, via Kilo's tool.execute.before
+# hook, which Continue never exposed). This git hook still matters: the plugin only fires once a
+# sub-task-closing commit has already landed, and only guards the moment right after that one
+# specific commit — it says nothing about staged-file count on every other commit in between.
+#
+# Install:
+#   cp scripts/pre-commit-check-caps .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# To bypass once (e.g. an intentionally temporary over-cap state mid-refactor):
+#   git commit --no-verify
+
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+# Per-file commit enforcement (AGENTS.md's Edit discipline): prose alone doesn't reliably hold
+# under a freeform build — this is the same pattern soulmate-2/3 both had to add after real
+# incidents. Exempt: the very first commit in the repo (the bootstrap scaffold legitimately
+# bundles many template files at once).
+STAGED_FILE_CAP=3
+if git rev-parse --verify -q HEAD >/dev/null; then
+  staged_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
+  if [ "$staged_count" -gt "$STAGED_FILE_CAP" ]; then
+    echo "" >&2
+    echo "Commit blocked: $staged_count files staged, cap is $STAGED_FILE_CAP." >&2
+    echo "Per-file commit discipline (AGENTS.md's Edit discipline): commit one file (or a" >&2
+    echo "tightly related few) at a time, not a whole feature in one commit. Split this up, or" >&2
+    echo "bypass intentionally with: git commit --no-verify" >&2
+    exit 1
+  fi
+fi
+
+if [ ! -x scripts/check-caps.sh ]; then
+  echo "check-caps.sh missing or not executable — skipping cap check" >&2
+  exit 0
+fi
+
+if ! scripts/check-caps.sh; then
+  echo "" >&2
+  echo "Commit blocked: one or more Soulmate 4 docs are over their stated cap (see above)." >&2
+  echo "Prune before committing, or bypass intentionally with: git commit --no-verify" >&2
+  exit 1
+fi

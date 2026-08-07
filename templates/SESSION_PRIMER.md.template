@@ -1,0 +1,58 @@
+<!--
+  Copy to project-root/wiki/handoffs/SESSION_PRIMER.md. Fully rewritten every session.
+  Delete instructional comments as you fill sections in.
+  Cap at ~150 lines (tune per project). This is the only file that owns "current state."
+  The "session N" header below and wiki/session-log.md's "session#" column are the same
+  counter — bump both together at END, or they drift and "session N" stops meaning anything.
+-->
+
+# SESSION PRIMER — session N
+
+> Status icons below are an example, not canon — freeze whatever set you pick in AGENTS.md's
+> Fixed Rules: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
+
+## Project overview
+
+<!-- 1 paragraph -->
+
+## Current sub-task
+
+<!-- The block /design and /build read/write. Keep this exact shape — it's what a fresh,
+     budget-constrained session needs to resume without re-reading everything: which files to
+     grep (not read whole), the goal, the loop, and anything NOT to redo. -->
+
+```
+시작: <exact files to grep first — never "read everything">
+목표: <this sub-task's one concrete goal, not the whole original task>
+작업 사이클: <2-4 step loop for this sub-task>
+참고: <what's already done, prior decisions, surprises found mid-work>
+```
+
+## Hard constraints / warnings
+
+<!-- always-true rules a new session must not violate -->
+
+## Session N-1 completed
+
+<!-- "N-1" is literal — replace with the actual previous session's number each rewrite,
+     same as "session N" in the title above. Not fixed boilerplate. -->
+
+| Item | Detail | Status |
+|---|---|---|
+
+## This session's top priorities
+
+1.
+2.
+3.
+
+## Known open issues
+
+<!-- table, full detail lives in FEEDBACK_PENDING.md -->
+
+| # | Issue | Status |
+|---|---|---|
+
+## Next session's starter prompt
+
+<!-- copy-pasteable block the next session can paste in verbatim -->

@@ -1,0 +1,49 @@
+<!--
+  Copy to project-root/wiki/handoffs/FEEDBACK_PENDING.md. Delete this instructional
+  comment block once you've read it — it's onboarding scaffolding, not a permanent reminder.
+  Only the open table above the divider is "required every session" reading — and it is
+  THE most exposed cap in this whole system, because unlike every other capped file/section,
+  nothing else stops it from growing with real-world issue volume. Cap it at ~20-25 rows.
+
+  Over cap, this is a forced triage pass, not optional cleanup, in this order:
+  1. Merge genuine duplicates/near-duplicates first — always safe, loses nothing.
+  2. Close items that are actually done but never got moved (a bookkeeping fix, not a real close).
+  3. Only then consider closing a "stale" item — and "stale" means a concrete signal, not a
+     feeling: no status/session-logged change in 15+ sessions AND priority p2. Record a one-line
+     reason for the close in the history row (e.g. "closed under triage, still valid but
+     inactive" vs. "resolved") so a forced close reads differently from a real one later. Do NOT
+     close a p0/p1 item purely to satisfy the row count — if triage can't get under cap without
+     doing that, the cap number itself is wrong for this project; raise it in AGENTS.md's Fixed
+     Rules rather than silently dropping something that still matters.
+  4. If the table is genuinely still over cap after 1-3 (an actively-used project can outgrow
+     one file), split into wiki/handoffs/FEEDBACK_PENDING-<subsystem>.md. scripts/check-caps.sh
+     globs FEEDBACK_PENDING*.md automatically, so a split file stays covered by the mechanical
+     check — but you must also add "check FEEDBACK_PENDING*.md" (not just the singular default
+     name) to your own note in the `/build`/`/design` skills' file-map references once you've
+     actually split.
+
+  Move completed rows below the divider the moment they're done, not at session end.
+  Never insert rows outside the table — a missing header mid-edit can silently break it.
+  If the history section below the divider exceeds ~40 lines, cut it out wholesale into
+  wiki/feedback-archive.md (same append-only, load-on-request treatment as rule-archive.md).
+-->
+
+# Feedback / Issue Tracking
+
+Valid `status` values: `open` (not started) | `in-progress` | `blocked` (waiting on something
+external — note what) | `done`.
+
+Valid `priority` values: `p0` (blocking/urgent) | `p1` (normal) | `p2` (someday) — lets a
+20+-row table stay triageable at a glance instead of every row reading as equally urgent.
+
+| # | Feedback / issue | Priority | Status | How it's handled | Session logged |
+|---|---|---|---|---|---|
+
+---
+
+## Completed history
+
+<!-- rows move here the moment they're done -->
+
+| # | Feedback / issue | How it was handled | Session resolved |
+|---|---|---|---|
