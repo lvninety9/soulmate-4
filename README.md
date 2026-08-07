@@ -65,6 +65,7 @@ wiki/
     design.md
     build.md
     verify.md
+    refactor.md                    # shrinking/reorganizing existing code — composes with build
     self-harness.md
   handoffs/
     SESSION_PRIMER.md              # current state + current sub-task, rewritten every session
