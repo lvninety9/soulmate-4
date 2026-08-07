@@ -223,3 +223,47 @@ docs): a live test proves exactly the variable it isolated, not the general clai
 "the hook fires and blocks" and "the block survives to the next session" are two different
 claims requiring two different tests, and only writing down the first one is how this shipped
 broken the first time.
+
+## L07 — the gate's own trigger condition was never itself enforced
+
+Round 2's most important finding wasn't a retest of L06 (which held) — it was a gap round 1
+never got to. The gate's whole design only ever arms in response to one specific event: a
+commit that happens to touch `wiki/handoffs/SESSION_PRIMER.md`. Nothing forced that event to
+occur. `scripts/check-caps.sh`'s `check_primer_handoff_reminder()` is explicitly commented in
+its own source as advisory-only, never blocking.
+
+Round 2's agent reproduced the exact failure this plugin's own design rationale says it exists
+to prevent: it deliberately let a sub-task finish without a `SESSION_PRIMER.md` update (the
+model skipped `build.md` step 3's handoff rule despite seeing `check-caps.sh`'s printed
+reminder), then sent a plain, unscripted "build" — no manual nudge. The model went on to write
+two more files and make two more separate commits, entirely unsupervised, in one continuous
+turn, with `.subtask-gate-state.json` staying `{"armed":{}}` throughout. The mechanical brake
+never had a reason to fire, because the only thing that was supposed to trigger it is itself
+elective prose.
+
+Fix: `subtask-gate.ts` no longer only watches for the string "SESSION_PRIMER.md" in a bash
+command before deciding whether to arm. `tool.execute.after` now runs `git diff-tree
+--no-commit-id --name-only -r HEAD` after every `git commit` call — a real query of what was
+actually committed, not a guess from the command text — and tracks a running count of commits
+since the last one that touched the primer. Crossing a threshold (`COMMITS_WITHOUT_PRIMER_
+THRESHOLD = 4`, tunable — a single legitimate sub-task can span several per-file commits before
+its last one touches the primer, so this can't be 1) arms the gate anyway, with a distinct
+error message naming the actual commit count rather than claiming a primer commit that never
+happened.
+
+Verified two ways, deliberately isolating each claim rather than testing both at once (same
+discipline L06's own lesson asks for):
+1. A direct unit test against the plugin's exported hooks (Node with `--experimental-strip-
+   types`, no Kilo involved) — 3 real git commits not touching the primer correctly pass
+   through unblocked; the 4th correctly throws the new elective-arm message; state resets to 0
+   after.
+2. A real, live, two-process Kilo run repeating L06's original regression case (commit that
+   *does* touch the primer, in process 1; blocked write, in process 2) — confirmed the new
+   `git diff-tree`-based path still produces the same correct block for the case that already
+   worked, not just the new one.
+
+General lesson, sharpening L06's own: a mechanical brake is only as strong as the event that's
+supposed to trigger it. If that event is itself something the thing you don't trust (a
+context-pressured local model) has to remember to do, the brake inherits all of that same
+unreliability one level up — the fix has to make the *trigger* mechanical too, not just the
+block that follows it.
