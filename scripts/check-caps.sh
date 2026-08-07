@@ -283,6 +283,7 @@ check_bootstrap_no_inherited_history() {
     return
   fi
   if git log --all --oneline 2>/dev/null | grep -qF "bootstrap: soulmate-4 harness"; then
+    echo "ok: bootstrap — history has this project's own bootstrap commit"
     return 0
   fi
   if git log --all --oneline 2>/dev/null | grep -qiE "seed: soulmate.?4|seed: soulmate.?3|seed: soulmate.?2"; then
