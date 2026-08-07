@@ -86,8 +86,8 @@ documented):
 
 ```bash
 git clone --quiet https://github.com/lvninety9/soulmate-4 /tmp/soulmate-4-seed \
-  && bash /tmp/soulmate-4-seed/scripts/bootstrap.sh <target-directory> \
-  && rm -rf /tmp/soulmate-4-seed
+  && bash /tmp/soulmate-4-seed/scripts/bootstrap.sh <target-directory>
+rm -rf /tmp/soulmate-4-seed
 ```
 
 This gives `<target-directory>` its own fresh git history, `.kilo/plugins/subtask-gate.ts`, the
