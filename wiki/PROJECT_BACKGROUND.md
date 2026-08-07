@@ -107,6 +107,15 @@ bug · ⚠️ needs user action. FEEDBACK priority: `p0` blocking · `p1` normal
   model did not retry, reported progress and asked whether to continue instead. This is the
   capability soulmate-3's "Known gap" said Continue couldn't have; Kilo actually has it.
   `permanent`
+- [L06] `subtask-gate.ts`'s original in-memory `Set` did not survive across separate `kilo run`/
+  `--continue` invocations — the repo's own documented usage pattern — so the gate silently
+  never fired in exactly the scenario it matters most. Found by an independent, fresh, blind
+  validation agent running isolated two-process tests (Round 1); L05's own "verified live" claim
+  had only ever tested one process handling both steps. Fixed: state persists to
+  `.subtask-gate-state.json` next to the plugin file; re-verified with two genuinely separate
+  processes. Lesson: "verified live" needs to isolate the actual variable in question — the
+  original test proved the *hook fires*, not that it *survives a process boundary*, and those
+  are different claims. `permanent`
 
 ## Fixed Rules
 
