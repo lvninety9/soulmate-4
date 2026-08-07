@@ -59,12 +59,9 @@ steps above are self-served prose instead, same shape as soulmate-3's Continue g
 | sub-task gate plugin | `.kilo/plugins/subtask-gate.ts` |
 | local model provider config | `~/.config/kilo/kilo.jsonc` (global) |
 
-## Caps (mechanically checked by `scripts/check-caps.sh`)
+## Caps + sub-task budget
 File Map ≤12 rows · SESSION_PRIMER ≤150 lines · this file ≤60 lines (paid every message, kept
-tight on purpose — Learned/Fixed Rules moved to `wiki/PROJECT_BACKGROUND.md` for exactly this
-reason, unlike soulmate-3 which kept them in a reference-only, never-auto-loaded AGENTS.md).
-
-## Sub-task budget
-No live token-usage signal exists mid-session. `design` sizes sub-tasks to plausibly finish well
-under your model's real context length by construction; `build` checkpoints the moment actual
-work overruns that plan.
+tight — Learned/Fixed Rules live in `wiki/PROJECT_BACKGROUND.md` instead, unlike soulmate-3's
+never-auto-loaded AGENTS.md). No live token-usage signal exists mid-session: `design` sizes
+sub-tasks to finish well under your model's context length by construction; `build` checkpoints
+the moment actual work overruns that plan.
