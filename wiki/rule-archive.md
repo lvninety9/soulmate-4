@@ -175,3 +175,51 @@ immediate verbatim retry of the same call *would* succeed — this is a one-shot
 not an unbreakable lock. `AGENTS.md`'s own "no 3rd verbatim retry" rule is the only thing
 discouraging that path, and hasn't been separately stress-tested against a model that ignores
 the error text and retries anyway.
+
+## L06 — the gate's in-memory state did not survive across separate CLI invocations
+
+Round 1's own live verification (L05) proved the hook fires and blocks correctly — but that test
+sent both steps (the commit and the follow-up write) inside a **single** `kilo run` call, one
+process, one turn. It never tested whether the arm state survives to a **second**, separate
+process — which matters a great deal, because this repo's own protocol docs explicitly recommend
+exactly that shape of usage (`wiki/protocols/build.md`: *"the next `build` — ideally in a fresh
+session"*).
+
+An independent validation round (a fresh agent, given only the README, asked to blind-test the
+repo) isolated this precisely, changing one variable at a time — the same discipline this
+archive's own L01/L06(soulmate-3 L06)-style entries have always asked for, applied against this
+repo instead of by it:
+
+1. **Same-process test** (repeat of L05's own check): commit `SESSION_PRIMER.md`, then attempt a
+   write, both inside one `kilo run` call. Blocked correctly, as before.
+2. **Cross-invocation test, matching the repo's own documented workflow**: `kilo run "build"
+   --continue` (a fresh CLI process, same session ID) after an earlier, separate process had
+   already committed `SESSION_PRIMER.md`. Result: the write went through with **no block at
+   all**, and the same turn went on to make a second `SESSION_PRIMER`-touching commit,
+   also unblocked.
+3. **Cross-invocation test, but attached to one long-running `kilo serve`**: same two-process
+   shape, but both processes used `--attach`/`--session` against a single still-running server.
+   Result: blocked correctly.
+
+Root cause, confirmed by reading the plugin's own code (not guessed): `subtask-gate.ts` v1 held
+`armed`/`stagedPrimer` in a plain `Set`/module-level variable — scoped to one running process's
+memory. Kilo's own default CLI behavior (confirmed via `kilo daemon status` showing no
+persistent daemon by default) spins up a fresh backend process per bare `kilo run` invocation;
+that process exiting wipes the Set. The mechanism the flagship feature depends on was real
+(test 1 and test 3 both prove the hook itself works), but the state it needs to check was gone
+by the time it mattered, under the tool's own default, most-common, and self-documented usage
+pattern (test 2).
+
+Fix: `subtask-gate.ts` v2 persists `{armed, stagedPrimer}` to `.subtask-gate-state.json` next to
+the plugin file (path resolved via `import.meta.url`, not an assumed CWD or an unverified plugin-
+factory argument — kept to what's actually confirmed available in a Bun/ESM module). Re-ran test
+2's exact shape (two genuinely separate `kilo run --continue` processes) after the fix: commit in
+process 1, `write` tool call in process 2 hard-failed with the plugin's message, state file
+correctly showed the session disarmed afterward.
+
+General lesson, worth stating plainly since it's the second time in this same file a "verified
+live" claim turned out to be narrower than it read (see also L01-L05's own care about binary vs.
+docs): a live test proves exactly the variable it isolated, not the general claim around it —
+"the hook fires and blocks" and "the block survives to the next session" are two different
+claims requiring two different tests, and only writing down the first one is how this shipped
+broken the first time.
