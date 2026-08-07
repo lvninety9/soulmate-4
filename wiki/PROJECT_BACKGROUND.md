@@ -125,6 +125,12 @@ bug · ⚠️ needs user action. FEEDBACK priority: `p0` blocking · `p1` normal
   pass, 4th blocks) and a real two-process Kilo run (primer-touch path re-confirmed, no
   regression). `permanent`
 
+- [L08] Round 3 confirmed the threshold=4 elective-arm fix (L07) has no false positives on
+  legitimate multi-commit work, but found its trigger (regex on the bash command text) was
+  itself both a false positive (an `echo` mentioning "git commit") and false negative (a commit
+  via alias). Fixed: compare real `git rev-parse HEAD` before/after every tool call instead.
+  `permanent`
+
 ## Fixed Rules
 
 | Rule | Why |
