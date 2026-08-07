@@ -23,6 +23,7 @@ error twice in a row: switch tool or stop and flag it, never a 3rd verbatim retr
 | design | plan + sign-off + split into sub-tasks sized to the ceiling | `wiki/protocols/design.md` |
 | build | one sub-task, commit per file, checkpoint on scope creep | `wiki/protocols/build.md` |
 | verify | independent check against the actual deliverable | `wiki/protocols/verify.md` |
+| refactor | shrinking/reorganizing code that already works, composes with build | `wiki/protocols/refactor.md` |
 | self-harness | end of session — mine friction, propose a rule, log, commit | `wiki/protocols/self-harness.md` |
 
 Clearly-scoped: skip to build. Else: discuss → design → build → verify. No real slash command
@@ -45,7 +46,6 @@ steps above are self-served prose instead, same shape as soulmate-3's Continue g
 | current state, active sub-task | `wiki/handoffs/SESSION_PRIMER.md` |
 | entity map, glossary, pipeline, Learned/Fixed Rules | `wiki/PROJECT_BACKGROUND.md` |
 | open feedback | `wiki/handoffs/FEEDBACK_PENDING.md` |
-| protocol methodology | `wiki/protocols/*.md` |
 | sub-task gate plugin | `.kilo/plugins/subtask-gate.ts` |
 | local model provider config | `~/.config/kilo/kilo.jsonc` (global) |
 
