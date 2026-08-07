@@ -116,6 +116,14 @@ bug · ⚠️ needs user action. FEEDBACK priority: `p0` blocking · `p1` normal
   processes. Lesson: "verified live" needs to isolate the actual variable in question — the
   original test proved the *hook fires*, not that it *survives a process boundary*, and those
   are different claims. `permanent`
+- [L07] The gate's trigger was 100% elective — it only ever armed if a commit happened to touch
+  `wiki/handoffs/SESSION_PRIMER.md`, and nothing forced that commit to exist. An independent
+  validation round reproduced a full silent chain (2 files, 2 commits, zero stops, gate never
+  armed) — the exact failure this plugin exists to prevent. Fixed: `tool.execute.after` now
+  checks the real committed files via `git diff-tree`, not string-matching; N commits in a row
+  without touching the primer arms the gate anyway. Verified via direct unit test (3 commits
+  pass, 4th blocks) and a real two-process Kilo run (primer-touch path re-confirmed, no
+  regression). `permanent`
 
 ## Fixed Rules
 
