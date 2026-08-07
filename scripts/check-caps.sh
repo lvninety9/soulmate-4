@@ -160,23 +160,23 @@ report_count() {
   fi
 }
 
-# Bootstrap-integrity check: AGENTS.md's Protocol table names 5 doc steps. If any matching
+# Bootstrap-integrity check: AGENTS.md's Protocol table names 6 doc steps. If any matching
 # wiki/protocols/<name>.md is missing, self-serving that step silently has nothing to read — no
 # error, just a model improvising the methodology from the table's one-line description alone.
 # Also checks .kilo/plugins/subtask-gate.ts — the real mechanical enforcement this repo exists
 # for; without it, this harness degrades to soulmate-3's prose-only level with no warning.
 check_prompts_present() {
   local missing=() name
-  for name in discuss design build verify self-harness; do
+  for name in discuss design build verify refactor self-harness; do
     if [ ! -f "wiki/protocols/$name.md" ]; then
       missing+=("$name")
     fi
   done
   if [ ${#missing[@]} -gt 0 ]; then
-    echo "OVER CAP: bootstrap incomplete — missing wiki/protocols/{${missing[*]}}.md (AGENTS.md's protocol table references all 5; copy them from the seed repo before relying on this methodology)"
+    echo "OVER CAP: bootstrap incomplete — missing wiki/protocols/{${missing[*]}}.md (AGENTS.md's protocol table references all 6; copy them from the seed repo before relying on this methodology)"
     status=1
   else
-    echo "ok: bootstrap — all 5 wiki/protocols/*.md present"
+    echo "ok: bootstrap — all 6 wiki/protocols/*.md present"
   fi
   if [ ! -f ".kilo/plugins/subtask-gate.ts" ]; then
     echo "OVER CAP: bootstrap incomplete — missing .kilo/plugins/subtask-gate.ts (this is the real mechanical sub-task checkpoint; without it, this repo has no advantage over soulmate-3's prose-only enforcement)"
