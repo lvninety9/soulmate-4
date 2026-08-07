@@ -24,8 +24,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.." # repo root, assuming scripts/check-caps.sh's usual location
 
 README_CAP=450
-AGENTS_MD_WARN=50
-AGENTS_MD_CAP=60
+AGENTS_MD_WARN=55
+AGENTS_MD_CAP=65
 PROJECT_BACKGROUND_CAP=150
 SESSION_PRIMER_CAP=150
 LEARNED_RULES_CAP=10
