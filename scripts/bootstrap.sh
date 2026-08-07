@@ -61,8 +61,18 @@ cp "$SELF_DIR/templates/FEEDBACK_PENDING.md.template" "$TARGET/wiki/handoffs/FEE
 : > "$TARGET/wiki/rule-archive.md"
 chmod +x "$TARGET/scripts/check-caps.sh" "$TARGET/scripts/pre-commit-check-caps"
 
+# Verification templates (harness-integration-test.md / cold-read-test-prompt.md) also need to
+# exist inside the target, not just the seed clone — the seed clone gets deleted right after this
+# script returns (see the README's own bootstrap one-liner), so anything only in $SELF_DIR is
+# gone the moment bootstrap finishes.
+mkdir -p "$TARGET/templates"
+cp "$SELF_DIR/templates/harness-integration-test.md" "$SELF_DIR/templates/cold-read-test-prompt.md" \
+  "$SELF_DIR/templates/SUBSYSTEM-learnings.md.template" "$TARGET/templates/"
+
 # A baseline .gitignore covering common Python/Node/editor noise, same rationale as soulmate-3
-# (a real test there committed __pycache__/build artifacts because nothing excluded them).
+# (a real test there committed __pycache__/build artifacts because nothing excluded them), plus
+# the sub-task gate's own runtime state file (persisted to disk on purpose — see
+# .kilo/plugins/subtask-gate.ts — but it's per-machine session state, not project content).
 cat > "$TARGET/.gitignore" <<'GITIGNORE'
 __pycache__/
 *.pyc
@@ -72,6 +82,7 @@ node_modules/
 .venv/
 venv/
 .DS_Store
+.kilo/plugins/.subtask-gate-state.json
 GITIGNORE
 
 # .kilo/ itself must NOT be gitignored — subtask-gate.ts lives there and needs to be tracked.
@@ -80,10 +91,10 @@ GITIGNORE
 
 # Strip the template's instructional HTML-comment blocks mechanically — left in place, they push
 # AGENTS.md past its own cap, which blocks the very commit below.
-awk '/<!--/{c=1} !c{print} /-->/{c=0}' "$TARGET/AGENTS.md" > "$TARGET/AGENTS.md.tmp" \
-  && mv "$TARGET/AGENTS.md.tmp" "$TARGET/AGENTS.md"
-awk '/<!--/{c=1} !c{print} /-->/{c=0}' "$TARGET/wiki/PROJECT_BACKGROUND.md" > "$TARGET/wiki/PROJECT_BACKGROUND.md.tmp" \
-  && mv "$TARGET/wiki/PROJECT_BACKGROUND.md.tmp" "$TARGET/wiki/PROJECT_BACKGROUND.md"
+for f in "$TARGET/AGENTS.md" "$TARGET/wiki/PROJECT_BACKGROUND.md" \
+         "$TARGET/wiki/handoffs/SESSION_PRIMER.md" "$TARGET/wiki/handoffs/FEEDBACK_PENDING.md"; do
+  awk '/<!--/{c=1} !c{print} /-->/{c=0}' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+done
 
 case "$SELF_DIR" in
   "$TARGET"/*) rm -rf "$SELF_DIR" ;;
