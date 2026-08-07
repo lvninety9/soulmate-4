@@ -51,18 +51,23 @@ type ArmReason = "primer" | "elective"
 type State = {
   armed: Record<string, ArmReason>
   commitsSincePrimer: Record<string, number>
+  lastSeenHead: Record<string, string>
 }
 
 function loadState(): State {
   try {
     if (existsSync(STATE_FILE)) {
       const parsed = JSON.parse(readFileSync(STATE_FILE, "utf8"))
-      return { armed: parsed.armed ?? {}, commitsSincePrimer: parsed.commitsSincePrimer ?? {} }
+      return {
+        armed: parsed.armed ?? {},
+        commitsSincePrimer: parsed.commitsSincePrimer ?? {},
+        lastSeenHead: parsed.lastSeenHead ?? {},
+      }
     }
   } catch {
     // Corrupt/unreadable state file: fail open (unarmed) rather than crash the hook.
   }
-  return { armed: {}, commitsSincePrimer: {} }
+  return { armed: {}, commitsSincePrimer: {}, lastSeenHead: {} }
 }
 
 function saveState(state: State) {
@@ -73,9 +78,21 @@ function saveState(state: State) {
   }
 }
 
-function filesInLastCommit(): string[] {
+function currentHead(): string | null {
   try {
-    const out = execSync("git diff-tree --no-commit-id --name-only -r HEAD", {
+    return execSync("git rev-parse HEAD", {
+      cwd: PROJECT_ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim()
+  } catch {
+    return null // not a git repo (yet) — don't guess
+  }
+}
+
+function filesInCommit(sha: string): string[] {
+  try {
+    const out = execSync(`git diff-tree --no-commit-id --name-only -r ${sha}`, {
       cwd: PROJECT_ROOT,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
@@ -86,7 +103,6 @@ function filesInLastCommit(): string[] {
   }
 }
 
-const IS_GIT_COMMIT = /git\s+commit\b/
 const MUTATING_TOOLS = new Set(["write", "edit", "bash", "patch", "multiedit", "task"])
 
 const BLOCK_MESSAGE_COMMIT =
@@ -120,16 +136,29 @@ export const SubtaskGate = async () => ({
     // Arming happens in tool.execute.after below, once a commit has actually landed.
   },
 
+  // Runs after every tool call, not just ones that look like a commit — round 3's blind
+  // validation found the old regex (matching the literal string "git commit" in the bash
+  // command) both a false positive (an `echo` merely mentioning "git commit" was misread as a
+  // real commit) and a false negative (a commit made via an alias/wrapper, not that literal
+  // text, was invisible to the counter). Comparing the actual git HEAD before/after is the same
+  // amount of code and immune to both — it doesn't care what command produced the commit.
   "tool.execute.after": async (input: any) => {
-    const tool = input?.tool
     const sessionID = input?.sessionID
-    const cmd = String(input?.args?.command ?? "")
-    if (!sessionID || tool !== "bash" || !IS_GIT_COMMIT.test(cmd)) return
+    if (!sessionID) return
 
-    const files = filesInLastCommit()
-    if (files.length === 0) return // not actually a git repo, or the commit failed — don't guess
+    const head = currentHead()
+    if (!head) return // not a git repo (yet) — nothing to compare
 
     const state = loadState()
+    const previousHead = state.lastSeenHead[sessionID]
+    state.lastSeenHead[sessionID] = head
+
+    if (!previousHead || previousHead === head) {
+      saveState(state) // first observation this session, or no new commit — just record HEAD
+      return
+    }
+
+    const files = filesInCommit(head)
     const touchedPrimer = files.some((f) => f === "wiki/handoffs/SESSION_PRIMER.md")
 
     if (touchedPrimer) {
