@@ -42,10 +42,13 @@ A refactor spanning many files is not one sub-task — it is many, exactly like 
 already requires for any multi-file work. Each unit:
 
 1. One coherent, small change (ideally one file, or a tightly related few).
-2. **Actually run the real verification command** — build, typecheck, test suite, or (if
-   nothing else exists) the actual feature exercised by hand. "I read the diff and it looks
-   right" is not verification; see `wiki/rule-archive.md` L04's tsc example — code that looks
-   right and code that runs right are not the same claim.
+2. **Actually run the real verification command — the project's real test runner, never a bare
+   script invocation** (`pytest <file>`, `npm test`, `npx tsc --noEmit`; see `build.md` step 4
+   for the exact rule and `wiki/rule-archive.md` L09 for the real case this caught: a bare
+   `python file.py` with no `__main__` block that silently ran zero tests, exit 0, and got
+   trusted as "passed"). "I read the diff and it looks right" is not verification; see
+   `wiki/rule-archive.md` L04's tsc example — code that looks right and code that runs right are
+   not the same claim, and a command that exits 0 having tested nothing is neither.
 3. Report the exact unit just changed and the exact verification output to the user, and ask
    them to confirm it before continuing — do not decide for yourself that it's "clearly fine"
    and move to the next unit. This is the same "stop and ask" discipline `build.md`/the
