@@ -52,6 +52,12 @@ fi
 mkdir -p "$TARGET/.kilo/plugins" "$TARGET/wiki/handoffs" "$TARGET/wiki/protocols"
 cp "$SELF_DIR/.kilo/plugins/subtask-gate.ts" "$TARGET/.kilo/plugins/subtask-gate.ts"
 cp -r "$SELF_DIR/scripts" "$TARGET/"
+# round 6: the plugin's own test file, so a fresh project inherits a real, deterministic
+# regression check for the exact plugin file it just got — not just prose claims about it.
+if [ -f "$SELF_DIR/tests/subtask-gate.test.mjs" ]; then
+  mkdir -p "$TARGET/tests"
+  cp "$SELF_DIR/tests/subtask-gate.test.mjs" "$TARGET/tests/"
+fi
 cp "$SELF_DIR/wiki/protocols/"*.md "$TARGET/wiki/protocols/"
 cp "$SELF_DIR/templates/AGENTS.md.template" "$TARGET/AGENTS.md"
 cp "$SELF_DIR/templates/PROJECT_BACKGROUND.md.template" "$TARGET/wiki/PROJECT_BACKGROUND.md"
