@@ -1,6 +1,10 @@
-# Rule archive — full evidence behind each Learned Rule in wiki/PROJECT_BACKGROUND.md
+# Rule archive — full evidence behind each Learned Rule in AGENTS.md
 
 Read on demand only, never auto-loaded. One section per rule ID.
+**Role (session 5 rule, doc-role separation): raw evidence only — the actual commands run, their
+real output, root cause read from actual code.** Not a summary and not a "why we decided this
+mattered" narrative (that's `SESSION_MASTER.md`) — a reader should be able to reproduce the claim
+from what's written here, not just trust it.
 
 ## L01 — Kilo's real installed build is an opencode rebuild, not the Cline-fork public docs describe
 

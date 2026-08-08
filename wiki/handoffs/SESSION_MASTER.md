@@ -1,7 +1,8 @@
 # Session Master — full narrative
 
 > Loaded only on explicit request — never auto-read. See `wiki/handoffs/SESSION_PRIMER.md` for
-> current state and `wiki/session-log.md` for the one-line-per-session index.
+> current state, `wiki/session-log.md` for the one-line index. **Role: why, not what** — status
+> with no reasoning belongs in SESSION_PRIMER, raw evidence in `wiki/rule-archive.md`.
 
 ## Origin, Round 1 investigation, and validation methodology — moved to archive
 

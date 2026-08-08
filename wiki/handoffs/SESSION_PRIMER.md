@@ -1,6 +1,9 @@
 # SESSION PRIMER — session 5 (complete)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
+> **Role (session 5 rule, doc-role separation): this file is current-state tables only — no
+> "why we decided X" narrative.** If a line here starts explaining a decision's reasoning instead
+> of stating a fact/status, it belongs in `SESSION_MASTER.md` with a pointer left here instead.
 > Rewritten for handoff on 2026-08-08 after round 4 (blind refactor.md validation) AND its fix
 > (built + live re-verified, same session). Every claim below was re-checked against `git log`/
 > actual file contents right before writing — see SESSION_MASTER.md's "Round 4 (blind)" section
