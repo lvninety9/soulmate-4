@@ -1,10 +1,10 @@
-# SESSION PRIMER — session 5
+# SESSION PRIMER — session 5 (complete)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
-> Rewritten for handoff on 2026-08-08 after round 4 (blind refactor.md validation). Every claim
-> below was re-checked against `git log`/actual file contents right before writing — see
-> SESSION_MASTER.md's "Round 4 (blind) — refactor.md self-serve validation" section for full
-> evidence (also `wiki/rule-archive.md` L09).
+> Rewritten for handoff on 2026-08-08 after round 4 (blind refactor.md validation) AND its fix
+> (built + live re-verified, same session). Every claim below was re-checked against `git log`/
+> actual file contents right before writing — see SESSION_MASTER.md's "Round 4 (blind)" section
+> for full narrative, `wiki/rule-archive.md` L09 for full evidence.
 
 ## Project overview
 
@@ -20,7 +20,7 @@ failure — a local model losing track after tool errors, chaining sub-tasks unp
 matter how the prompt was reworded; test whether a harness with a real mechanical brake does
 better against the exact same model.
 
-## Current state — four independent blind-validation rounds; round 4's finding not yet fixed
+## Current state — four blind-validation rounds done, all findings fixed and re-verified
 
 Every round used a **fresh, context-isolated agent** (never a context-sharing fork — that would
 bias the test), given only the public repo URL, told to blindly bootstrap, pick its own small
@@ -32,7 +32,7 @@ bootstrap readiness; bounded-growth/structural integrity) with cited evidence on
 | 1 | word-frequency CLI | bootstrap literally couldn't complete (cap overflow → pre-commit block → `set -e` abort → leaked scratch clone); gate's in-memory state didn't survive separate `kilo run` calls | `5391d32`..`0e2712b` (L06) |
 | 2 | LRU cache lib + tests | gate's trigger was 100% elective — reproduced a silent multi-commit chain with it never arming; fresh bootstrap left ~0 cap headroom | `376a1da`, `7d9a286` (L07) |
 | 3 | config parser + test | main mandate (threshold=4 false-positive check) passed clean; found+fixed the commit-*detection* itself was regex-based (false pos/neg) | `37c384a` (L08) |
-| 4 | refactor a seeded, real, pre-existing messy-but-working module | self-serve of `refactor.md` never fired, 3/3 trials (abstract/literal-word/cross-process) — no backup branch, no per-unit commits, one trusted no-op verify command, one undetected regression | fix designed, **not yet built** (L09) |
+| 4 | refactor a seeded, real, pre-existing messy-but-working module | self-serve of `refactor.md` never fired, 3/3 trials (abstract/literal-word/cross-process) — no backup branch, no per-unit commits, one trusted no-op verify command, one undetected regression | `65dd69e`..`450f587` (L09), **live re-verified** |
 
 After round 3, Jay asked whether this repo's caps were set lower than the **original** soulmate
 template (not soulmate-2/3, which is all this repo had been checking itself against until then).
@@ -44,80 +44,80 @@ into `AGENTS.md`, raised the cap to 85 to match the original exactly (`e11389d`,
 a real re-bootstrap immediately caught a fresh off-by-one from the merge itself (template's
 leading blank line → 86/85) — fixed before push (`fec44a1`), not by a 4th validation round.
 
-**27 commits from sessions 1-4 are pushed to `origin/master` (`d9fb565`..`fec44a1`). This
-session's round 4 doc updates (AGENTS.md L09, rule-archive.md, FEEDBACK #9/#10, session-log,
-SESSION_MASTER, this file) are committed locally but not yet pushed — push once Jay confirms the
-report below.**
+**Round 4's fix, live re-verified this session**: `subtask-gate.ts` now blocks a session's first
+mutating tool call unless a `wiki/protocols/*.md` doc was read this session. 6/6 isolated unit
+tests passed (Node, no Kilo), then a real, live, single-process re-run of round 4 trial 1's exact
+prompt against a fresh bootstrap: the first `write` was blocked, and the model's very next moves
+were reading `refactor.md`, checking `git status`, creating a named recovery branch, stating the
+rollback command in text *before* editing, running a real `pytest` (self-corrected `python` →
+`python3` after the first failed), and committing per file — every claim that failed 3/3 in round
+4 passed this time, no regression (independently re-verified: 9/9 tests, diffed the logic myself).
+Had to wait ~8h mid-session for Hermes's Seam longform cron to clear the shared GPU first (L11 —
+VRAM was at ~9.2/10.2GB when the fix landed).
+
+**All commits through this session are committed locally on `master`. Not yet pushed to
+`origin/master` — push once Jay reviews this handoff** (last pushed commit: `fec44a1`; local
+HEAD is several commits ahead, see `git log fec44a1..HEAD --oneline`).
 
 ## Current sub-task
 
 ```
-시작: SESSION_MASTER.md "Round 4 (blind)" 섹션, wiki/rule-archive.md L09, FEEDBACK_PENDING.md #10
-목표: L09에서 설계만 되고 아직 안 만들어진 fix(subtask-gate.ts 첫 mutating 호출 시
-      wiki/protocols/*.md read 여부 강제 체크)를 실제로 만들지 Jay에게 결정받기 — 지금까지
-      L06/L07/L08은 전부 "버그 발견 즉시 같은 세션에서 fix+재검증"이었지만, 이번 건은 발견
-      자체가 예상(FEEDBACK #9: 백업/유닛검증 루프만 걱정)보다 훨씬 근본적이라(self-serve가
-      아예 refactor에 대해 한 번도 안 됨, discuss/design/build/verify 4개 프로토콜은 안 건드림)
-      규모가 커졌고, round 4 자체가 로컬모델 세션 1회(~750초) 소모함 — fix까지 하면 검증에
-      또 한 번의 실전 kilo run 라운드가 필요함(같은 GPU를 Hermes 프로젝트와 공유, L11급 주의)
-작업 사이클: 1. Jay 결정 대기 (fix 지금 만들지 / 문서만 남기고 다음 세션으로 미룰지)
-             2. (만들기로 하면) subtask-gate.ts에 first-mutation protocol-read 체크 추가
-                → Node 단위테스트 → 실제 kilo run으로 최소 1회 재현(round 4 trial 1과 같은
-                abstract framing으로, 이번엔 차단/안내가 실제로 뜨는지) → L09/FEEDBACK #10 갱신
-             3. (미룰 경우) 지금 상태 그대로 push, 다음 세션 시작 프롬프트에 그대로 이어감
-참고: refactor.md/build.md에 "verification command"가 뭘 의미하는지도 불명확하다는 게 이번에
-      드러남(round 4 trial 3: `python3 test_data_utils.py`가 실제로는 아무 테스트도 안 돌리는
-      명령인데 모델이 "통과"로 보고) — fix를 만든다면 이것도 같이 손볼 가치 있음(L09 참조)
+시작: 없음 — round 4 완료, fix 완료, 재검증 완료. 다음 세션은 새 작업 시작점.
+목표: (1) Jay 리뷰 후 push, (2) 그다음 뭘 할지는 아래 "다음 우선순위" 참고
+작업 사이클: 없음(이 세션의 sub-task는 완결)
 ```
 
 ## Hard constraints / warnings
 
-- 검증은 항상 fresh agent + 실제 Kilo/로컬모델, 절대 self-report만 믿지 말 것(모델이 차단된
-  작업을 "완료했다"고 거짓 보고한 사례 2건 실측 확인됨, FEEDBACK #6).
-- subtask-gate 변경 시 반드시 (1) Node 단위테스트로 로직 자체 검증 (2) 실제 Kilo로 별도
-  두 프로세스 재현 — 이번 세션 3라운드 모두 이 순서를 지켰고 전부 실제 버그를 잡아냈음.
+- 검증은 항상 fresh agent(또는 이번처럼 직접 재현) + 실제 Kilo/로컬모델, 절대 self-report만
+  믿지 말 것(모델이 차단된 작업을 "완료했다"고 거짓 보고한 사례 2건 실측 확인됨, FEEDBACK #6).
+- subtask-gate 변경 시 반드시 (1) Node 단위테스트로 로직 자체 검증 (2) 실제 Kilo로 최소 1회
+  실전 재현 — L06/L07/L08/L09 전부 이 순서를 지켰고 전부 실제 버그를 잡았거나(전자) fix를
+  확인했다(후자).
 - 캡 숫자를 바꾸기 전엔 soulmate-3뿐 아니라 **원본 soulmate**도 직접 클론해서 실제 숫자
-  확인할 것 — 세션 4에 이걸 놓쳐서 재작업이 발생했음(SESSION_MASTER "Round 4 — architecture
-  realignment" 참조).
+  확인할 것 — 세션 4에 이걸 놓쳐서 재작업이 발생했음.
 - **round 4가 뒤집은 가정**: "self-serve가 4개 프로토콜(discuss 제외)에서 됐으니 refactor도
-  될 것"은 틀렸음 — 프로토콜마다 별도로 실측 검증해야 함, 하나 통과했다고 나머지도 통과라
-  가정 금지(discuss도 원래부터 FEEDBACK #4로 실패 확인돼 있었으니 사실 2/6이 실패였던 셈).
+  될 것"은 틀렸음 — 프로토콜마다 별도로 실측 검증해야 함(discuss도 FEEDBACK #4로 실패 확인돼
+  있었으니 사실 2/6이 실패였던 셈). L09 fix 이후에도 이 습관은 유지할 것 — fix가 이번 1회
+  재현에서 통했다고 "완전히 고쳐졌다"고 단정 말 것(L06/L07도 다회 검증 후 확정했음).
+- GPU는 Hermes와 물리적으로 공유(RTX 3080 10GB) — `kilo run` 실전 테스트 전 항상
+  `ps aux | grep -E "longform|tts_runner|ComfyUI|music"` + `nvidia-smi`로 실제 여유 확인할 것.
 
-## Session 1-4 completed
+## Session 1-5 completed
 
 | Item | Detail | Status |
 |---|---|---|
 | Round 1-3 조사 (L01-L08) + 저장소 초안·refactor.md 추가 | 상세는 위 표 + SESSION_MASTER.md | ✅ |
 | 아키텍처 재정렬 (원본 soulmate 대비 검증) | Learned/Fixed Rules를 AGENTS.md로 병합, 캡 85로 상향, 재부트스트랩 검증 | ✅ |
-| Round 4 blind 검증 (refactor.md) | 3독립시행 전부 self-serve 실패 확인(L09), fix는 설계만 완료 | ✅검증 · ⏳fix미착수 |
+| Round 4 blind 검증 (refactor.md) | 3독립시행 전부 self-serve 실패 확인(L09) | ✅ |
+| L09 fix 구현 + 재검증 | first-mutation protocol-read 체크, 단위테스트 6/6 + 실전 재현 1/1 | ✅ |
 
-## This session's top priorities
+## This session's top priorities (다음 세션용)
 
-1. Round 4 결과를 Jay에게 보고 완료 — self-serve 프리미스가 refactor.md에 대해 3/3 실패,
-   예상(FEEDBACK #9)보다 근본적인 문제로 확인됨
-2. **[결정 대기]** L09의 fix(subtask-gate.ts first-mutation protocol-read 체크)를 지금 만들지,
-   문서만 남기고 다음 세션으로 미룰지 — 만들면 반드시 또 한 번의 실전 kilo run 재검증 필요
+1. 이 핸드오프를 Jay가 리뷰하면 `git push` (현재 로컬만 커밋됨)
+2. FEEDBACK #7(verification command 이름 불명확, round 4 trial 3에서 no-op 명령을 통과로 오인)
+   — 아직 코드로 안 고침, 다음 우선순위 후보
+3. FEEDBACK #6(Hermes/soulmate 1-3에 refactor.md 백포트) — Jay가 "soulmate-4 검증 마친 뒤로"
+   미뤄뒀는데, round 4+L09까지 끝났으니 이제 이 조건이 충족됐는지 Jay에게 확인
 
-## Known open issues (전부 코드로 못 고치는 종류거나 미검증 항목)
+## Known open issues (전부 코드로 못 고치는 종류거나 미결 항목)
 
 | # | Issue | Status |
 |---|---|---|
 | 1 | 커스텀 슬래시커맨드 Kilo CLI 미작동(Kilo 자체 한계, 미래 업데이트로 바뀔 수 있음) | ⚠️ |
-| 2 | 게이트 1회 차단 후 즉시 재시도하면 통과 — 설계상 의도, 3라운드 걸쳐 재확인됨 | 🔶 |
+| 2 | 게이트 1회 차단 후 즉시 재시도하면 통과 — 설계상 의도, 4라운드 걸쳐 재확인됨(L09도 동일 트레이드오프로 설계) | 🔶 |
 | 3 | "discuss" 자기서빙 3라운드 중 최소 2라운드 실패(모델이 파일 안 읽고 단어만으로 추론) | 🔴 |
 | 4 | 차단 후 모델 self-report 거짓 사례 2건 — 항상 실제 git/파일 상태로 재확인 필요 | 🔴 |
-| 5 | `refactor.md` self-serve 3/3 실패 확인(L09) — fix 설계 완료, 미구현·미재검증 | 🔴 |
-| 6 | Hermes/soulmate 1-3에 refactor.md 백포트 — Jay가 "soulmate-4 검증 마친 뒤로" 명시적으로 미룸 | ⚠️ |
-| 7 | `refactor.md`/`build.md`가 "verification command"를 구체적으로 명명 안 함 — no-op 명령을 모델이 통과로 오인한 실측 사례 있음(round 4 trial 3) | 🔴 |
+| 6 | Hermes/soulmate 1-3에 refactor.md 백포트 — round 4+L09 완료로 Jay가 미뤄둔 조건 충족, 재확인 필요 | ⚠️ |
+| 7 | `refactor.md`/`build.md`가 "verification command"를 구체적으로 명명 안 함 — no-op 명령을 모델이 통과로 오인한 실측 사례 있음(round 4 trial 3, 단 재검증 시행에선 모델이 스스로 올바른 명령으로 재시도함) | 🔴 |
 
 ## Next session's starter prompt
 
 ```
-soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체와
-wiki/handoffs/SESSION_MASTER.md의 "Round 4 (blind) — refactor.md self-serve validation"
-섹션을 읽어주세요. Round 4까지 전부 완료 — refactor.md의 self-serve가 3/3 독립 시행에서
-전부 실패했고(L09), 원인과 fix 설계는 끝났지만 fix 자체는 아직 안 만들어졌습니다.
+soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽어주세요.
 
-Jay에게 fix를 지금 만들지(또 한 번의 실전 kilo run 재검증 필요, GPU/시간 비용 있음) 아니면
-문서만 남기고 여기서 마무리할지부터 확인 후 진행해주세요.
+Round 4(blind refactor.md 검증) + L09 fix 구현 + 실전 재검증까지 전부 완료됐고 로컬에
+커밋돼 있습니다(origin에는 아직 미push — fec44a1이 마지막 push 지점). git push부터
+확인한 뒤, "This session's top priorities" 목록(백포트 여부 확인, FEEDBACK #7 등) 순서로
+진행해주세요.
 ```
