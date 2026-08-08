@@ -150,6 +150,37 @@ const BLOCK_MESSAGE_ELECTIVE = (n: number) =>
   "update wiki/handoffs/SESSION_PRIMER.md's Current sub-task block, commit it, then ask the " +
   "user whether to continue."
 
+// Round 7(audit, FEEDBACK #4/#12): live-tested that L09's gate guarantees *some*
+// wiki/protocols/*.md gets read before any mutation, but has zero mechanism routing an
+// ambiguous ask specifically to discuss.md — a real live trial ("this feels slow when I use it
+// a lot, can you help?") went straight to refactor.md and committed with zero clarifying
+// questions. discuss.md is the one protocol step with no tool calls at all (pure Q&A), so no
+// tool.execute hook can ever reach it — chat.message is the only available surface. This is a
+// coarse heuristic, not a real ambiguity classifier: nudge only, never blocks (chat.message
+// can't block), and is expected to both under- and over-fire — stated honestly, not claimed as
+// solved. "Concrete anchor" = backtick-quoted code, a file-extension-like token, or a quoted
+// string; a message with none of those and more than a greeting's worth of text gets nudged.
+const AMBIGUITY_ANCHOR_PATTERN = /`[^`]+`|\.\w{1,5}\b|"[^"]+"|'[^']+'/
+function looksAmbiguous(text: string): boolean {
+  // live-verified bug (round 7): `kilo run "<message>"` stores the message with a literal
+  // wrapping quote pair as part of the text content itself (confirmed via a debug log on the
+  // real chat.message payload, not assumed) — that pair matched the "quoted string" anchor on
+  // every single CLI-driven message, so the nudge could never fire in the CLI's own normal
+  // invocation shape. Strip one real wrapping pair before checking for actual anchors.
+  let trimmed = text.trim()
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    trimmed = trimmed.slice(1, -1).trim()
+  }
+  if (trimmed.length < 15) return false // greeting-length messages: not enough signal either way
+  return !AMBIGUITY_ANCHOR_PATTERN.test(trimmed)
+}
+
+const NUDGE_MESSAGE_POSSIBLY_AMBIGUOUS =
+  "[subtask-gate] This message doesn't name a specific file, function, or quoted detail — if " +
+  "the ask is actually ambiguous or underspecified, self-serve wiki/protocols/discuss.md before " +
+  "jumping to build/refactor. (Heuristic nudge, not a block — ignore if the task is genuinely " +
+  "clearly-scoped despite no concrete anchor.)"
+
 const BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER = (files: string[]) =>
   "[subtask-gate] Uncommitted changes are already sitting in the working tree from before this " +
   `message started (${files.length} path(s): ${files.slice(0, 5).join(", ")}` +
@@ -265,24 +296,40 @@ export const SubtaskGate = async () => ({
   // anything else.
   "chat.message": async (input: any, output: any) => {
     const sessionID = input?.sessionID
-    if (!sessionID) return
+    if (!sessionID || !Array.isArray(output?.parts)) return
 
     const dirty = gitPorcelainStatus()
-    if (dirty.length === 0) return
-
-    const warning = {
-      // opencode validates part IDs strictly (must start with "prt" — confirmed live: a
-      // non-conforming ID crashed the whole request with a hard server error, not a soft
-      // ignore). Match the real ID shape observed in `kilo export` output (`prt_<random>`).
-      id: `prt_gatecarry${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
-      sessionID,
-      messageID: output?.message?.id ?? input?.messageID ?? "",
-      type: "text",
-      synthetic: true,
-      text: BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER(dirty),
+    if (dirty.length > 0) {
+      output.parts.unshift({
+        // opencode validates part IDs strictly (must start with "prt" — confirmed live: a
+        // non-conforming ID crashed the whole request with a hard server error, not a soft
+        // ignore). Match the real ID shape observed in `kilo export` output (`prt_<random>`).
+        id: `prt_gatecarry${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
+        sessionID,
+        messageID: output?.message?.id ?? input?.messageID ?? "",
+        type: "text",
+        synthetic: true,
+        text: BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER(dirty),
+      })
     }
-    if (Array.isArray(output?.parts)) {
-      output.parts.unshift(warning)
+
+    // Round 7 (FEEDBACK #4/#12): a second, independent check in the same hook (chat.message is
+    // the only surface available before the model responds — see the block above's own comment
+    // on why no other hook can reach discuss.md). Reads the real user text already in
+    // output.parts for this message.
+    const userText = output.parts
+      .filter((p: any) => p?.type === "text" && !p?.synthetic)
+      .map((p: any) => p?.text ?? "")
+      .join(" ")
+    if (userText && looksAmbiguous(userText)) {
+      output.parts.push({
+        id: `prt_gateambig${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
+        sessionID,
+        messageID: output?.message?.id ?? input?.messageID ?? "",
+        type: "text",
+        synthetic: true,
+        text: NUDGE_MESSAGE_POSSIBLY_AMBIGUOUS,
+      })
     }
   },
 })
