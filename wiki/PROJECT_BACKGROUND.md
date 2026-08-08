@@ -49,6 +49,15 @@ UI stub, see L02).
   evidence in `wiki/rule-archive.md`).
 - **FEEDBACK rows** (`#1`, `#2`, ...): sequential in `wiki/handoffs/FEEDBACK_PENDING.md`, moved to
   "Completed history" (not deleted) when resolved.
+- **"Round" labels are NOT one counter — two unrelated things share the word.** `SESSION_MASTER.md`
+  `## Round N` headers are chronological narrative sections, one per notable same-day event
+  (blind-validation or not — "Round 4 — architecture realignment" was Jay-directed doc/config
+  work, no blind agent). FEEDBACK_PENDING.md / SESSION_PRIMER.md's "round" usage means
+  specifically the *blind-validation round count* (rounds 1-4 so far, one per fresh-agent test).
+  These two sequences can and do drift — session 5 hit exactly this collision (two different
+  "Round 4"s) and had to disambiguate after the fact with "Round 4 (blind)". When adding a new
+  `SESSION_MASTER.md` section for a blind round, name it unambiguously up front (e.g. "Round N
+  (blind) — <what it tested>") rather than relying on position in the file.
 
 ## Glossary
 
