@@ -234,6 +234,46 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 8 (round 7, FEEDBACK #4/#12): chat.message nudges toward discuss.md when the message
+  // text has no concrete anchor (no backtick/file-extension/quoted string) and is long enough
+  // to carry real signal — a coarse heuristic, expected to both under- and over-fire, nudge
+  // only, never a block.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    const ambiguous = { message: { id: "m1" }, parts: [{ type: "text", text: "this feels slow when I use it a lot, can you help?" }] }
+    await hooks["chat.message"]({ sessionID: "s8a" }, ambiguous)
+    if (ambiguous.parts.some((p) => p.synthetic && /discuss\.md/.test(p.text))) {
+      console.log("ok: T8a ambiguous message (no concrete anchor) gets nudged toward discuss.md")
+    } else {
+      console.log("FAIL: T8a expected a discuss.md nudge, got:", JSON.stringify(ambiguous.parts))
+      failures++
+    }
+
+    // note: freshRepo() never commits .kilo/wiki, so git status is always dirty here — the
+    // carryover warning (unrelated to this test) always fires too; only check for the
+    // discuss.md nudge specifically, not "any synthetic part."
+    const concrete = { message: { id: "m2" }, parts: [{ type: "text", text: "fix the bug in `data_utils.py` where validate_email rejects valid input" }] }
+    await hooks["chat.message"]({ sessionID: "s8b" }, concrete)
+    if (!concrete.parts.some((p) => p.synthetic && /discuss\.md/.test(p.text))) {
+      console.log("ok: T8b concrete message (backtick-quoted file) not nudged toward discuss.md")
+    } else {
+      console.log("FAIL: T8b unexpectedly nudged a concrete message toward discuss.md:", JSON.stringify(concrete.parts))
+      failures++
+    }
+
+    const short = { message: { id: "m3" }, parts: [{ type: "text", text: "hello" }] }
+    await hooks["chat.message"]({ sessionID: "s8c" }, short)
+    if (!short.parts.some((p) => p.synthetic && /discuss\.md/.test(p.text))) {
+      console.log("ok: T8c greeting-length message not nudged toward discuss.md")
+    } else {
+      console.log("FAIL: T8c unexpectedly nudged a greeting toward discuss.md:", JSON.stringify(short.parts))
+      failures++
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
