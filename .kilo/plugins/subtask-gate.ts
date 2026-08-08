@@ -31,6 +31,15 @@
 // this can't be a hard, unretriable lock either) — it forces a pause and a nudge, not a
 // guarantee. wiki/rule-archive.md L09.
 //
+// Round 8 (FEEDBACK #3): the primer/elective gate (the one armed by tool.execute.after below,
+// not L09's protocol-read gate) cleared itself the instant its first post-arm mutating call was
+// blocked — so an immediate retry, verbatim or not, of a mutating call sailed through completely
+// unchecked right after. Fixed by moving the clear out of tool.execute.before entirely and into
+// chat.message, keyed on a genuinely new user message arriving (the only mechanical proxy
+// available for "the user was actually asked and responded" to the block message's own "ask the
+// user whether to continue" instruction). wiki/rule-archive.md L11 (see there for the live
+// kilo run re-verification this needed, same as every prior round's fixes).
+//
 // State is persisted to .subtask-gate-state.json, next to this file. Bun/Node's sync fs/exec
 // calls are fine here: state is a few bytes, one user, no meaningful concurrency to race
 // against.
@@ -150,6 +159,22 @@ const BLOCK_MESSAGE_ELECTIVE = (n: number) =>
   "update wiki/handoffs/SESSION_PRIMER.md's Current sub-task block, commit it, then ask the " +
   "user whether to continue."
 
+// Round 8 (audit, FEEDBACK #3): the primer/elective gate just below used to clear
+// `state.armed[sessionID]` the moment the *first* post-arm mutating call was blocked — so an
+// immediate retry (verbatim or not) of that same blocked call sailed through completely
+// unchecked, because by the time it arrived `reason` was already gone. This is a different bug
+// from L09's (round 5) "different mutation after block" gap, which is already closed — this one
+// is "any mutating call at all, right after the one that got blocked." The block message itself
+// says to stop and ask the user whether to continue — the only mechanical proxy available for
+// "the user was actually asked and responded" is a genuinely new user message arriving, which is
+// exactly what `chat.message` fires on (see that hook below). So the arm now only clears there,
+// never inside `tool.execute.before` — every mutating call stays blocked for the rest of this
+// turn (and any further turns) until a new message starts. Honest limitation, same class as the
+// carryover-warning hook's own stated one: a new message is evidence a turn ended and control
+// returned to a human, not literal proof the human read the stop-and-ask text — round 8's own
+// audit didn't independently re-test FEEDBACK #3 live (code-read only), so this needs a live
+// `kilo run` re-verification, same as every other round's fixes have required.
+//
 // Round 7(audit, FEEDBACK #4/#12): live-tested that L09's gate guarantees *some*
 // wiki/protocols/*.md gets read before any mutation, but has zero mechanism routing an
 // ambiguous ask specifically to discuss.md — a real live trial ("this feels slow when I use it
@@ -175,11 +200,19 @@ function looksAmbiguous(text: string): boolean {
   return !AMBIGUITY_ANCHOR_PATTERN.test(trimmed)
 }
 
+// Round 8 (FEEDBACK #4/#12): the round-7 wording gave the model an explicit escape hatch
+// ("ignore if the task is genuinely clearly-scoped") — live-reproduced 3/3 across rounds 7-8
+// that the model just decides for itself the task is clear and proceeds straight to action,
+// including once directly editing this very plugin file based on a self-generated
+// interpretation of an ambiguous "this feels slow" prompt, without asking anything. Reworded to
+// a direct imperative with no self-granted opt-out, still honestly a nudge (chat.message cannot
+// force real Q&A or block a "build"-shaped response) — needs its own live re-trial, this is not
+// assumed to fix the underlying ceiling.
 const NUDGE_MESSAGE_POSSIBLY_AMBIGUOUS =
-  "[subtask-gate] This message doesn't name a specific file, function, or quoted detail — if " +
-  "the ask is actually ambiguous or underspecified, self-serve wiki/protocols/discuss.md before " +
-  "jumping to build/refactor. (Heuristic nudge, not a block — ignore if the task is genuinely " +
-  "clearly-scoped despite no concrete anchor.)"
+  "[subtask-gate] STOP before doing anything else. This message names no specific file, " +
+  "function, or concrete target. Do not assume an interpretation and proceed — ask the user " +
+  "1-2 clarifying questions to pin down scope, or explicitly self-serve " +
+  "wiki/protocols/discuss.md, before any build/refactor/edit action."
 
 const BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER = (files: string[]) =>
   "[subtask-gate] Uncommitted changes are already sitting in the working tree from before this " +
@@ -211,12 +244,14 @@ export const SubtaskGate = async () => ({
       }
     }
 
+    // FEEDBACK #3 (round 8): deliberately does NOT clear state.armed[sessionID] here anymore —
+    // see the comment above the "chat.message" hook's clearing logic for why. Every mutating
+    // call while armed gets blocked, retry or not, same call or different, until a new user
+    // message actually arrives.
     const reason = state.armed[sessionID]
     if (reason && MUTATING_TOOLS.has(tool)) {
-      delete state.armed[sessionID]
+      if (dirty) saveState(state)
       const n = state.commitsSincePrimer[sessionID] ?? 0
-      state.commitsSincePrimer[sessionID] = 0
-      saveState(state)
       throw new Error(reason === "primer" ? BLOCK_MESSAGE_COMMIT : BLOCK_MESSAGE_ELECTIVE(n))
     }
 
@@ -229,10 +264,11 @@ export const SubtaskGate = async () => ({
     // actually read a protocols doc, and its very next write (a different file, not a retry of
     // the same call) sailed through unchecked for the rest of the session. Now blocks *every*
     // mutating call, not just the first, until a real `wiki/protocols/*.md` read is observed —
-    // then never blocks for this reason again this session. Still not a permanent lock (a
-    // verbatim retry of the exact same call still isn't separately tracked — matches the other
-    // two checks' documented trade-off, FEEDBACK #3) but the lock now only lifts on actual
-    // compliance, not on the mere passage of one blocked attempt.
+    // then never blocks for this reason again this session. Unlike the primer/elective gate
+    // above, this one never had a retry-bypass gap: there's no one-shot clearing here to exploit
+    // in the first place, since the lock only ever lifts on actual compliance (a real read), not
+    // on the mere passage of one blocked attempt — round 8's audit confirmed FEEDBACK #3's
+    // "verbatim retry slips through" gap was specifically in the primer/elective gate, not here.
     if (MUTATING_TOOLS.has(tool) && !state.protocolDocRead[sessionID]) {
       saveState(state)
       throw new Error(BLOCK_MESSAGE_NO_PROTOCOL_READ)
@@ -297,6 +333,16 @@ export const SubtaskGate = async () => ({
   "chat.message": async (input: any, output: any) => {
     const sessionID = input?.sessionID
     if (!sessionID || !Array.isArray(output?.parts)) return
+
+    // FEEDBACK #3 (round 8): this is where the primer/elective gate actually clears now — see
+    // the comment above tool.execute.before's armed check. A new message starting is the only
+    // available proxy for "the user got a chance to respond to the stop-and-ask block message."
+    const state = loadState()
+    if (state.armed[sessionID]) {
+      delete state.armed[sessionID]
+      state.commitsSincePrimer[sessionID] = 0
+      saveState(state)
+    }
 
     const dirty = gitPorcelainStatus()
     if (dirty.length > 0) {
