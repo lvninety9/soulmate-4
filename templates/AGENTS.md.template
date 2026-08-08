@@ -1,17 +1,18 @@
 <!--
   Copy this file to project-root/AGENTS.md. Fill in [project name].
   Kilo auto-loads AGENTS.md (and CLAUDE.md/CONTEXT.md) every message, hierarchy-aware — there is
-  no separate "kernel" file the way soulmate-3 (Continue) needed one. This file IS the kernel,
-  kept tight on purpose since it's paid every message. Learned/Fixed Rules and the File map live
-  in wiki/PROJECT_BACKGROUND.md instead (see its own template) — don't add them back here.
+  no separate "kernel" file the way soulmate-3 (Continue) needed one. Learned/Fixed Rules and the
+  File map live HERE too, not in a separate wiki file — matches the original soulmate's proven
+  design (a rule only referenced from here, not stated in it, doesn't reach ad-hoc work — L02).
   Delete these instructional HTML-comment blocks once you've filled a section in.
   Run scripts/check-caps.sh (copied from this repo) at self-harness's PRUNE step.
 -->
 
 # [project name]
 
-> Kilo Code auto-loads this file every message (confirmed via the CLI binary, not docs — see
-> `wiki/rule-archive.md` L03). No separate kernel file exists here, unlike soulmate-3.
+> Kilo Code auto-loads this file every message (confirmed via the CLI binary — L03). No separate
+> kernel file exists here, unlike soulmate-3. Learned/Fixed Rules live here too — matches the
+> original soulmate's design (a rule only referenced from here doesn't reach ad-hoc work — L02).
 
 ## Language
 Docs/commits in English. Chat replies to the user in Korean.
@@ -40,28 +41,55 @@ Clearly-scoped: skip to build. Else: discuss → design → build → verify. No
 exists for any of these (see "Known gap") — read the matching doc yourself, every time.
 
 ## Sub-task gate (mechanical, not just prose)
-`.kilo/plugins/subtask-gate.ts` hooks Kilo's real `tool.execute.before` (unlike Continue — see
-"Known gap"): once a commit touches `wiki/handoffs/SESSION_PRIMER.md`, the next mutating tool
-call is rejected once, forcing a stop instead of silently starting the next sub-task. One block
-per commit, not a permanent lock — verified live, `wiki/rule-archive.md` L05.
+`.kilo/plugins/subtask-gate.ts` hooks Kilo's real `tool.execute.before`/`after` (unlike Continue
+— see "Known gap"): once a commit touches `wiki/handoffs/SESSION_PRIMER.md`, or N commits land
+without one touching it, the next mutating tool call is rejected once. One block per event, not
+a permanent lock — verified live, `wiki/rule-archive.md` L05-L08.
 
 ## Known gap
-Custom slash commands (`.kilo/commands/*.md`) don't work in Kilo's CLI yet — a canary file's
-content was never injected, the model just pattern-matched the command name (L02). Protocol
-steps above are self-served prose instead, same shape as soulmate-3's Continue gap.
+Custom slash commands (`.kilo/commands/*.md`) don't work yet — a canary file's content was
+never injected, the model just pattern-matched the command name (L02). Protocol steps above are
+self-served prose instead, same shape as soulmate-3's Continue gap.
 
 ## File map
 | Need | File |
 |---|---|
 | current state, active sub-task | `wiki/handoffs/SESSION_PRIMER.md` |
-| entity map, glossary, pipeline, Learned/Fixed Rules | `wiki/PROJECT_BACKGROUND.md` |
+| entity map, glossary, pipeline | `wiki/PROJECT_BACKGROUND.md` |
 | open feedback | `wiki/handoffs/FEEDBACK_PENDING.md` |
 | sub-task gate plugin | `.kilo/plugins/subtask-gate.ts` |
 | local model provider config | `~/.config/kilo/kilo.jsonc` (global) |
 
 ## Caps + sub-task budget
-File Map ≤12 rows · SESSION_PRIMER ≤150 lines · this file ≤65 lines (paid every message, kept
-tight — Learned/Fixed Rules live in `wiki/PROJECT_BACKGROUND.md` instead, unlike soulmate-3's
-never-auto-loaded AGENTS.md). No live token-usage signal exists mid-session: `design` sizes
-sub-tasks to finish well under your model's context length by construction; `build` checkpoints
-the moment actual work overruns that plan.
+File Map ≤12 rows · SESSION_PRIMER ≤150 lines · this file ≤85 lines (matches the original
+soulmate's own CLAUDE.md cap — not lowered for a local model). No live token-usage signal exists
+mid-session: `design` sizes sub-tasks to finish under your model's context length by
+construction; `build` checkpoints the moment actual work overruns that plan.
+
+## Learned Rules
+
+- [L01] Kilo's real install is an opencode rebuild, not the Cline-fork docs describe — confirmed
+  via the binary, not docs (which conflicted) `permanent` (evidence: rule-archive.md)
+- [L02] Custom slash commands (`.kilo/commands/*.md`) don't work — canary test proved it;
+  protocol steps are self-served prose instead `permanent` (evidence: rule-archive.md)
+- [L03] `AGENTS.md`/`CLAUDE.md`/`CONTEXT.md` all auto-load hierarchy-aware; `AGENTS.md` alone is
+  unconditional, use only that `permanent` (evidence: rule-archive.md)
+- [L04] Local reasoning models can exhaust a whole turn's output budget on invisible thinking —
+  fix at the inference server (`llama-server --reasoning off`), no per-request toggle exists
+  `permanent` (evidence: rule-archive.md)
+- [L05] Kilo genuinely inherits opencode's `tool.execute.before`/`after` hooks (unlike Continue)
+  — built `subtask-gate.ts` on this `permanent` (evidence: rule-archive.md)
+- [L06] `subtask-gate`'s in-memory state didn't survive separate `kilo run` invocations — fixed
+  via disk persistence `permanent` (evidence: rule-archive.md)
+- [L07] `subtask-gate`'s trigger was 100% elective (only armed on a primer-touching commit) —
+  fixed by also counting commits-since-primer via real `git diff-tree` `permanent` (evidence:
+  rule-archive.md)
+- [L08] Commit detection was regex-on-bash-text (false pos/neg) — fixed via real `git HEAD`
+  comparison `permanent` (evidence: rule-archive.md)
+
+## Fixed Rules
+| Rule | Why |
+|---|---|
+| Commit per file, not per sub-task or session — even with no protocol step invoked | deferring to "when done" loses everything on a session cutoff |
+| Local reasoning models: disable thinking at the inference server, not per-request | no per-request toggle exists for an arbitrary openai-compatible provider — L04 |
+| Never claim a sub-task "done" without running its build/typecheck command | code that imports the right things isn't verified — a real bug sat live a full round otherwise |

@@ -4,12 +4,11 @@
 # session skips the manual step.
 #
 # Ported from soulmate-3 — parsing logic and cap rationale are unchanged. What's different here:
-# there is no separate kernel.md (Kilo auto-loads AGENTS.md directly, hierarchy-aware, no
-# equivalent of Continue's "arbitrary root file isn't auto-loaded" limitation) — so AGENTS.md
-# itself is now the always-loaded piece and gets its own tighter cap, while Learned/Fixed Rules
-# moved OUT of AGENTS.md into wiki/PROJECT_BACKGROUND.md to keep AGENTS.md small. Prompt-file
-# presence checks now look at wiki/protocols/*.md instead of .continue/prompts/*.md, and there's
-# a new check for .kilo/plugins/subtask-gate.ts (the real mechanical enforcement Continue never
+# there is no separate kernel.md (Kilo auto-loads AGENTS.md directly, hierarchy-aware) — so
+# AGENTS.md carries everything the original soulmate's CLAUDE.md did (Learned/Fixed Rules, File
+# map, cap 85 — matching that precedent exactly, not lowered for a local model). Prompt-file
+# presence checks look at wiki/protocols/*.md instead of .continue/prompts/*.md, and there's a
+# new check for .kilo/plugins/subtask-gate.ts (the real mechanical enforcement Continue never
 # had — see AGENTS.md).
 #
 # Every cap here is a starting point measured on this project's real scale, not a universal
@@ -24,8 +23,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.." # repo root, assuming scripts/check-caps.sh's usual location
 
 README_CAP=450
-AGENTS_MD_WARN=55
-AGENTS_MD_CAP=65
+AGENTS_MD_WARN=70
+AGENTS_MD_CAP=85
 PROJECT_BACKGROUND_CAP=150
 SESSION_PRIMER_CAP=150
 LEARNED_RULES_CAP=10
@@ -392,8 +391,8 @@ check_prompts_present
 check_fence_parity "AGENTS.md"
 check_lines_warn "AGENTS.md" "$AGENTS_MD_WARN" "$AGENTS_MD_CAP" "AGENTS.md total"
 check_section "AGENTS.md" "## File map" "$FILE_MAP_ROW_CAP" "File Map" "rows"
-check_section "wiki/PROJECT_BACKGROUND.md" "## Learned Rules" "$LEARNED_RULES_CAP" "Learned Rules" "entries"
-check_section "wiki/PROJECT_BACKGROUND.md" "## Fixed Rules" "$FIXED_RULES_ROW_CAP" "Fixed Rules" "rows"
+check_section "AGENTS.md" "## Learned Rules" "$LEARNED_RULES_CAP" "Learned Rules" "entries"
+check_section "AGENTS.md" "## Fixed Rules" "$FIXED_RULES_ROW_CAP" "Fixed Rules" "rows"
 check_lines "wiki/PROJECT_BACKGROUND.md" "$PROJECT_BACKGROUND_CAP" "PROJECT_BACKGROUND.md"
 check_lines "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CAP" "SESSION_PRIMER.md"
 check_primer_handoff_reminder
