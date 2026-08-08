@@ -336,15 +336,20 @@ check_template_drift() {
     echo "skip: template drift check ($tmpl not present — expected outside soulmate-4 itself)"
     return 0
   fi
-  local live_ids tmpl_ids
-  live_ids=$(grep -oE '\[L[0-9]+(-L[0-9]+)?\]' "$live" | sort -u)
-  tmpl_ids=$(grep -oE '\[L[0-9]+(-L[0-9]+)?\]' "$tmpl" | sort -u)
-  if [ "$live_ids" != "$tmpl_ids" ]; then
-    echo "OVER CAP: templates/AGENTS.md.template's Learned Rule IDs don't match AGENTS.md's —" \
-         "the template drifted (live: $(echo "$live_ids" | tr '\n' ' ')| template: $(echo "$tmpl_ids" | tr '\n' ' ')). Sync the template's Sub-task gate/Learned Rules sections to match."
+  # round 7(audit): the original ID-set-only version was content-blind — it only checked which
+  # [L<NN>] tags exist in each file, not what they actually say. Live-tested: replacing a whole
+  # rule's body text (same tag kept) passed silently. Fixed by diffing everything from
+  # "## Language" onward (the part both files must be byte-identical on — only the title/HTML-
+  # comment-block above it is meant to differ) instead of just extracting IDs.
+  local live_body tmpl_body
+  live_body=$(norm "$live" | awk '/^## Language/{f=1} f')
+  tmpl_body=$(norm "$tmpl" | awk '/^## Language/{f=1} f')
+  if [ "$live_body" != "$tmpl_body" ]; then
+    echo "OVER CAP: templates/AGENTS.md.template has drifted from AGENTS.md (content differs" \
+         "from '## Language' onward, not just Learned Rule IDs) — sync the template."
     status=1
   else
-    echo "ok: templates/AGENTS.md.template's Learned Rule IDs match AGENTS.md (no drift)"
+    echo "ok: templates/AGENTS.md.template matches AGENTS.md content, '## Language' onward (no drift)"
   fi
 }
 
