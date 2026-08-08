@@ -330,21 +330,41 @@ landed in 0-1 commits, the gate never crossed its own arming threshold — the g
 assumes `build.md`'s per-file commit discipline is already happening, which trial 1-3 show isn't
 reliable on its own for a refactor-shaped task.
 
-Fix (designed, not yet built — needs its own blind re-verification round once built, same as
-L06-L08): extend the same mechanical-brake pattern one step earlier in the flow. Add a
-`tool.execute.before` check (in `subtask-gate.ts` or a sibling plugin) that, on the *first*
-mutating call of a session touching tracked source files, requires at least one `read` on a
-`wiki/protocols/*.md` path to have already happened this session (persisted the same way
-`armed`/`lastSeenHead` already are, keyed by session ID) — block with a message naming the
-missing doc if not. Separately, name a canonical verification invocation in `refactor.md`/
-`build.md` ("`python -m pytest <file>`", not generically "the test suite") — nothing currently
-distinguishes a real test run from a no-op like trial 3's, in either the protocol text or a
-mechanical check.
+**Fix, built and live-verified (same session, same day)**: extended `subtask-gate.ts` with a
+`tool.execute.before` check that blocks a session's *first* mutating call unless at least one
+`read` on a `wiki/protocols/*.md` path has already happened this session (state persisted the
+same way `armed`/`lastSeenHead` already are, keyed by session ID; one-shot, not a permanent lock
+— same trade-off as the other two checks, since `AGENTS.md`'s own "Edit discipline" explicitly
+allows an ad-hoc fix before any protocol step). Verified two ways, same discipline as L06/L07:
+1. **Isolated unit test** (Node `--experimental-strip-types`, no Kilo, against the plugin's
+   exported hooks directly, 6 cases): first mutation blocked with no prior protocol read;
+   blocked call's immediate verbatim retry passes (documented one-shot trade-off, not a bug);
+   reading an unrelated file doesn't satisfy the check; reading a real `wiki/protocols/*.md`
+   file does; non-mutating tools never trigger it; the pre-existing L06/L07 post-commit gate is
+   unchanged (regression check). All 6 passed.
+2. **Real, live, single-process re-run of trial 1's exact shape**: fresh bootstrap, same seeded
+   `data_utils.py` baseline, same prompt ("clean up data_utils.py, it works but it's grown messy
+   with duplicated logic, make it cleaner"), real `kilo run` against the real local model. This
+   time: first `write` call → **blocked** (`status: "error"` in the exported transcript); the
+   model's very next actions were reading `wiki/protocols/refactor.md`, `git status --porcelain`,
+   creating a named recovery branch (`git branch pre-refactor-20260808`), stating the rollback
+   command in its own text output ("Recovery command: `git reset --hard pre-refactor-...`")
+   *before* touching the file, running a real `python3 -m pytest test_data_utils.py -v` (not a
+   no-op — the earlier `python -m pytest` attempt correctly failed with "command not found" and
+   it retried with `python3`), and committing per file (`data_utils.py`, then `test_data_utils.py`
+   as two separate commits, not trial 1's single bundle). Independently re-ran `pytest` (9/9) and
+   diffed the logic myself: this time `if strict and " " in email: return False` correctly gates
+   the space check behind `strict` — no regression, unlike trial 1's unconditional version.
+   Every one of refactor.md's claims that failed 3/3 in round 4 passed this time: self-serve,
+   backup-first, real per-unit verification, per-file commits. `refactor.md`/`build.md`'s
+   "verification command" ambiguity (trial 3's no-op) wasn't separately fixed in the protocol
+   text — this run's model happened to self-correct to the real invocation on its own, so that
+   part of the original fix proposal is still open if it recurs.
 
 General lesson: this project's core premise — "the model self-serves the matching protocol doc
-on recognizing the task's shape" — has now failed its live test for one of the 6 documented
-protocols (refactor), in 3/3 independent trials, word "refactor" present or not. The pattern this
-project has followed for every other self-serve failure (L02, L07) applies again: prose-based
-self-serving is not reliable enough to depend on without a mechanical backstop, and that backstop
-has to sit as early in the flow as the failure itself does — here, before the first edit, not
-after a commit.
+on recognizing the task's shape" — failed its live test for one of the 6 documented protocols
+(refactor), in 3/3 independent trials, word "refactor" present or not; moving the mechanical
+backstop one step earlier (before the first edit, not after a commit) fixed it in the one
+live re-run tried so far. Same pattern as every other self-serve failure in this project (L02,
+L07): prose-based self-serving is not reliable enough to depend on without a mechanical
+backstop, and the backstop has to sit as early in the flow as the failure itself does.
