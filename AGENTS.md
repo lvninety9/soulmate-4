@@ -69,13 +69,13 @@ construction; `build` checkpoints the moment actual work overruns that plan.
   `permanent` (evidence: rule-archive.md)
 - [L05] Kilo genuinely inherits opencode's `tool.execute.before`/`after` hooks (unlike Continue)
   — built `subtask-gate.ts` on this `permanent` (evidence: rule-archive.md)
-- [L06] `subtask-gate`'s in-memory state didn't survive separate `kilo run` invocations — fixed
-  via disk persistence `permanent` (evidence: rule-archive.md)
-- [L07] `subtask-gate`'s trigger was 100% elective (only armed on a primer-touching commit) —
-  fixed by also counting commits-since-primer via real `git diff-tree` `permanent` (evidence:
-  rule-archive.md)
-- [L08] Commit detection was regex-on-bash-text (false pos/neg) — fixed via real `git HEAD`
-  comparison `permanent` (evidence: rule-archive.md)
+- [L06-L08] `subtask-gate` bugs from blind rounds 1-3: state lost across separate `kilo run`
+  processes (fixed: disk persistence); trigger was 100% elective (fixed: also counts commits-
+  since-primer via `git diff-tree`); commit detection was regex-on-bash-text (fixed: real `git
+  HEAD` diff) `permanent` (evidence: rule-archive.md)
+- [L09] `refactor.md` self-serve never fires — 3/3 round-4 trials skip reading the doc before
+  mutating; gate can't compensate (refactor often lands in 0-1 commits) `permanent` (fix designed
+  not yet built: first-mutation protocol-read check in subtask-gate.ts; rule-archive.md)
 
 ## Fixed Rules
 | Rule | Why |
