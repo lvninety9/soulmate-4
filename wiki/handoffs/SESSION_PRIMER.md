@@ -1,4 +1,4 @@
-# SESSION PRIMER — session 5 (complete, round 5 done)
+# SESSION PRIMER — session 5 (complete, round 6 done)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -14,7 +14,7 @@ backed by a local model with a hard context ceiling (reference case: Qwen3.6-35B
 soulmate-2/3, adds a **mechanical** sub-task checkpoint (`.kilo/plugins/subtask-gate.ts`) that
 force-stops the model instead of relying on prose it might not follow under context pressure.
 
-## Current state — 5 blind-validation/audit rounds; objectively scored 74/73, actively closing the gap to the original's 87/98.75
+## Current state — 6 rounds done; objectively re-scored 81/77 (from 74/73), closing on 87/98.75
 
 Jay's standing instruction: keep this repo held to the same bar the original `soulmate` repo
 was — independent, objective, blind scoring (not this session's own self-assessment), iterated
@@ -77,18 +77,20 @@ Round 5 section):
 |---|---|---|
 | Round 1-4 조사 + fix (L01-L09) | 상세는 위 표 + SESSION_MASTER.md/-archive.md | ✅ |
 | 아카이빙 목적지 패턴 신설 + 4개 구조개선(번호범례/압축우선순위/문서역할분리/검증명령명시) | soulmate-4 자체 구조 개선, 전부 push 완료 | ✅ |
-| Round 5 객관적 blind 감사 | 원본 repo 실제 루브릭 캘리브레이션 후 채점: 턴키74/구조73 | ✅ |
-| Round 5 fix 5건 (L09 강화, L10, chat.message 훅, 헤드룸, 잡버그 2건) | 전부 단위테스트+실전 재검증 완료 | ✅ |
+| Round 5 객관적 blind 감사 + fix 5건 | 원본 루브릭 캘리브레이션 후 채점(턴키74/구조73), L09강화/L10/chat.message훅/헤드룸/잡버그2건 전부 단위+실전 재검증 | ✅ |
+| Round 6 재채점 | fresh 에이전트가 round5 fix 5건 전부 실전 재확인(전부 통과) — 턴키74→81, 구조73→77 | ✅ |
+| Round 6 신규 발견+fix | 템플릿이 같은 세션에서 재drift(L09/L10 미반영) 발견 → 완전 재동기화 + `check_template_drift()` 기계적 가드 신설(desync 테스트로 검증) + `tests/subtask-gate.test.mjs` 최초 실제 커밋(이전엔 매 라운드 scratch에만 존재) | ✅ |
 
 ## This session's top priorities (다음 세션용)
 
-1. **Round 6 재채점** — 오늘 fix들이 실제 점수를 움직였는지 같은 방식(원본 재클론+캘리브레이션
-   +blind)으로 확인. Jay가 명시적으로 요청한 반복 루프의 다음 사이클.
+1. **Round 7 재채점** — 반복 루프 계속(Jay 명시적 지시). 81/77이 실제로 더 올라가는지, 새 drift가
+   또 생기진 않았는지 확인.
 2. FEEDBACK #12(discuss.md 기계적 백스톱 없음) — discuss는 tool call을 안 만들어서 지금 훅
    구조로는 원천적으로 못 잡음, 새 설계 필요(`experimental.chat.system.transform` 등 미탐색)
 3. FEEDBACK #4 재검증 — L09가 모호한 작업에서 실제로 discuss.md를 읽게 하는지 전용 blind 시행
 4. FEEDBACK #6(Hermes/soulmate 1-3에 refactor.md 백포트) — Jay가 미뤄둔 조건인 "soulmate-4
-   검증 마침"이 round 5 이후 충족됐는지 계속 재확인 필요(아직 진행 안 함)
+   검증 마침"이 충족됐는지 계속 재확인 필요(아직 진행 안 함, round가 계속 도는 한 계속 미충족
+   취급이 안전할 수 있음 — Jay 판단 필요)
 
 ## Known open issues
 
@@ -106,8 +108,8 @@ Round 5 section):
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽어주세요.
 
-Round 5(객관적 blind 감사 턴키74/구조73 + 5건 fix)까지 전부 완료·push됐습니다. Jay가 반복
-루프(재채점→수정→재채점)를 명시적으로 요청했으니, 다음은 Round 6 재채점부터 시작해주세요 —
-원본 soulmate를 다시 클론해서 루브릭을 재확인한 뒤 fresh non-fork 에이전트로 blind 채점,
-오늘 fix들이 실제 점수를 올렸는지 확인. 그다음 "This session's top priorities" 순서대로.
+Round 6(재채점 턴키81/구조77 + 템플릿 재drift 발견·수정+기계적 가드+테스트파일 커밋)까지
+전부 완료·push됐습니다. Jay가 반복 루프(재채점→수정→재채점)를 명시적으로 요청했으니, 다음은
+Round 7 재채점부터 시작해주세요 — 원본 soulmate를 다시 클론해서 루브릭을 재확인한 뒤 fresh
+non-fork 에이전트로 blind 채점. 그다음 "This session's top priorities" 순서대로.
 ```
