@@ -21,6 +21,16 @@
 // that touched SESSION_PRIMER.md; crossing a threshold arms the gate even with no primer touch
 // at all. wiki/rule-archive.md L07.
 //
+// Round 4: refactor.md's self-serve premise (the model reads wiki/protocols/*.md on recognizing
+// a task's shape) never fired at all, in 3/3 independent blind trials — and because a real
+// refactor task reliably lands in 0-1 commits, the two gates above never got a chance to arm
+// either (both only ever fire *after* a commit lands). Fixed by adding a third, earlier check:
+// a session's first mutating tool call is blocked unless at least one wiki/protocols/*.md file
+// has been read this session. Same one-shot-not-a-lock trade-off as the other two checks
+// (AGENTS.md's "Edit discipline" explicitly allows an ad-hoc fix before any protocol step, so
+// this can't be a hard, unretriable lock either) — it forces a pause and a nudge, not a
+// guarantee. wiki/rule-archive.md L09.
+//
 // State is persisted to .subtask-gate-state.json, next to this file. Bun/Node's sync fs/exec
 // calls are fine here: state is a few bytes, one user, no meaningful concurrency to race
 // against.
@@ -52,6 +62,8 @@ type State = {
   armed: Record<string, ArmReason>
   commitsSincePrimer: Record<string, number>
   lastSeenHead: Record<string, string>
+  protocolDocRead: Record<string, boolean>
+  firstMutationChecked: Record<string, boolean>
 }
 
 function loadState(): State {
@@ -62,12 +74,14 @@ function loadState(): State {
         armed: parsed.armed ?? {},
         commitsSincePrimer: parsed.commitsSincePrimer ?? {},
         lastSeenHead: parsed.lastSeenHead ?? {},
+        protocolDocRead: parsed.protocolDocRead ?? {},
+        firstMutationChecked: parsed.firstMutationChecked ?? {},
       }
     }
   } catch {
     // Corrupt/unreadable state file: fail open (unarmed) rather than crash the hook.
   }
-  return { armed: {}, commitsSincePrimer: {}, lastSeenHead: {} }
+  return { armed: {}, commitsSincePrimer: {}, lastSeenHead: {}, protocolDocRead: {}, firstMutationChecked: {} }
 }
 
 function saveState(state: State) {
@@ -105,6 +119,14 @@ function filesInCommit(sha: string): string[] {
 
 const MUTATING_TOOLS = new Set(["write", "edit", "bash", "patch", "multiedit", "task"])
 
+// Matches an absolute or relative path ending in wiki/protocols/<name>.md — deliberately not
+// anchored to session cwd, since the "read" tool's args.filePath is absolute in practice (round
+// 4's exported transcripts confirm this). Only checks the "read" tool's args, same as round 4's
+// own detection method (kilo export's tool-call list) — a "cat"/"less" on the same path via
+// "bash" wouldn't be caught here, a known, accepted gap rather than reintroducing L08's
+// regex-on-bash-text mistake to close it.
+const PROTOCOL_DOC_PATTERN = /wiki\/protocols\/[^/]+\.md$/
+
 const BLOCK_MESSAGE_COMMIT =
   "[subtask-gate] wiki/handoffs/SESSION_PRIMER.md was just committed — that closes out a " +
   "sub-task. Per AGENTS.md, STOP now: do not start the next sub-task or run any further tool " +
@@ -117,6 +139,11 @@ const BLOCK_MESSAGE_ELECTIVE = (n: number) =>
   "update wiki/handoffs/SESSION_PRIMER.md's Current sub-task block, commit it, then ask the " +
   "user whether to continue."
 
+const BLOCK_MESSAGE_NO_PROTOCOL_READ =
+  "[subtask-gate] This is this session's first mutating tool call, and no wiki/protocols/*.md " +
+  "file has been read yet this session. Per AGENTS.md's Protocol table, read the doc matching " +
+  "this task's shape first (discuss/design/build/verify/refactor/self-harness) — then retry."
+
 export const SubtaskGate = async () => ({
   "tool.execute.before": async (input: any, output: any) => {
     const tool = input?.tool
@@ -124,6 +151,17 @@ export const SubtaskGate = async () => ({
     if (!sessionID) return
 
     const state = loadState()
+    let dirty = false
+
+    if (tool === "read") {
+      const filePath: string | undefined = output?.args?.filePath
+      if (filePath && PROTOCOL_DOC_PATTERN.test(filePath.replace(/\\/g, "/"))) {
+        if (!state.protocolDocRead[sessionID]) {
+          state.protocolDocRead[sessionID] = true
+          dirty = true
+        }
+      }
+    }
 
     const reason = state.armed[sessionID]
     if (reason && MUTATING_TOOLS.has(tool)) {
@@ -133,7 +171,23 @@ export const SubtaskGate = async () => ({
       saveState(state)
       throw new Error(reason === "primer" ? BLOCK_MESSAGE_COMMIT : BLOCK_MESSAGE_ELECTIVE(n))
     }
-    // Arming happens in tool.execute.after below, once a commit has actually landed.
+
+    // L09: the two post-commit checks above never get a chance to fire for a refactor that
+    // lands in 0-1 commits, and the self-serve premise never fired either — so check this one
+    // step earlier, before the session's first mutation, instead of after its first commit.
+    if (MUTATING_TOOLS.has(tool) && !state.firstMutationChecked[sessionID]) {
+      state.firstMutationChecked[sessionID] = true
+      const readProtocol = state.protocolDocRead[sessionID] === true
+      saveState(state)
+      if (!readProtocol) {
+        throw new Error(BLOCK_MESSAGE_NO_PROTOCOL_READ)
+      }
+      return
+    }
+
+    if (dirty) saveState(state)
+    // Arming (the two checks above) happens in tool.execute.after below, once a commit has
+    // actually landed.
   },
 
   // Runs after every tool call, not just ones that look like a commit — round 3's blind
