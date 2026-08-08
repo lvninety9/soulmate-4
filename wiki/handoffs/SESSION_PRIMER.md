@@ -91,6 +91,7 @@ HEAD is several commits ahead, see `git log fec44a1..HEAD --oneline`).
 | 아키텍처 재정렬 (원본 soulmate 대비 검증) | Learned/Fixed Rules를 AGENTS.md로 병합, 캡 85로 상향, 재부트스트랩 검증 | ✅ |
 | Round 4 blind 검증 (refactor.md) | 3독립시행 전부 self-serve 실패 확인(L09) | ✅ |
 | L09 fix 구현 + 재검증 | first-mutation protocol-read 체크, 단위테스트 6/6 + 실전 재현 1/1 | ✅ |
+| 아카이빙 목적지 패턴 신설 (Jay 지시, Hermes 스토리지 논의에서 파생) | `<file>-archive.md` 컴패니언 + 포인터 1줄, 3개 append-only 파일 공통 적용. `self-harness.md`의 재정렬 이전 `PROJECT_BACKGROUND.md` 참조 stale 버그도 같이 수정. 즉시 실사용: SESSION_MASTER.md 231→149줄로 아카이빙 완료 | ✅ |
 
 ## This session's top priorities (다음 세션용)
 
