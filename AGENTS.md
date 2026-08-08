@@ -73,9 +73,9 @@ construction; `build` checkpoints the moment actual work overruns that plan.
   processes (fixed: disk persistence); trigger was 100% elective (fixed: also counts commits-
   since-primer via `git diff-tree`); commit detection was regex-on-bash-text (fixed: real `git
   HEAD` diff) `permanent` (evidence: rule-archive.md)
-- [L09] `refactor.md` self-serve never fires — 3/3 round-4 trials skip reading the doc before
-  mutating; gate can't compensate (refactor often lands in 0-1 commits) `permanent` (fix designed
-  not yet built: first-mutation protocol-read check in subtask-gate.ts; rule-archive.md)
+- [L09] `refactor.md` self-serve never fires on its own — 3/3 round-4 trials skip reading the
+  doc before mutating; fixed via a first-mutation protocol-read check in subtask-gate.ts, unit +
+  live re-verified `permanent` (evidence: rule-archive.md)
 
 ## Fixed Rules
 | Rule | Why |
