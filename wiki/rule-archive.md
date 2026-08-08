@@ -344,3 +344,33 @@ from the thing it's auditing, and *this session itself* is not exempt — the sa
 fixes a drift bug can reintroduce the same drift bug one commit later if nothing mechanical
 checks for it. The fix that actually holds is never "be more careful next time," it's moving the
 check one level up: not just fixing the drift, but making the *next* drift impossible to miss.
+
+## Round 7 — first score regression (77→69), two real fixes, one found mid-fix
+
+Turnkey held at 81; structural **dropped** 77→69. Cause 1: `check_template_drift()` was
+ID-token-only — live-verified content-blind (swapped a whole rule's body text under the same
+`[L05]` tag, check passed silently). Fixed: now diffs full content from `## Language` onward
+(everything both files must be byte-identical on), not just the ID set — re-verified the same
+swap-and-check now fails correctly. Cause 2: FEEDBACK #4 (discuss.md self-serve) converted from
+"untested" to a live-confirmed failure — a genuinely ambiguous ask went straight to refactor.md
+and committed with zero clarifying questions.
+
+Fix: a `chat.message` heuristic nudge (`looksAmbiguous()` — no backtick/file-extension/quoted-
+string anchor + >15 chars of text → inject a discuss.md suggestion). Explicitly a coarse nudge,
+not a block or a real classifier: discuss.md produces zero tool calls, so no `tool.execute` hook
+can ever reach it, and `chat.message` can inject text but can't force Q&A. **Found a real bug
+building this**: `kilo run "<message>"` stores the CLI arg with a literal wrapping quote pair as
+part of the text content — confirmed via a debug log on the actual `chat.message` payload (not
+assumed), and that pair matched the "quoted string" anchor pattern on *every* CLI-driven
+message, so the nudge could never fire under the tool's own normal invocation shape. Fixed by
+stripping one real wrapping quote pair before the anchor check; live re-verified — a fresh
+bootstrap + the same ambiguous prompt now shows the nudge correctly injected in `kilo export`.
+
+13/13 unit tests (`tests/subtask-gate.test.mjs`), 2 live re-verifications (drift-checker
+swap/restore, ambiguity-nudge fire/no-fire on concrete vs. ambiguous text).
+
+General lesson: this is the second round in a row where the *fix itself*, tested only against
+its own unit tests, had a live-only bug (round 6: template drift; round 7: the quote-wrapping
+artifact) — reinforcing that this project's own standing rule (unit test + live re-verify,
+never either alone) keeps finding real, distinct bugs each time it's actually followed, not
+just theoretical ones.
