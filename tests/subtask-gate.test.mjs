@@ -274,6 +274,66 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 9 (round 8, FEEDBACK #3): the primer/elective gate used to clear itself the instant its
+  // first post-arm mutating call was blocked, so an immediate retry sailed through unchecked
+  // right after. Now it should stay blocked across repeated mutating calls (verbatim retry AND a
+  // different mutating call) until a genuinely new chat.message (new user turn) arrives.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    // satisfy L09 first so only the primer/elective gate is under test
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s9" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    await hooks["tool.execute.after"]({ tool: "read", sessionID: "s9" })
+    // commit touching SESSION_PRIMER.md -> arms the gate
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s9" })
+
+    await assertThrows(
+      "T9a first mutation after arming — blocked",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s9" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
+    await assertThrows(
+      "T9b immediate VERBATIM retry of the same blocked call — still blocked (the actual bug)",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s9" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
+    await assertThrows(
+      "T9c a DIFFERENT mutating call, same session, no new message yet — still blocked",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "bash", sessionID: "s9" },
+          { args: { command: "echo hi > bar.py" } }
+        )
+      }
+    )
+    // a new user message arrives -> the only mechanical proxy for "user was asked and responded"
+    await hooks["chat.message"]({ sessionID: "s9" }, { message: { id: "m9" }, parts: [{ type: "text", text: "continue" }] })
+    await assertNoThrow(
+      "T9d after a new chat.message, mutation goes through",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s9" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
