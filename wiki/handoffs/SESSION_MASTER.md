@@ -100,3 +100,38 @@ new projects by `bootstrap.sh` too. Full evidence: `wiki/rule-archive.md`'s Roun
 General lesson this round adds on top of round 5's: the auditing session is not exempt from what
 it audits — fixing a drift bug doesn't prevent the same session from reintroducing it one commit
 later. The durable fix is never "be more careful," it's a mechanical check one level up.
+
+## Session 5 handoff re-verification (Jay's explicit request, end of session)
+
+Jay's concern, stated directly: handoffs like this one often *look* thorough but don't survive
+contact with a new session, and there's no way to know from inside a single session whether a
+forced context-compaction event silently corrupted the record somewhere along the way (a report
+that doesn't match what was actually implemented, an invented fact, unplanned work described as
+if it were planned, etc.). His explicit instructions: do not rush the writeup because of context
+pressure ("컨텍스트가 부족하다고 해서 작업이나 문서 작성을 급하게 마무리 하지 마시구요") — a
+new session's *only* hint is these documents; check specifically for forced mid-session
+summarization and whether reported work actually matches implementation; make project intent,
+purpose, current progress, notable issues, gaps, and remaining work all unambiguous; end with a
+ready-to-paste starter prompt. **This standard should apply to every future handoff of this
+repo, not just this one** — recorded here so the instruction itself isn't lost.
+
+**Honest answer on compaction**: there is no reliable way for a session to *prove*, from inside
+its own context, that it was never force-summarized — no compaction notice was visible in this
+session's own context at any point, but that is not conclusive proof either way. So this handoff
+does not rely on this session's own memory of what happened at all — every substantive claim in
+`SESSION_PRIMER.md` was re-verified directly against ground truth that cannot be corrupted by a
+bad summary: `git log fec44a1..HEAD` (54 commits) read in full; `git log origin/master -1` vs
+`git rev-parse HEAD` confirmed byte-identical; the actual content of `.kilo/plugins/
+subtask-gate.ts`/`scripts/check-caps.sh` grepped and read directly (not recalled) to confirm
+`firstMutationChecked` is genuinely gone, `check_template_drift()` genuinely diffs full content
+not just IDs, `chat.message` genuinely contains both checks in one real hook (not the fake
+`chat.message.ambiguity` key a mid-session mistake briefly introduced and self-corrected);
+`node --experimental-strip-types tests/subtask-gate.test.mjs` actually run at rewrite time
+(13/13 pass, not assumed); `git status --porcelain` empty.
+
+**Two real inconsistencies this re-verification caught and fixed**: (1) the previous
+`SESSION_PRIMER.md` draft's title said "round 7 done" but its own body still listed "Round 7
+재채점" as the *next* priority — written mid-round-7, never reconciled after round 7 finished.
+(2) The "Known open issues" table used its own informal numbering that didn't match
+`FEEDBACK_PENDING.md`'s real item numbers (its row "3" actually described FEEDBACK #4's topic).
+Both fixed — exactly the kind of drift Jay was worried about, real, not hypothetical.
