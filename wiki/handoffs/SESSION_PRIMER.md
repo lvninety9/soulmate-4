@@ -1,4 +1,4 @@
-# SESSION PRIMER — session 5 (complete, round 6 done)
+# SESSION PRIMER — session 5 (complete, round 7 done)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -14,7 +14,21 @@ backed by a local model with a hard context ceiling (reference case: Qwen3.6-35B
 soulmate-2/3, adds a **mechanical** sub-task checkpoint (`.kilo/plugins/subtask-gate.ts`) that
 force-stops the model instead of relying on prose it might not follow under context pressure.
 
-## Current state — 6 rounds done; objectively re-scored 81/77 (from 74/73), closing on 87/98.75
+## Current state — 7 rounds done; 81/69 (turnkey held, structural regressed 77→69 then partially addressed)
+
+Round 7 (Jay: "one more round this session, I'll own the context cost") was the first score
+*regression* in the loop: turnkey stayed 81, structural dropped 77→69. Two causes, both fixed:
+`check_template_drift()` (round 6's own new guard) was content-blind — only diffed rule ID
+tokens, not rule text, so a swapped-body/same-tag drift passed silently (live-verified both the
+bug and the fix). FEEDBACK #4 (discuss.md self-serve) went from "untested" to a live-confirmed
+failure — an ambiguous ask committed with zero clarifying questions. Fixed with a `chat.message`
+heuristic nudge (no concrete anchor + real length → suggest discuss.md; explicitly a coarse
+nudge, not a block — discuss.md produces zero tool calls, no hook can force it). **Found a real
+bug building that fix**: `kilo run "<msg>"` wraps the message in a literal quote pair that
+defeated the anchor regex on every CLI-driven message — caught via a live debug log on the real
+hook payload, not assumed; fixed and re-verified live it now fires. 13/13 unit tests +
+2 live re-verifications this round. **Round 7's own score after these fixes was not yet
+re-measured** — next session's first job, per Jay's loop, is Round 8.
 
 Jay's standing instruction: keep this repo held to the same bar the original `soulmate` repo
 was — independent, objective, blind scoring (not this session's own self-assessment), iterated
@@ -108,8 +122,8 @@ Round 5 section):
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽어주세요.
 
-Round 6(재채점 턴키81/구조77 + 템플릿 재drift 발견·수정+기계적 가드+테스트파일 커밋)까지
-전부 완료·push됐습니다. Jay가 반복 루프(재채점→수정→재채점)를 명시적으로 요청했으니, 다음은
-Round 7 재채점부터 시작해주세요 — 원본 soulmate를 다시 클론해서 루브릭을 재확인한 뒤 fresh
-non-fork 에이전트로 blind 채점. 그다음 "This session's top priorities" 순서대로.
+Round 7(구조 77→69 첫 하락 발견 + drift-checker content-blind 버그 수정 + discuss.md 넛지
+신설 + kilo CLI 따옴표-래핑 버그 발견·수정)까지 전부 완료·push됐습니다. 단, round 7 fix들의
+실제 점수 효과는 아직 재측정 안 됐습니다 — Round 8 재채점부터 시작해주세요(원본 재클론+
+루브릭 재확인+fresh non-fork 에이전트 blind 채점). 그다음 "This session's top priorities".
 ```
