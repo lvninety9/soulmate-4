@@ -282,3 +282,65 @@ check whose own designer (this session, in round 4) implicitly assumed "blocked 
 "the model will comply," never explicitly testing "what if it doesn't." Round 4 already knew
 this pattern in the abstract (L02, L07's own general lessons say almost exactly this) — round 5
 is the concrete instance of forgetting to apply a lesson to a check built using the same lesson.
+
+## Round 6 — re-score confirms real movement, finds the template drifted again (same session)
+
+Jay's explicit instruction: keep re-scoring, objectively, until the gap to the original closes —
+round 6 is the first repeat of that loop. Another fresh, non-fork agent re-cloned the original
+`soulmate` repo (re-derived the rubric independently rather than trusting round 5's own
+description of it) and re-ran round 5's exact reproduction cases against a fresh `soulmate-4`
+clone, live, against the real local model.
+
+**All 5 of round 5's claimed fixes confirmed holding, independently, with fresh evidence**:
+headroom (fresh bootstrap + literal README step → 82→83/85, matches round 5's claim exactly);
+gate hardening (live, 2-message session: first mutation blocked, a genuinely *different* second
+mutation attempted with no protocol read in between — also correctly blocked, file confirmed
+never created); the `prt`-prefix fix (real `kilo export` shows a valid synthetic part, no
+crash); the `chat.message` warning (went further than round 5 — asked the model directly "is
+there a warning in this conversation, quote it," and it quoted the injected text verbatim,
+proving it's genuinely in-context, not just an export artifact); the URL/file-tree fixes.
+
+**Score moved: turnkey 74→81 (+7), structural 73→77 (+4)** — real, evidenced improvement, but
+"roughly half of what the 5 claimed fixes would suggest at face value" (the audit's own words),
+because of what it found next.
+
+**New finding, more embarrassing than any single round-5 gap**: `templates/AGENTS.md.template`
+had drifted from `AGENTS.md` **again, in the same session that had just fixed an earlier
+instance of exactly this** (see round 5, Finding 1). Root cause, read from the actual commits:
+`4fb2781` (the fix) only merged L06-L08 into the template; `d08e617` (adding L09/L10's mention
+and tightening prose in the live file) landed as a *separate* commit and the template was never
+touched again. `check-caps.sh --bootstrap-check`'s own line-count check cannot catch this class
+of bug by construction — two files can have the same length while saying materially different,
+even contradictory, things about how the gate behaves. This is the exact mechanism-vs-length gap
+this project's own methodology exists to catch (L04's "code that looks right and code that runs
+right are not the same claim" — here: "same length" and "same content" are not the same claim
+either), just never pointed at its own build tooling before.
+
+**Fix**: fully re-synced the template (verified: diffing both files' Sub-task gate/Learned
+Rules/Caps sections now returns nothing except the expected title placeholder difference).
+**Structural fix, not just a content fix** (the point being: this exact drift will recur a third
+time without something mechanical watching for it): added `check_template_drift()` to
+`check-caps.sh` — extracts the set of `[L<NN>]`/`[L<NN>-L<NN>]` rule IDs from both files via
+grep, `OVER CAP`s on any mismatch. Verified it actually catches drift, not just that it runs
+without error: deliberately deleted L10 from the template, confirmed the check fired with the
+exact IDs that differed named in the message, restored the file, confirmed it cleared.
+
+**Second finding**: every round's rule-archive.md entry has claimed a specific unit-test count
+("10/10 unit tests," "6/6," etc.) for `subtask-gate.ts`, but the actual test file only ever
+existed in this session's own scratchpad — never committed. `tests/subtask-gate.test.mjs` now
+exists for real in this repo (path made portable via `import.meta.url`, not the hardcoded
+absolute path the scratch version had), runs clean from a fresh clone
+(`node --experimental-strip-types tests/subtask-gate.test.mjs`), and `bootstrap.sh` now copies
+it into new projects too — they inherit the same plugin, they should inherit its test.
+
+**Also fixed**: `FEEDBACK_PENDING.md` #4 still said "L09's first-mutation gate" after round 5's
+own hardening made that phrase inaccurate — same drift-detection theme as everything else this
+round, just in prose instead of code. Re-verified the full headroom chain one more time after
+all of the above (adding the new File Map row for the test file cost the 1 line of margin round
+5 had just won back) — tightened L04's wording in both files identically, restored real margin.
+
+General lesson, sharper than round 5's own: an objective audit is only as good as its distance
+from the thing it's auditing, and *this session itself* is not exempt — the same session that
+fixes a drift bug can reintroduce the same drift bug one commit later if nothing mechanical
+checks for it. The fix that actually holds is never "be more careful next time," it's moving the
+check one level up: not just fixing the drift, but making the *next* drift impossible to miss.
