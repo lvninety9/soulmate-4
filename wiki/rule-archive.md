@@ -6,180 +6,13 @@ real output, root cause read from actual code.** Not a summary and not a "why we
 mattered" narrative (that's `SESSION_MASTER.md`) — a reader should be able to reproduce the claim
 from what's written here, not just trust it.
 
-## L01 — Kilo's real installed build is an opencode rebuild, not the Cline-fork public docs describe
 
-Before writing anything, checked Kilo's public docs (`kilo.ai/docs/...`) via WebFetch for the
-workflow-file frontmatter schema and the actual file-edit tool names. Two separate fetches of two
-different doc pages gave **mutually contradictory answers**: one said workflows live in
-`.kilo/commands/`, the other implied `.kilocode/workflows/`; a WebSearch turned up a real GitHub
-issue titled ".kilocode/workflows not loading" confirming the ecosystem itself was mid-migration
-between the two. Rather than pick one and guess, went straight to the actual installed extension
-on this machine: `~/.cursor/extensions/kilocode.kilo-code-7.4.20-linux-x64/`.
+## L01-L05 — moved to archive
 
-Findings, all from the binary/bundled files themselves, not docs:
-- `bin/kilo --help` and `kilo agent create --tools` output the real tool set: `bash, read, edit,
-  glob, grep, webfetch, task, todowrite, websearch, lsp, skill` — not `apply_diff`/
-  `write_to_file`/`search_and_replace` (the classic Cline-lineage names most public writeups and
-  the original port-planning doc assumed).
-- `bin/kilo run --help`'s startup log literally tags itself `service=default ... opencode`.
-- The extension's own bundled `docs/opencode-migration-plan.md` states outright: "This extension
-  is a **ground-up rebuild** ... using Kilo CLI as the backend ... CLI backend owns: agent
-  orchestration, MCP lifecycle, tool execution ... Extension owns: VS Code API integrations."
-  Same doc: "Workflows subtab is a stub" and "Custom Commands: CLI has custom commands; extension
-  provides UI entry points" — i.e. the UI for managing/discovering commands is unfinished,
-  independent of whether the underlying mechanism works (see L02 for whether it actually does).
-
-General lesson: for a fast-moving external tool, prefer reading the actual installed
-binary/bundled docs over public web docs when they disagree — public docs can describe an older
-or different product tier, and a real install is ground truth the way a live curl test beats a
-guessed API shape.
-
-## L02 — custom project slash commands don't work; protocol steps are self-served prose instead
-
-L01 found the CLI "has custom commands" per its own bundled docs, but the extension's command
-*discovery* UI is a stub — ambiguous whether the underlying mechanism itself works via the raw
-CLI even without a UI. Decided to test directly rather than trust either doc's framing.
-
-Method: created `.kilo/commands/pingtest.md` in a real test project with a unique frontmatter-
-free body containing a distinct marker string (`CANARY_MARKER_7f3a`) and an argument-substitution
-placeholder (`$ARGUMENTS`). Ran `kilo run "/pingtest hello-world"` against the local model and
-exported the resulting session (`kilo export <sessionID>`) to inspect the raw message JSON.
-
-Result: the user message's `text` field was literally the string `"/pingtest hello-world"` —
-the canary marker never appeared anywhere in the transcript. The model's next action was a
-`bash` tool call running `echo "pong: hello-world"`, described as "Respond to ping test" — pure
-improvisation from the command's file *name* (ping → pong), with zero connection to the file's
-actual content. Contrast with the earlier, unrelated observation that the word "discuss" seemed
-to work: that's explained by the model itself reading `wiki/protocols/discuss.md` on its own
-initiative on recognizing the word (confirmed by inspecting that session's tool calls — a `read`
-call for the exact file, immediately after the message), not by any command-injection mechanism.
-For a name with no matching doc anywhere in context (`pingtest`), nothing analogous exists to
-read, so the model just guesses from the name.
-
-Fix: don't build `.kilo/commands/*.md` expecting real invocation. Protocol methodology lives in
-`wiki/protocols/*.md` instead, named plainly (not `.kilo/commands/`, which would misleadingly
-imply working native integration) — `AGENTS.md`'s Protocol table is the only thing that actually
-reaches the model every message, and it just says "here's the doc to read for this word." Same
-underlying shape as soulmate-3's own Continue gap, different root cause (there: Continue's
-slash-command autocomplete never confirmed live at all; here: confirmed live to genuinely not
-inject anything).
-
-## L03 — AGENTS.md/CLAUDE.md/CONTEXT.md all auto-load, hierarchy-aware; AGENTS.md alone is sufficient
-
-Kilo exposes a `claudeCodeCompat` setting (off by default in the VS Code/Cursor extension, on by
-default when running the raw `kilo` CLI directly — confirmed by reading the extension's own
-spawn code: `!claudeCompat && {KILO_DISABLE_CLAUDE_CODE:"true"}`, i.e. the extension actively
-sets a disable env var unless the toggle is on; the raw CLI never sets that env var at all).
-Rather than trust the setting's one-line UI description ("Load CLAUDE.md instructions and
-skills from your Claude Code configuration directory into Kilo sessions"), read the actual
-instruction-loader code in the CLI binary via `strings`. Found the literal search-list
-construction:
-
-```
-f=[...KILO_CONFIG_DIR?[join(KILO_CONFIG_DIR,"AGENTS.md")]:[], join(config,"AGENTS.md"),
-   ...!disableClaudeCodePrompt?[join(home,".claude","CLAUDE.md")]:[]]
-D=["AGENTS.md", ...!disableClaudeCodePrompt?["CLAUDE.md"]:[], "CONTEXT.md"]
-```
-
-This confirms: every directory up the tree gets checked for `AGENTS.md`, `CLAUDE.md`, and
-`CONTEXT.md`. `AGENTS.md` is **unconditional** — present in the list regardless of the compat
-toggle. `CLAUDE.md` is the only one gated by `disableClaudeCodePrompt`. Skills discovery
-(`{skill,skills}/<name>/SKILL.md`) is separately gated by `disableClaudeCodeSkills`, same
-default-off-in-extension pattern.
-
-Verified live, not just read: created a project-root `CLAUDE.md` with a planted secret codeword,
-ran `kilo run "what is your secret codeword?"` against the local model with zero Anthropic/
-Claude credentials anywhere in the environment (`env | grep -i claude` showed only this CLI
-session's own unrelated `CLAUDE_CODE_*` vars, no API key) — the local model answered with the
-exact codeword, proving the file loaded and fed into a purely local inference call.
-
-Fix/decision: since `AGENTS.md` always loads and `CLAUDE.md` doesn't (without the toggle, which
-this repo doesn't want to depend on), this repo uses `AGENTS.md` only. No `CLAUDE.md` file
-exists here — duplicating the same content into both would just be a maintenance burden with no
-functional benefit for this specific harness's design.
-
-## L04 — a local reasoning model can burn an entire turn's output budget on invisible thinking
-
-Live test, a real sub-task ("S3: player kart physics + HUD data binding") on a throwaway test
-project: the model correctly ran `npx tsc --noEmit` for the first time in that project's history,
-got back several real compiler errors (a `@react-three/drei` import issue, a zustand store
-access-pattern bug), and began reasoning about how to fix them — visible in its `reasoning` text
-block starting to enumerate the errors. The turn never produced a tool call. Session export
-showed the final message: `finish: "length"`, `tokens.output: 32000`, with the literal system
-note: *"The model hit its output limit while reasoning and produced no actionable output. Try
-disabling reasoning or increasing the output limit."* Nothing was saved — no edit, no commit, no
-SESSION_PRIMER note about the tsc errors found. The next session would have had zero record this
-ever happened, had the file writes from *before* this turn not already been on disk.
-
-Root cause: this project's `llama-server` (llama.cpp) was launched with no `--reasoning` flag,
-which defaults to `auto` (detect from the model's chat template) — Qwen3.6 defaults to thinking
-enabled. Checked `llama-server --help` directly rather than guessing: it supports `-rea,
---reasoning [on|off|auto]` and a separate `--reasoning-budget N` token cap. No equivalent
-per-request toggle exists in Kilo's own config schema for an arbitrary openai-compatible
-provider — the reasoning behavior is entirely a property of the model/server, invisible to and
-uncontrollable by the harness layer.
-
-Fix: added `--reasoning off` to the `llama-server` systemd unit's `ExecStart` (`/etc/systemd/
-system/llama.service`) — this applies to every consumer of that server (Kilo, Continue,
-`hermes chat`, anything hitting `127.0.0.1:8080`), not just this repo. Verified before/after with
-a direct `curl` probe to `/v1/chat/completions`: before, a factual one-line question would come
-back with a `reasoning_content` block; after the restart, the identical question returned
-`completion_tokens: 17`, no reasoning field, no `<think>` tags. Also added a Fixed Rule in
-`wiki/PROJECT_BACKGROUND.md` and a `build.md` step: fix tsc/build errors one at a time, re-verify,
-commit, repeat — never try to reason through a whole error list in one response, since even with
-reasoning off, a long silent generation over many errors at once is still the same shape of risk
-on an output-token budget, just smaller in practice.
-
-## L05 — Kilo's CLI genuinely inherits opencode's tool.execute.before/after hooks
-
-soulmate-3's own "Known gap" documents that Continue exposes no equivalent of opencode's
-`tool.execute.before` plugin hook — nothing there can mechanically intercept a tool call.
-Assumed the same limitation might apply to Kilo (a VS Code/Cursor extension, same general
-category as Continue) until checked directly: `strings`-dumped the CLI binary and searched for
-the literal trigger call. Found it, repeated at every tool-execution site in the bundled code:
-
-```
-yield*I.trigger("tool.execute.before",{tool:q.id,sessionID:W.sessionID,callID:W.callID},{args:x})
-...
-yield*I.trigger("tool.execute.after",{tool:q.id,sessionID:W.sessionID,callID:W.callID,args:x},K)
-```
-
-Also found Kilo's own in-app help text (a static string in the binary, shown somewhere in its
-UI) stating plainly: "Add `.ts` files to `.kilo/plugins/` for event hooks" — confirming
-project-local auto-discovery needs no `kilo.jsonc` registration.
-
-Built `.kilo/plugins/subtask-gate.ts` on this: arms when a bash command both stages and commits
-`wiki/handoffs/SESSION_PRIMER.md` (checked via simple regex on the command string, tolerant of
-either a combined `git add ... && git commit ...` call or two separate calls), then rejects
-(throws) the very next tool call whose type is in a mutating set (`write`, `edit`, `bash`,
-`patch`, `multiedit`, `task`), disarming immediately after — one block per commit, not a
-permanent lock.
-
-Verified live end-to-end against a real project (not a mock/unit test): told the local model to
-(1) commit a trivial change to `SESSION_PRIMER.md`, then (2) immediately write to an unrelated
-file. Full session log:
-
-```
-$ git add wiki/handoffs/SESSION_PRIMER.md && git commit -m 'test: subtask gate probe'
-[master a8a7db6] test: subtask gate probe
-
-✗ Write /tmp/should-be-blocked.txt failed
-Error: [subtask-gate] wiki/handoffs/SESSION_PRIMER.md was just committed — that closes out a
-sub-task. Per project rules (CLAUDE.md/AGENTS.md), STOP now: ...
-```
-
-The model did not retry the blocked call — it reported the block and asked whether to continue,
-exactly the behavior soulmate-3 could never mechanically force. Test commit reverted afterward
-(`git reset --soft`) since it was a probe, not real work; the plugin file itself was committed as
-real system structure.
-
-Known limitation, recorded honestly rather than overclaimed (see
-`wiki/handoffs/FEEDBACK_PENDING.md` #3): once a call is blocked and the gate disarms, an
-immediate verbatim retry of the same call *would* succeed — this is a one-shot brake per commit,
-not an unbreakable lock. `AGENTS.md`'s own "no 3rd verbatim retry" rule is the only thing
-discouraging that path, and hasn't been separately stress-tested against a model that ignores
-the error text and retries anyway.
-
+Moved to `wiki/rule-archive-archive.md` (session 5's self-harness PRUNE step). Covers: Kilo's
+real opencode-rebuild identity (L01), custom slash commands not working (L02), AGENTS.md/
+CLAUDE.md/CONTEXT.md auto-load confirmation (L03), the reasoning-token-exhaustion incident (L04),
+and the live confirmation that Kilo inherits opencode's tool.execute hooks (L05).
 ## L06 — the gate's in-memory state did not survive across separate CLI invocations
 
 Round 1's own live verification (L05) proved the hook fires and blocks correctly — but that test
@@ -372,3 +205,80 @@ backstop one step earlier (before the first edit, not after a commit) fixed it i
 live re-run tried so far. Same pattern as every other self-serve failure in this project (L02,
 L07): prose-based self-serving is not reliable enough to depend on without a mechanical
 backstop, and the backstop has to sit as early in the flow as the failure itself does.
+
+## Round 5 — objective audit (score) + L09 hardened + L10 (opencode Part-ID validation)
+
+Jay asked for the same independent, objective scoring the original `soulmate` repo used to reach
+98.75/100 — a fresh, non-fork agent, blind, cloning both the original and this repo to calibrate
+the actual rubric rather than trusting either repo's own self-reported status. Result: **turnkey
+74/100, structural integrity 73/100** — well below the 87/98.75 the original hit, but every
+deduction was concrete and independently reproducible, not a vague haircut. Two findings were
+re-verified live in this session before acting on them (never trust a subagent audit's narrative
+alone — same discipline as every prior round):
+
+**Finding 1 (re-verified, confirmed real): `AGENTS.md`'s live template had zero cap headroom.**
+Ran the actual bootstrap, then did the README's own literal step 1 ("fill in `[project name]`
+and real File map rows") — 85 → 86 lines, `check-caps.sh` blocks the commit, reproduced twice.
+Root cause: `templates/AGENTS.md.template` had drifted from the live `AGENTS.md` (still had
+L06/L07/L08 as 3 separate bullets, matching this repo's own state *before* the merge that made
+room for L09 originally) — never kept in sync when the live file was edited later. Fixed by
+applying the same L06-L08 merge to the template (94→91 lines raw, 85→82 post-strip), giving 3
+real lines of headroom; re-ran the exact repro after the fix — 82→83, cap holds with margin,
+matching the original's own real `CLAUDE.md` (83/85). Also fixed the live `AGENTS.md` itself
+back to 84/85 (from 85/85, hit again by adding L10 below) by tightening prose in 3 sections
+without cutting content — the *pattern*, not just this one instance, matters: whenever a
+rule/section addition would otherwise land back at 85/85, tighten wording elsewhere first.
+
+**Finding 2 (re-verified, confirmed real — the audit's #1 priority): the L09 gate was a true
+one-shot for the entire session, not per-event.** The original L09 code only checked
+`!state.firstMutationChecked[sessionID]` — set `true` the moment the *first* mutating call was
+attempted, blocked or not, and never checked again. Live reproduction: fresh bootstrap, "write a
+small python script" — first `write` blocked correctly, model read `wiki/protocols/build.md`,
+second `write` succeeded — then it ran a `bash` test command and **stopped, having never run
+`git commit`**, `wordcount.py` sitting untracked. This matches the audit's separate, even higher-
+priority finding (below) more than it reveals a gap in L09 itself *for that specific run* — but a
+second, deliberately adversarial repro (bare "hello", no real task) showed the actual L09 gap
+directly: after the gate blocks once, *any different* mutating call (not a retry of the same
+one) sailed through with zero further check, no matter how many followed, for the rest of the
+session. Fixed: removed `firstMutationChecked` entirely; the check now re-evaluates on *every*
+mutating call and only stops firing once `protocolDocRead[sessionID]` is actually `true` — a
+real compliance gate, not a one-time nudge. Verified: 10/10 isolated unit tests (Node, no Kilo —
+including a new case matching the audit's exact "different mutation, still no read, still
+blocked" scenario), then live: same "hello" repro, now the model's `git status`/`rm`/`ls` bash
+attempts were all correctly blocked, it `glob`'d `wiki/protocols/*.md`, read `discuss.md`, and
+only then got an unblocked turn.
+
+**Finding 3 (found only via the live re-verification above, not by the audit): opencode
+validates synthetic `Part` IDs strictly.** Building a `chat.message` hook (see next paragraph)
+that injected a synthetic warning part with an ad-hoc string ID crashed the *entire* request —
+`error: Expected a string starting with "prt", got "subtask-gate-carryover-<timestamp>"` — a
+hard server error, not a soft ignore or log line. Confirmed by reading the real crash output
+(not guessed), fixed by matching the real ID shape observed in `kilo export` output
+(`prt_<random>`), re-verified live — injection now lands correctly, visible in `kilo export` as
+a `synthetic: true` part on the next user message. Same L01-class lesson: this tool's real
+behavior under a specific input shape isn't discoverable from types/docs alone, only from
+actually triggering it.
+
+**New capability, addressing the audit's #1-ranked highest-leverage fix (end-of-turn uncommitted
+work): `chat.message` hook, since opencode's plugin API has no true end-of-turn/session hook at
+all** (confirmed by reading `@opencode-ai/plugin`'s own shipped type definitions — same
+check-the-real-thing discipline as L01, not assumed from docs). `chat.message` fires when a
+*new* message starts — the closest available proxy. On every new message, if `git status
+--porcelain` is non-empty, prepend a synthetic warning part naming the exact leftover paths,
+before the model does anything else. **Honest limitation, stated plainly, not silently
+claimed as full coverage**: this cannot catch a session that does uncommitted work and is simply
+abandoned outright, never resumed — no hook fires on that at all, by the API's own design. It
+does mechanically catch this repo's own documented common case (`build.md`: "the next build —
+ideally in a fresh session") the moment that next message arrives. Verified: 2 new unit tests
+(injection fires with the right file named on a dirty tree; no injection on a clean tree), then
+live — deliberately left `wordcount.py` uncommitted from finding 2's repro, sent a plain
+follow-up message in the same session, and confirmed via `kilo export` that the synthetic
+warning part actually landed on that next user message with a real `prt_`-format ID.
+
+General lesson tying all three findings together: an *objective, independent* audit — not this
+project's own self-report — found real gaps in exactly the two places self-assessment is
+weakest: a template that silently drifted from the file it was copied from, and a mechanical
+check whose own designer (this session, in round 4) implicitly assumed "blocked once" meant
+"the model will comply," never explicitly testing "what if it doesn't." Round 4 already knew
+this pattern in the abstract (L02, L07's own general lessons say almost exactly this) — round 5
+is the concrete instance of forgetting to apply a lesson to a check built using the same lesson.
