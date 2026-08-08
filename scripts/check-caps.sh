@@ -332,10 +332,13 @@ check_watch_size() {
   if [ ! -f "$file" ]; then
     return 0
   fi
-  local lines
+  local lines archive_dest
   lines=$(norm "$file" | wc -l | tr -d ' ')
   if [ "$lines" -gt "$warn" ]; then
-    echo "WATCH: $file is $lines lines (append-only, no hard cap) — getting large, consider an archive/compress pass"
+    archive_dest="${file%.md}-archive.md"
+    echo "WATCH: $file is $lines lines (append-only, no hard cap) — move its oldest entries to" \
+         "$archive_dest (same pattern for all 3 of these files, wiki/protocols/self-harness.md" \
+         "PRUNE step) and leave a one-line pointer behind"
   fi
 }
 
