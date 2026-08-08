@@ -110,10 +110,10 @@ HEAD is several commits ahead, see `git log fec44a1..HEAD --oneline`).
 |---|---|---|
 | 1 | 커스텀 슬래시커맨드 Kilo CLI 미작동(Kilo 자체 한계, 미래 업데이트로 바뀔 수 있음) | ⚠️ |
 | 2 | 게이트 1회 차단 후 즉시 재시도하면 통과 — 설계상 의도, 4라운드 걸쳐 재확인됨(L09도 동일 트레이드오프로 설계) | 🔶 |
-| 3 | "discuss" 자기서빙 3라운드 중 최소 2라운드 실패(모델이 파일 안 읽고 단어만으로 추론) | 🔴 |
+| 3 | "discuss" 자기서빙 3라운드 중 최소 2라운드 실패 — L09 첫-mutation 게이트가 *어떤* protocol 문서든 하나는 읽게 강제하지만, 모호한 작업에서 그게 실제로 discuss.md인지는 미검증(전용 blind 시행 필요, FEEDBACK #4) | 🔴 |
 | 4 | 차단 후 모델 self-report 거짓 사례 2건 — 항상 실제 git/파일 상태로 재확인 필요 | 🔴 |
 | 6 | Hermes/soulmate 1-3에 refactor.md 백포트 — round 4+L09 완료로 Jay가 미뤄둔 조건 충족, 재확인 필요 | ⚠️ |
-| 7 | `refactor.md`/`build.md`가 "verification command"를 구체적으로 명명 안 함 — no-op 명령을 모델이 통과로 오인한 실측 사례 있음(round 4 trial 3, 단 재검증 시행에선 모델이 스스로 올바른 명령으로 재시도함) | 🔴 |
+| 7 | `refactor.md`/`build.md`가 "verification command"를 구체적으로 명명 안 함 | ✅ 세션5에 두 문서 다 명시적 규칙 추가(FEEDBACK #11) |
 
 ## Next session's starter prompt
 
