@@ -35,11 +35,18 @@ Method:
    is the actual handoff, do it here.
 4. **Actually run the build/typecheck/test command before calling anything "done."** Code that
    only imports the right things is not verified — see `wiki/rule-archive.md`'s Fixed Rule on
-   this. If that command reports multiple errors: fix exactly one, re-run to confirm it's gone,
-   commit, then move to the next. Do not reason through a full list of errors and try to fix
-   them all inside one response — a local model has no output-token budget signal, and a long
-   silent reasoning pass over several errors at once can exhaust the whole response with no code
-   produced and no state saved. One error, one fix, one commit, every time.
+   this. **The command must be the project's real test runner** (`pytest <file>` /
+   `python -m pytest <file>`, `npm test`, `npx tsc --noEmit`, etc.) — never a bare
+   `python <file>.py` unless that exact file has a real `if __name__ == "__main__":` block that
+   actually exercises the code path being verified (round 4's L09 found the model trust a bare
+   script invocation that silently ran zero tests, exit 0, no output, and called that "passed" —
+   `wiki/rule-archive.md` L09). **0 exit code + empty/near-empty output is a red flag, not a
+   pass** — read the actual output, don't just check the exit code. If that command reports
+   multiple errors: fix exactly one, re-run to confirm it's gone, commit, then move to the next.
+   Do not reason through a full list of errors and try to fix them all inside one response — a
+   local model has no output-token budget signal, and a long silent reasoning pass over several
+   errors at once can exhaust the whole response with no code produced and no state saved. One
+   error, one fix, one commit, every time.
 5. Checkpoint trigger — stop mid-sub-task the moment any of these happen:
    - you've read/edited noticeably more files than the sub-task's "시작 파일" list named
    - you're on your second full read-through of the same doc trying to find something
