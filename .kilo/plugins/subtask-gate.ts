@@ -63,7 +63,6 @@ type State = {
   commitsSincePrimer: Record<string, number>
   lastSeenHead: Record<string, string>
   protocolDocRead: Record<string, boolean>
-  firstMutationChecked: Record<string, boolean>
 }
 
 function loadState(): State {
@@ -75,13 +74,12 @@ function loadState(): State {
         commitsSincePrimer: parsed.commitsSincePrimer ?? {},
         lastSeenHead: parsed.lastSeenHead ?? {},
         protocolDocRead: parsed.protocolDocRead ?? {},
-        firstMutationChecked: parsed.firstMutationChecked ?? {},
       }
     }
   } catch {
     // Corrupt/unreadable state file: fail open (unarmed) rather than crash the hook.
   }
-  return { armed: {}, commitsSincePrimer: {}, lastSeenHead: {}, protocolDocRead: {}, firstMutationChecked: {} }
+  return { armed: {}, commitsSincePrimer: {}, lastSeenHead: {}, protocolDocRead: {} }
 }
 
 function saveState(state: State) {
@@ -101,6 +99,19 @@ function currentHead(): string | null {
     }).trim()
   } catch {
     return null // not a git repo (yet) — don't guess
+  }
+}
+
+function gitPorcelainStatus(): string[] {
+  try {
+    const out = execSync("git status --porcelain", {
+      cwd: PROJECT_ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+    return out.split("\n").filter(Boolean)
+  } catch {
+    return []
   }
 }
 
@@ -139,9 +150,15 @@ const BLOCK_MESSAGE_ELECTIVE = (n: number) =>
   "update wiki/handoffs/SESSION_PRIMER.md's Current sub-task block, commit it, then ask the " +
   "user whether to continue."
 
+const BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER = (files: string[]) =>
+  "[subtask-gate] Uncommitted changes are already sitting in the working tree from before this " +
+  `message started (${files.length} path(s): ${files.slice(0, 5).join(", ")}` +
+  `${files.length > 5 ? ", ..." : ""}). Per AGENTS.md's "commit per file, always" rule, commit ` +
+  "or explicitly decide what to do with these before starting any new work this turn."
+
 const BLOCK_MESSAGE_NO_PROTOCOL_READ =
-  "[subtask-gate] This is this session's first mutating tool call, and no wiki/protocols/*.md " +
-  "file has been read yet this session. Per AGENTS.md's Protocol table, read the doc matching " +
+  "[subtask-gate] No wiki/protocols/*.md file has been read yet this session, and mutating " +
+  "tool calls stay blocked until one is. Per AGENTS.md's Protocol table, read the doc matching " +
   "this task's shape first (discuss/design/build/verify/refactor/self-harness) — then retry."
 
 export const SubtaskGate = async () => ({
@@ -172,17 +189,22 @@ export const SubtaskGate = async () => ({
       throw new Error(reason === "primer" ? BLOCK_MESSAGE_COMMIT : BLOCK_MESSAGE_ELECTIVE(n))
     }
 
-    // L09: the two post-commit checks above never get a chance to fire for a refactor that
-    // lands in 0-1 commits, and the self-serve premise never fired either — so check this one
-    // step earlier, before the session's first mutation, instead of after its first commit.
-    if (MUTATING_TOOLS.has(tool) && !state.firstMutationChecked[sessionID]) {
-      state.firstMutationChecked[sessionID] = true
-      const readProtocol = state.protocolDocRead[sessionID] === true
+    // L09 (round 4), strengthened (round 5, after an independent objective audit reproduced a
+    // real gap live): the two post-commit checks above never get a chance to fire for a
+    // refactor that lands in 0-1 commits, and the self-serve premise never fired either — so
+    // check this one step earlier, before any mutation, instead of after a commit. The
+    // original version only checked the session's *first* mutating call and then never again —
+    // the audit reproduced a live session where the model's first write was blocked, it never
+    // actually read a protocols doc, and its very next write (a different file, not a retry of
+    // the same call) sailed through unchecked for the rest of the session. Now blocks *every*
+    // mutating call, not just the first, until a real `wiki/protocols/*.md` read is observed —
+    // then never blocks for this reason again this session. Still not a permanent lock (a
+    // verbatim retry of the exact same call still isn't separately tracked — matches the other
+    // two checks' documented trade-off, FEEDBACK #3) but the lock now only lifts on actual
+    // compliance, not on the mere passage of one blocked attempt.
+    if (MUTATING_TOOLS.has(tool) && !state.protocolDocRead[sessionID]) {
       saveState(state)
-      if (!readProtocol) {
-        throw new Error(BLOCK_MESSAGE_NO_PROTOCOL_READ)
-      }
-      return
+      throw new Error(BLOCK_MESSAGE_NO_PROTOCOL_READ)
     }
 
     if (dirty) saveState(state)
@@ -226,5 +248,41 @@ export const SubtaskGate = async () => ({
       }
     }
     saveState(state)
+  },
+
+  // Round 5, after an independent objective audit's highest-priority finding: a live session
+  // wrote and manually tested a real file, then simply stopped — no further tool call, no
+  // commit, and nothing above could catch it, because every check so far only fires inside
+  // `tool.execute.before`/`after`, and neither runs again if the model just ends its turn.
+  // opencode's plugin API (confirmed by reading @opencode-ai/plugin's own type definitions —
+  // same L01-style "check the actual binary/types, not assumed docs" discipline) has no
+  // end-of-turn/end-of-session hook at all — `chat.message` (fires when a *new* message starts)
+  // is the closest available thing. This can't catch a session that's abandoned outright and
+  // never resumed (a real, honest limitation, not silently claimed as fixed) — but it does
+  // mechanically catch the documented common case this repo's own `build.md` recommends
+  // ("the next build — ideally in a fresh session"): the moment that next message arrives,
+  // prepend a synthetic warning naming the exact leftover files, before the model does
+  // anything else.
+  "chat.message": async (input: any, output: any) => {
+    const sessionID = input?.sessionID
+    if (!sessionID) return
+
+    const dirty = gitPorcelainStatus()
+    if (dirty.length === 0) return
+
+    const warning = {
+      // opencode validates part IDs strictly (must start with "prt" — confirmed live: a
+      // non-conforming ID crashed the whole request with a hard server error, not a soft
+      // ignore). Match the real ID shape observed in `kilo export` output (`prt_<random>`).
+      id: `prt_gatecarry${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
+      sessionID,
+      messageID: output?.message?.id ?? input?.messageID ?? "",
+      type: "text",
+      synthetic: true,
+      text: BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER(dirty),
+    }
+    if (Array.isArray(output?.parts)) {
+      output.parts.unshift(warning)
+    }
   },
 })
