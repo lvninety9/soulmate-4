@@ -267,3 +267,84 @@ supposed to trigger it. If that event is itself something the thing you don't tr
 context-pressured local model) has to remember to do, the brake inherits all of that same
 unreliability one level up — the fix has to make the *trigger* mechanical too, not just the
 block that follows it.
+
+## L09 — refactor.md's self-serve premise never fired, in any of 3 independent trials
+
+Rounds 1-3 validated discuss/design/build/verify's self-serve mechanism working (the model
+reading the matching `wiki/protocols/*.md` file on recognizing task framing) but never exercised
+`refactor.md`, added mid-session-1 and untested since (FEEDBACK #9). Round 4 built a target
+project with real pre-existing, working code with duplicated logic (`data_utils.py`, 3
+near-duplicate function pairs, 9 passing tests, committed as an ordinary baseline commit with no
+mention of the harness anywhere) and drove the real local model via `kilo run` against it,
+checking each of refactor.md's specific claims with hard evidence — `kilo export <sessionID>`
+transcripts, `git log`/`git branch`/`git tag`, and independently re-running the model's own
+"verification" commands — never trusting the model's self-report (consistent with the prior
+`false self-report` finding, FEEDBACK #6).
+
+Three trials, isolating one variable at a time (same discipline as L06):
+1. **Abstract framing** ("clean up data_utils.py, it works but it's grown messy with duplicated
+   logic"), single process. Model read only `data_utils.py`/`test_data_utils.py` — zero `read`
+   calls on any `wiki/protocols/*.md` path (confirmed via the transcript's raw tool-call list and
+   the officially-documented `kilo export` method, both agree). Merged all 3 duplicate pairs in
+   one `write` per file, ran a real `pytest`, reported a summary, **did not commit**.
+2. **Same session, separate process** (`kilo run --continue`, matching the exact cross-invocation
+   shape L06 exists to protect): told "looks good, go ahead and commit it" — bundled both changed
+   files into a **single** commit (`1e75e9f`), violating `build.md`'s own per-file commit
+   discipline as well as refactor.md's per-unit discipline.
+3. **Control trial, literal word "refactor" in the prompt**, isolated on a fresh branch from the
+   same baseline commit: same result — `read`/`glob`/`read`/`bash`/`bash`/`edit`/`bash`/`read`,
+   never touching a protocol doc. This rules out "the model didn't recognize refactor-shaped
+   framing" as the cause; the self-serve mechanism doesn't fire for this class of task at all,
+   framing aside.
+
+None of refactor.md's specific claims held, each checked independently:
+- **Backup-first**: no `git status`/`git branch`/`git tag`/"rollback" text anywhere in any of the
+  3 transcripts; `git branch -a` after trial 1 showed only `master`.
+- **Small verified units**: trial 1→2 produced one commit for a 2-file, 3-function-pair merge
+  (`git show --stat 1e75e9f`); trial 3 produced zero commits.
+- **Real verification**: trial 1's `python3 -m pytest test_data_utils.py -v` was genuine (8/8,
+  real output). Trial 3's verification command, `python3 test_data_utils.py`, is a **no-op** —
+  the file has no `if __name__ == "__main__"` block, so the command exits 0 with zero tests run
+  (confirmed by re-running it directly) — yet the model reported "all tests pass" from it, twice.
+  This is the exact failure mode refactor.md's own text warns about ("code that looks right and
+  code that runs right are not the same claim"), except here the model never even reached the
+  "looks right" step — it ran a command that verified nothing and believed it.
+- **Stop-and-ask**: both trials chained read→read→write→write→bash→bash (or equivalent) in one
+  uninterrupted turn across all 3 function-pair merges, never pausing to report one unit before
+  starting the next. Headless `kilo run` denies the `question` permission by default
+  (`{"permission":"question","action":"deny"}` in the exported session), so literal "ask and
+  wait" isn't structurally available in this driving mode — but ending the turn after unit 1 was
+  still available and unused.
+- **Correctness, incidentally**: trial 1's merge introduced a real silent regression (an
+  unconditional `if " " in email: return False` that used to be strict-only), undetected by the
+  model's own tests or report — direct spot-check: `validate_email("a @b.com")` flipped from
+  `True` to `False`. Trial 3's merge happened to be correct, but only by accident relative to its
+  own (no-op) verification.
+
+Root cause, read from the actual code: `AGENTS.md`'s only instruction to self-serve a protocol
+doc is prose ("read the matching doc yourself, every time") — nothing mechanical forces a `read`
+call before the first mutating action. `subtask-gate.ts` cannot compensate structurally: it only
+fires in `tool.execute.before` for mutating tools *after* a commit has landed (armed via a
+primer-touching commit or `COMMITS_WITHOUT_PRIMER_THRESHOLD`), and because a real refactor here
+landed in 0-1 commits, the gate never crossed its own arming threshold — the gate's whole design
+assumes `build.md`'s per-file commit discipline is already happening, which trial 1-3 show isn't
+reliable on its own for a refactor-shaped task.
+
+Fix (designed, not yet built — needs its own blind re-verification round once built, same as
+L06-L08): extend the same mechanical-brake pattern one step earlier in the flow. Add a
+`tool.execute.before` check (in `subtask-gate.ts` or a sibling plugin) that, on the *first*
+mutating call of a session touching tracked source files, requires at least one `read` on a
+`wiki/protocols/*.md` path to have already happened this session (persisted the same way
+`armed`/`lastSeenHead` already are, keyed by session ID) — block with a message naming the
+missing doc if not. Separately, name a canonical verification invocation in `refactor.md`/
+`build.md` ("`python -m pytest <file>`", not generically "the test suite") — nothing currently
+distinguishes a real test run from a no-op like trial 3's, in either the protocol text or a
+mechanical check.
+
+General lesson: this project's core premise — "the model self-serves the matching protocol doc
+on recognizing the task's shape" — has now failed its live test for one of the 6 documented
+protocols (refactor), in 3/3 independent trials, word "refactor" present or not. The pattern this
+project has followed for every other self-serve failure (L02, L07) applies again: prose-based
+self-serving is not reliable enough to depend on without a mechanical backstop, and that backstop
+has to sit as early in the flow as the failure itself does — here, before the first edit, not
+after a commit.
