@@ -172,3 +172,51 @@ reported fix is missing its commit, no round's findings were invented or omitted
 compaction/summarization notice ever fired during this session (verified: none of the
 conversation's own system-level signals indicated one), so this cross-check is a belt-and-
 suspenders confirmation, not a recovery from a known gap.
+
+## Round 4 (blind) — refactor.md self-serve validation (2026-08-08, next session)
+
+> Naming note: this is the 4th *blind-validation* round (matching FEEDBACK #9/#10's numbering
+> and SESSION_PRIMER's "Current sub-task" language), distinct from the "Round 4 — architecture
+> realignment" section directly above, which was a same-day Jay-directed doc/config fix with no
+> blind agent involved. Kept as two separate sections rather than renumbering the one above, to
+> avoid rewriting an already-cross-checked section.
+
+Jay decided to proceed with Round 4 after the architecture realignment (FEEDBACK #9: `refactor.md`
+had never been exercised by any of rounds 1-3, which only drove discuss/design/build/verify). A
+fresh, context-isolated agent (not a fork — same isolation discipline as rounds 1-3) was given
+only the harness's public repo URL and told to bootstrap a target project, seed it with real
+pre-existing, working, duplicated-logic code (a `data_utils.py` with 3 near-duplicate function
+pairs and 9 passing tests, committed as an ordinary baseline commit with zero mention of the
+harness anywhere in it — refactor.md only makes sense against code that already works), then
+drive the real local model via `kilo run` through an abstract "clean this up, it's grown messy"
+task and check refactor.md's specific claims with hard evidence, never trusting the model's own
+self-report (matching FEEDBACK #6's prior finding of fabricated self-reports).
+
+**Result: the self-serve premise this entire harness is built on — "the model reads the matching
+`wiki/protocols/*.md` file on recognizing the task's shape" — did not fire once, across 3
+independent trials** (abstract framing; the same framing with the literal word "refactor" added,
+to rule out a wording problem; and a cross-process continuation matching the harness's own
+documented usage pattern). This is a materially bigger finding than FEEDBACK #9 anticipated (it
+expected the backup-step or per-unit-verify-loop to be the weak point, assuming the doc would at
+least get read) — full evidence, root cause, and a designed-but-not-yet-built fix are in
+`wiki/rule-archive.md` L09. As a direct consequence of the doc never being read: no recovery
+branch/tag was ever created, the whole refactor landed in a single bundled commit (or zero
+commits) instead of small verified units, and — independently interesting — one trial's
+"verification" command was a real no-op (`python3 test_data_utils.py` against a test file with no
+`if __name__ == "__main__"` block) that the model trusted anyway, and a genuine silent regression
+slipped through undetected in the other trial.
+
+**Root cause** (read from the actual code, not guessed): `AGENTS.md` only asks for protocol-doc
+self-serving in prose; `.kilo/plugins/subtask-gate.ts` structurally can't compensate because it
+only fires *after* a commit lands, and this test shows a refactor reliably lands in 0-1 commits —
+never crossing the gate's own arming threshold. Same underlying shape as L02 (self-serve doesn't
+mechanically fire) and L07 (a brake is only as strong as its trigger), now confirmed for a 6th
+protocol the same way the first five were confirmed working.
+
+**Fix, not yet built**: extend `subtask-gate.ts` with a `tool.execute.before` check on a
+session's *first* mutating call — require at least one `read` on a `wiki/protocols/*.md` path to
+have already happened, block naming the missing doc if not (same disk-persisted-state shape as
+L06's fix). This needs its own unit test (Node, no Kilo) plus a live re-verification round the
+same way L06-L08's fixes were each re-verified, before it can be marked done — not yet started,
+pending Jay's decision on whether to spend the additional GPU/live-test time now or next session
+(this round alone used a fresh local-model session end-to-end, ~750s wall clock).
