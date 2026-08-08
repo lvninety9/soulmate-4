@@ -4,77 +4,8 @@
 > current state, `wiki/session-log.md` for the one-line index. **Role: why, not what** — status
 > with no reasoning belongs in SESSION_PRIMER, raw evidence in `wiki/rule-archive.md`.
 
-## Origin, Round 1 investigation, and validation methodology — moved to archive
-
-Moved to `wiki/handoffs/SESSION_MASTER-archive.md` (session 5's self-harness PRUNE step, first
-time this file crossed `check-caps.sh`'s WATCH threshold — see `wiki/protocols/self-harness.md`).
-Covers: why this repo exists instead of patching soulmate-3, Round 1's investigation of Kilo's
-real capabilities (L01-L05's discovery narrative), the reasoning-token-exhaustion incident (L04),
-the zustand/tsc audit finding that motivated `build.md`'s verification rule, and the rounds 1-3
-validation methodology (fresh-agent-not-fork, blind bootstrap, two-axis scoring). None of this
-changed or was re-verified this session — it's moved, not summarized differently.
-Also moved (same PRUNE pass, session 5 continued — `rule-archive.md` and this file both crossed
-WATCH the same session): rounds 1-3's blind-validation narratives (word-frequency CLI/LRU cache/
-config parser — full detail already in `wiki/handoffs/SESSION_PRIMER.md`'s table) and the
-"Round 4 — architecture realignment" section (original-vs-soulmate-4 cap comparison, the
-Rules-merge decision). Nothing here changed or was re-verified — moved, not summarized.
-
-## Round 4 (blind) — refactor.md self-serve validation (2026-08-08, next session)
-
-> Naming note: this is the 4th *blind-validation* round (matching FEEDBACK #9/#10's numbering
-> and SESSION_PRIMER's "Current sub-task" language), distinct from the "Round 4 — architecture
-> realignment" section directly above, which was a same-day Jay-directed doc/config fix with no
-> blind agent involved. Kept as two separate sections rather than renumbering the one above, to
-> avoid rewriting an already-cross-checked section.
-
-Jay decided to proceed with Round 4 after the architecture realignment (FEEDBACK #9: `refactor.md`
-had never been exercised by any of rounds 1-3, which only drove discuss/design/build/verify). A
-fresh, context-isolated agent (not a fork — same isolation discipline as rounds 1-3) was given
-only the harness's public repo URL and told to bootstrap a target project, seed it with real
-pre-existing, working, duplicated-logic code (a `data_utils.py` with 3 near-duplicate function
-pairs and 9 passing tests, committed as an ordinary baseline commit with zero mention of the
-harness anywhere in it — refactor.md only makes sense against code that already works), then
-drive the real local model via `kilo run` through an abstract "clean this up, it's grown messy"
-task and check refactor.md's specific claims with hard evidence, never trusting the model's own
-self-report (matching FEEDBACK #6's prior finding of fabricated self-reports).
-
-**Result: the self-serve premise this entire harness is built on — "the model reads the matching
-`wiki/protocols/*.md` file on recognizing the task's shape" — did not fire once, across 3
-independent trials** (abstract framing; the same framing with the literal word "refactor" added,
-to rule out a wording problem; and a cross-process continuation matching the harness's own
-documented usage pattern). This is a materially bigger finding than FEEDBACK #9 anticipated (it
-expected the backup-step or per-unit-verify-loop to be the weak point, assuming the doc would at
-least get read) — full evidence, root cause, and a designed-but-not-yet-built fix are in
-`wiki/rule-archive.md` L09. As a direct consequence of the doc never being read: no recovery
-branch/tag was ever created, the whole refactor landed in a single bundled commit (or zero
-commits) instead of small verified units, and — independently interesting — one trial's
-"verification" command was a real no-op (`python3 test_data_utils.py` against a test file with no
-`if __name__ == "__main__"` block) that the model trusted anyway, and a genuine silent regression
-slipped through undetected in the other trial.
-
-**Root cause** (read from the actual code, not guessed): `AGENTS.md` only asks for protocol-doc
-self-serving in prose; `.kilo/plugins/subtask-gate.ts` structurally can't compensate because it
-only fires *after* a commit lands, and this test shows a refactor reliably lands in 0-1 commits —
-never crossing the gate's own arming threshold. Same underlying shape as L02 (self-serve doesn't
-mechanically fire) and L07 (a brake is only as strong as its trigger), now confirmed for a 6th
-protocol the same way the first five were confirmed working.
-
-**Fix, built and live-verified the same session**: extended `subtask-gate.ts` with a
-`tool.execute.before` check on a session's *first* mutating call — require at least one `read` on
-a `wiki/protocols/*.md` path to have already happened, block naming the missing doc if not (same
-disk-persisted-state shape as L06's fix). Jay chose to proceed with the fix immediately rather
-than defer it. 6 isolated unit tests (Node, no Kilo) passed first. The live re-verification
-needed a real GPU wait: Hermes's Seam longform cron was mid-run on the same shared RTX 3080 when
-the fix landed (VRAM ~9.2/10.2GB, L11) — waited ~8h for it to clear rather than contend with a
-production job, then re-ran round 4 trial 1's exact prompt against a fresh bootstrap seeded with
-the identical baseline module. Result: the first `write` call was blocked (`status: "error"` in
-the exported transcript); the model's very next actions were reading `refactor.md`, checking
-`git status --porcelain`, creating a named recovery branch, stating the rollback command in its
-own text *before* touching the file, running a real `pytest` (self-correcting from `python` to
-`python3` when the first invocation failed), and committing per file — every claim that failed
-3/3 in round 4 passed this time. Independently re-ran pytest and diffed the logic: no regression,
-unlike trial 1's silent bug. Full evidence in `wiki/rule-archive.md` L09; FEEDBACK #9 and #10
-both closed.
+Also moved (round 6, crossed WATCH again): "Round 4 (blind) — refactor.md self-serve validation"
+— full detail already in `wiki/rule-archive.md` L09 and `SESSION_PRIMER.md`'s round table.
 
 ## Round 5 — objective blind audit + hardening (2026-08-08, session 5 continued)
 
@@ -144,3 +75,28 @@ mechanical backstop at all — it's the one protocol step producing zero tool ca
 none of `subtask-gate.ts`'s hooks (all keyed to tool calls or new messages) can reach it. No
 design proposed yet. Next objective re-audit, once run, will show whether today's fixes actually
 moved the score — that's the loop Jay asked for, not a one-time pass.
+
+## Round 6 — re-score confirms it, finds the fixes' own fix drifted (2026-08-08, same day)
+
+The re-audit: turnkey 74→81 (+7), structural 73→77 (+4), every round-5 fix independently
+reconfirmed live by a fresh agent. Real movement, roughly half what 5 fixes might suggest —
+because of what else it found.
+
+`templates/AGENTS.md.template` had drifted from `AGENTS.md` **again**, in the very session that
+had just fixed an earlier instance of exactly that bug. The round-5 fix commit only merged
+L06-L08 into the template; L09/L10 landed in the live file one commit later and the template was
+never touched again. `check-caps.sh`'s own cap enforcement is line-count-based and structurally
+cannot see this — two files can be the same length and say contradictory things about how the
+gate behaves. Fixed both fully (verified via diff), then closed the actual gap rather than just
+this instance of it: `check_template_drift()` in `check-caps.sh` now diffs the Learned Rule ID
+set between the two files and fails the check on any mismatch — tested by deliberately desyncing
+and confirming it fires, not just that it runs.
+
+Second finding: "10/10 unit tests" had been claimed in `rule-archive.md` every round since L06,
+but the file itself only ever existed in scratch, thrown away each session — never committed.
+`tests/subtask-gate.test.mjs` is now real, portable (no hardcoded machine path), and copied into
+new projects by `bootstrap.sh` too. Full evidence: `wiki/rule-archive.md`'s Round 6 entry.
+
+General lesson this round adds on top of round 5's: the auditing session is not exempt from what
+it audits — fixing a drift bug doesn't prevent the same session from reintroducing it one commit
+later. The durable fix is never "be more careful," it's a mechanical check one level up.
