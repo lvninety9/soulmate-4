@@ -34,3 +34,13 @@ Method:
 Rule lifecycle: new (full write-up in `wiki/rule-archive.md`) → compressed to a one-liner in
 `AGENTS.md` → once it never recurs, absorbed into a principle, or archived out per step 4 above
 once `AGENTS.md`'s own 10-entry Learned Rules cap forces a choice.
+
+**Compression priority when the 10-entry cap is hit** (not the same choice as step 4's archiving
+— this is about merging one-liners *within* `AGENTS.md` itself, evidence stays in
+`wiki/rule-archive.md` either way): merge rules that share a root cause, the same file/mechanism
+they fixed, or the same blind-validation round *before* merging anything else — a same-family
+merge loses no distinct information (e.g. L06/L07/L08 were all `subtask-gate.ts` bugs found via
+rounds 1-3, merged into one `[L06-L08]` entry to make room for L09). Never merge two rules just
+because both happen to be old, or because a merge is convenient — that's how a real, distinct
+lesson quietly disappears. If nothing shares a family, that itself is a signal the cap is being
+hit by genuine breadth, not accidental fragmentation — raise it to Jay rather than force a merge.
