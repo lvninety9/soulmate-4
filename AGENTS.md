@@ -12,9 +12,8 @@ File over ~50 lines: grep the section you need, never read whole "just in case."
 ## Edit discipline
 Commit per file, always — finish one file, commit it, before the next, even an ad-hoc fix made
 before any protocol step. Never batch files into one commit (`pre-commit-check-caps` blocks >3
-staged files as a backstop — don't rely on it catching what this should already prevent). Edit
-anchors: smallest unique fragment (2-3 lines), never a whole block — grep first. Same tool+file
-error twice in a row: switch tool or stop and flag it, never a 3rd verbatim retry.
+staged files — don't rely on it catching what this should already prevent). Edit anchors:
+smallest unique fragment (2-3 lines) — grep first. Same tool+file error twice: switch or stop.
 
 ## Protocol
 | Step | When | Doc |
@@ -46,6 +45,7 @@ steps above are self-served prose instead, same shape as soulmate-3's Continue g
 | entity map, glossary, pipeline | `wiki/PROJECT_BACKGROUND.md` |
 | open feedback | `wiki/handoffs/FEEDBACK_PENDING.md` |
 | sub-task gate plugin | `.kilo/plugins/subtask-gate.ts` |
+| sub-task gate tests (`node --experimental-strip-types tests/subtask-gate.test.mjs`) | `tests/subtask-gate.test.mjs` |
 | local model provider config | `~/.config/kilo/kilo.jsonc` (global) |
 
 ## Caps + sub-task budget
@@ -61,9 +61,8 @@ sub-tasks to finish under context length by construction; `build` checkpoints on
   protocol steps are self-served prose instead `permanent` (evidence: rule-archive.md)
 - [L03] `AGENTS.md`/`CLAUDE.md`/`CONTEXT.md` all auto-load hierarchy-aware; `AGENTS.md` alone is
   unconditional, use only that `permanent` (evidence: rule-archive.md)
-- [L04] Local reasoning models can exhaust a whole turn's output budget on invisible thinking —
-  fix at the inference server (`llama-server --reasoning off`), no per-request toggle exists
-  `permanent` (evidence: rule-archive.md)
+- [L04] Local reasoning models can exhaust a whole turn's budget on invisible thinking — fix at
+  the inference server (`--reasoning off`), no per-request toggle exists `permanent` (rule-archive.md)
 - [L05] Kilo genuinely inherits opencode's `tool.execute.before`/`after` hooks (unlike Continue)
   — built `subtask-gate.ts` on this `permanent` (evidence: rule-archive.md)
 - [L06-L08] `subtask-gate` bugs from blind rounds 1-3: state lost across separate `kilo run`
