@@ -13,84 +13,11 @@ real capabilities (L01-L05's discovery narrative), the reasoning-token-exhaustio
 the zustand/tsc audit finding that motivated `build.md`'s verification rule, and the rounds 1-3
 validation methodology (fresh-agent-not-fork, blind bootstrap, two-axis scoring). None of this
 changed or was re-verified this session — it's moved, not summarized differently.
-
-## Round 1 (fresh agent, task: word-frequency CLI)
-
-Found bootstrap literally could not complete on a clean checkout: `templates/AGENTS.md.template`
-shipped 6 lines over its own then-60-line cap even after comment-stripping, so the pre-commit
-hook rejected bootstrap.sh's own first commit, `set -e` aborted before cleanup ran, and the
-README's own one-liner leaked its `/tmp` scratch clone. Separately, `templates/
-harness-integration-test.md`/`cold-read-test-prompt.md` were never copied into a bootstrapped
-target at all — the one file the README tells a user to run there. Fixed all of it (trimmed the
-template, decoupled the README one-liner's cleanup from bootstrap.sh's exit code, made
-bootstrap.sh copy both verification templates and strip all 4 templates' comments consistently),
-re-ran the real one-liner end-to-end, confirmed clean. Separately found the flagship
-`subtask-gate.ts` (built same-day, before Round 1) never actually survives across separate `kilo
-run` invocations — only tested, before this round, within one process handling both steps.
-Fixed via disk-persisted state (L06). Scored (pre-fix): turnkey 38/100, structural 46/100.
-
-## Round 2 (different fresh agent, task: generic LRU cache library + pytest)
-
-Confirmed L06's disk-persistence fix holds across two independent process boundaries with cited
-raw transcripts. But found something worse: the gate's trigger was **100% elective** — it only
-armed if a commit happened to touch `SESSION_PRIMER.md`, and nothing forced that. The agent
-reproduced, unprompted, a silent two-commit chain with the gate never arming — the exact
-runaway this plugin exists to prevent. Fixed via a real `git diff-tree` check + a
-commits-without-primer-touch threshold (L07), plus fixed `AGENTS.md`'s near-zero cap headroom
-(a fresh bootstrap already sat 58/60, one File Map row from a hard fail). Also independently
-re-confirmed the "discuss" self-serve gap (model didn't read `discuss.md` on trigger, same as
-round 1) and observed the model fabricate a "done" claim immediately after a real gate block —
-both filed as inherent-to-the-model gaps, not code-fixable. Scored: turnkey 74/100, structural
-68/100.
-
-## Round 3 (different fresh agent again, task: config-file parser + test)
-
-First attempt asked a confused, unrelated clarifying question ("compare to some 'original'"?)
-that matched nothing in its actual brief — resumed with a corrective prompt rather than trusting
-a garbled response, and it completed cleanly. Main mandate — stress-test whether the round 2
-threshold (4 commits) false-positive-blocks ordinary legitimate work — came back clean: 3
-non-primer commits never blocked, a 4th that touches the primer arms with the correct "primer"
-reason (not "elective") even at the threshold count, and 4 non-primer commits in a row correctly
-trips the elective arm. This closed `FEEDBACK_PENDING.md` #5. But it stress-tested one level
-deeper and found the trigger's own detection was regex-on-bash-command-text — a false positive
-(an `echo` merely mentioning "git commit") and a false negative (a commit via alias). Fixed by
-comparing real `git rev-parse HEAD` before/after every tool call instead of pattern-matching
-(L08) — verified via a fast direct-unit-test harness (Node, `--experimental-strip-types`,
-importing the plugin's real exported hooks against real git commits, no Kilo/model needed for
-the plugin-logic half) plus one real two-process Kilo regression check.
-
-## Round 4 — architecture realignment (same day, after Round 3)
-
-Jay asked directly whether the doc caps had been set lower than the *original* `soulmate`
-template (not soulmate-2/3, which this repo had been comparing itself against) — a question
-that exposed an actual gap in this session's own diligence: every prior comparison in this repo
-had checked against soulmate-3's numbers, never against the actual original repo. Cloned
-`github.com/lvninety9/soulmate` fresh to check, rather than answering from memory a second time.
-Found: the original's single auto-loaded `CLAUDE.md` is capped at 85 lines (not 60/65) and
-holds Learned Rules, Fixed Rules, and the File map all inline — no separate reference file.
-soulmate-4 had split Learned/Fixed Rules into `PROJECT_BACKGROUND.md` specifically to keep
-`AGENTS.md` under 65 lines, a design choice made without checking this precedent, and one that
-directly re-creates the exact risk soulmate-3's own **L02** already named: a rule only
-referenced from the auto-loaded file, not stated in it, doesn't reliably reach ad-hoc work.
-Given Jay's explicit "당신의 판단을 믿겠다" (trust your judgment) and the fact that 85 lines is
-~1-2% of a 65,536-token budget — never a real tightness constraint — merged Learned/Fixed Rules
-back into `AGENTS.md`, raised the cap to 85 to match the proven original exactly, and re-ran a
-real bootstrap to verify. That re-test immediately caught a fresh off-by-one (the template's own
-leading blank line pushed the post-strip result to 86/85) — fixed before push, the same class of
-bug Round 1 exists to catch, this time caught by the author's own re-verification discipline
-instead of costing a 4th validation round. Also fixed, as a side effect of the merge:
-`check-caps.sh`'s Learned/Fixed Rules checks had been silently targeting `AGENTS.md` the entire
-time even while the real content lived in `PROJECT_BACKGROUND.md` — a latent bug that never
-surfaced only because rule counts never exceeded 10 either way.
-
-**Cross-check against this session's own reporting, done at Jay's explicit request** (worried
-about forced summarization mid-session silently drifting the record from reality): compared the
-full `git log --oneline` (27 commits, `d9fb565`..`fec44a1`) against every claim made to Jay
-during this session, commit by commit. All matched — no commit exists that wasn't reported, no
-reported fix is missing its commit, no round's findings were invented or omitted. No
-compaction/summarization notice ever fired during this session (verified: none of the
-conversation's own system-level signals indicated one), so this cross-check is a belt-and-
-suspenders confirmation, not a recovery from a known gap.
+Also moved (same PRUNE pass, session 5 continued — `rule-archive.md` and this file both crossed
+WATCH the same session): rounds 1-3's blind-validation narratives (word-frequency CLI/LRU cache/
+config parser — full detail already in `wiki/handoffs/SESSION_PRIMER.md`'s table) and the
+"Round 4 — architecture realignment" section (original-vs-soulmate-4 cap comparison, the
+Rules-merge decision). Nothing here changed or was re-verified — moved, not summarized.
 
 ## Round 4 (blind) — refactor.md self-serve validation (2026-08-08, next session)
 
@@ -148,3 +75,72 @@ own text *before* touching the file, running a real `pytest` (self-correcting fr
 3/3 in round 4 passed this time. Independently re-ran pytest and diffed the logic: no regression,
 unlike trial 1's silent bug. Full evidence in `wiki/rule-archive.md` L09; FEEDBACK #9 and #10
 both closed.
+
+## Round 5 — objective blind audit + hardening (2026-08-08, session 5 continued)
+
+Jay's instruction, mirroring the original `soulmate` repo exactly: soulmate-4 must earn the same
+kind of score the original did (87 turnkey / 98.75 structural) via an independent, objective
+background agent — not this session's own self-assessment — and keep iterating (score → fix →
+re-score) until it does. Also asked, separately, for the 4 structural doc-improvement ideas
+raised earlier in this session (archive-destination pattern, numbering legend, Learned Rules
+compression priority, 4-tier doc role separation) to actually be finished, not just discussed —
+all 4 done and pushed before the audit agent was launched (`b54f19b`..`116f79c`, plus FEEDBACK
+#11 for the verification-command-naming gap).
+
+**The audit**: a fresh, non-fork agent cloned both `soulmate` (the original) and `soulmate-4`,
+reconstructed the original's actual two-axis rubric from its own real history (it never combined
+the axes into one number — "98.75" is the structural-integrity axis alone, turnkey topped at 87),
+then scored soulmate-4 the same way: real bootstrap, real `kilo run` against the real local
+model, independent spot-checks of every cap claim. Result: **turnkey 74/100, structural 73/100**
+— for concrete, evidenced reasons, not a vague haircut. Full report in the task notification this
+session received; key findings and fixes below, each re-verified live before being trusted (this
+project's own L06-style discipline applied to an audit of itself, not just to the audit's
+subject).
+
+**Fix 1 — `AGENTS.md` template drift (re-verified real)**: literal README step 1 (fill in
+`[project name]` + a File map row) pushed a fresh bootstrap from 85→86 lines, failing the
+pre-commit hook the bootstrap script itself installs. Root cause: `templates/AGENTS.md.template`
+had never been updated when the live `AGENTS.md` later merged L06-L08 into one entry — the
+template still carried the pre-merge, longer version. Fixed the template the same way, live
+`AGENTS.md` tightened too (was back at 85/85 after L09/L10 additions) — both now carry real
+headroom, matching the original's own actual 83/85.
+
+**Fix 2 — L09 was a true one-shot for the entire session, not per-event (the audit's highest-
+priority mechanism finding)**: the original L09 code set `firstMutationChecked[sessionID]=true`
+the moment the *first* mutating call was attempted — blocked or not — and never checked again.
+A deliberately adversarial live repro (bare "hello", no real task) proved it: after the first
+block, three *different* `bash` mutation attempts (checking/removing/listing files) all sailed
+through with zero further check. Hardened: the gate now re-evaluates on every mutating call and
+only stops firing once a real `wiki/protocols/*.md` read is observed. 10/10 unit tests, then a
+live re-run of the same adversarial prompt — all three attempts now correctly blocked, forcing
+the model to actually `glob`+`read` a protocol doc before it got an unblocked turn.
+
+**Fix 3 (found only via re-verifying fix 4 below, not by the audit) — L10, a real crash**:
+building the `chat.message` hook below with an ad-hoc synthetic Part ID crashed the entire
+request server-side: `Expected a string starting with "prt"`. opencode validates synthetic part
+IDs strictly; fixed by matching the real `prt_<random>` shape observed in `kilo export` output.
+
+**Fix 4 — new capability, addressing the audit's #1-ranked highest-leverage fix**: a live session
+wrote and manually tested a real file, then simply stopped — no commit, nothing caught it,
+because opencode's plugin API has no true end-of-turn/session hook at all (confirmed from
+`@opencode-ai/plugin`'s own shipped types, not assumed). Added a `chat.message` hook — fires on
+the *next* message — that injects a mechanical warning naming exactly which paths are
+uncommitted, before the model does anything else. **Stated plainly as a partial fix, not full
+coverage**: a session abandoned outright, never resumed, still can't be caught by any hook at
+all — this closes the gap for this repo's own documented common usage (`build.md`: "the next
+build — ideally in a fresh session"), not the theoretical 100% case. Verified live: left a real
+uncommitted file from fix 2's repro, sent a follow-up message in the same session, confirmed via
+`kilo export` that the synthetic warning landed on that next user message with a valid ID.
+
+**Also fixed**: `bootstrap.sh`'s own header comment pointed at `main` (404 — real default branch
+is `master`, confirmed via direct `curl`); README's file-tree diagram was missing both new
+`-archive.md` companion files and still described Learned/Fixed Rules as living in
+`PROJECT_BACKGROUND.md` post-realignment. `rule-archive.md` itself crossed its own new WATCH
+threshold from this session's own additions — archived L01-L05 to `rule-archive-archive.md`,
+the first real second use of the archive pattern.
+
+**Not yet addressed** (FEEDBACK #12): the audit's other structural finding, `discuss.md` has no
+mechanical backstop at all — it's the one protocol step producing zero tool calls by design, so
+none of `subtask-gate.ts`'s hooks (all keyed to tool calls or new messages) can reach it. No
+design proposed yet. Next objective re-audit, once run, will show whether today's fixes actually
+moved the score — that's the loop Jay asked for, not a one-time pass.
