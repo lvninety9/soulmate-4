@@ -8,9 +8,8 @@
   Grep this file for the term you need — don't read it whole once it's past a few dozen lines
   (AGENTS.md's "rule zero"). Unbounded growth here is still the #1 context-budget risk even with
   grep-first discipline, since a badly-organized file makes grep unreliable too.
-  Learned Rules and Fixed Rules live here, not in AGENTS.md (unlike soulmate-3) — AGENTS.md is
-  the auto-loaded kernel here and stays tight on purpose; these two sections are grepped on
-  demand, same caps as soulmate-3 used inside its own AGENTS.md (Learned ≤10, Fixed ≤10 rows).
+  Learned Rules and Fixed Rules live in AGENTS.md, not here — matches the original soulmate's
+  design (a rule only referenced from the auto-loaded file doesn't reliably reach ad-hoc work).
 -->
 
 # Project Background
@@ -44,18 +43,6 @@
 
 <!-- If docs use icons, tags, or priority labels (✅⏳🔴, P0/P1, etc.), define each one here or
      point to the single authoritative place. -->
-
-## Learned Rules
-
-<!-- one-liners only, format: `- [L01] rule \`tag\` (evidence: session N)` — full write-up goes
-     in wiki/rule-archive.md, this is just the compressed pointer. Cap ≤10 entries. -->
-
-## Fixed Rules
-
-<!-- project-specific invariants that never expire — table, not prose. Cap ~8-10 rows. -->
-
-| Rule | Why |
-|---|---|
 
 ## What's NOT here
 

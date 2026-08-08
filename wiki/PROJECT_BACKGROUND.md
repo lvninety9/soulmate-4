@@ -68,79 +68,10 @@ UI stub, see L02).
 Status icons: ✅ done (evidence/commit hash) · ⏳ code-done, unverified · 🔶 partial · 🔴 unfixed
 bug · ⚠️ needs user action. FEEDBACK priority: `p0` blocking · `p1` normal · `p2` someday.
 
-## Learned Rules
-
-- [L01] Kilo's real installed build (v7.4.20) is a ground-up rebuild on opencode's own CLI
-  runtime, not the classic Cline/Roo-Code fork public docs describe — confirmed via the compiled
-  binary's strings and `kilo agent create --tools` output (real tool set: bash/read/edit/glob/
-  grep/webfetch/task/todowrite/websearch/lsp/skill), not docs — two different web sources gave
-  two different, mutually contradictory answers for the workflow directory convention alone.
-  `permanent`
-- [L02] Custom project slash commands (`.kilo/commands/*.md`) do not work yet — verified with a
-  canary file (unique marker text in the command's body): the marker never appeared in the
-  session transcript, the model only pattern-matched the command's file name and improvised a
-  plausible response. Protocol steps in `AGENTS.md`'s table are self-served prose instead — the
-  model reads the matching `wiki/protocols/*.md` on its own initiative when it recognizes the
-  token, the same underlying behavior soulmate-3 relied on for a different reason (no auto-load
-  convention there either, just a different cause). `permanent`
-- [L03] `AGENTS.md`/`CLAUDE.md`/`CONTEXT.md` all auto-load, hierarchy-aware — confirmed by reading
-  the CLI binary's own instruction-loader code, which builds the search list as
-  `["AGENTS.md", "CLAUDE.md", "CONTEXT.md"]` per directory (skipping `CLAUDE.md` only when
-  `claudeCodeCompat` is off). `AGENTS.md` is unconditional; this repo relies on that alone and
-  never uses `CLAUDE.md`. `permanent`
-- [L04] A local reasoning model (Qwen3.6-35B) can burn an entire turn's *output*-token budget on
-  invisible "thinking" and produce zero result — observed live: `finish:"length"`, 32,000 output
-  tokens, no tool call, no edit, nothing saved (`docs/cli-side` in Kilo's own bundled dev-notes
-  independently confirms this general failure mode: "Plan mode system prompt causes agent to
-  stop repeatedly asking to implement" is a different symptom of the same class). No per-request
-  reasoning-effort toggle exists for an arbitrary openai-compatible local provider in Kilo's
-  config schema. Fix at the inference server instead: `llama-server --reasoning off` (a real
-  llama.cpp flag, `-rea off`) — verified via a direct `/v1/chat/completions` probe before/after:
-  identical question, reasoning content present then absent, `completion_tokens` dropping from
-  what would have been hundreds+ to 17. `permanent`
-- [L05] Kilo's CLI genuinely inherits opencode's `tool.execute.before`/`tool.execute.after` hook
-  triggers — found in the compiled binary (`I.trigger("tool.execute.before", {...})` fires before
-  every tool call), and Kilo's own in-app help text confirms the convention: `.ts` files in
-  `.kilo/plugins/` auto-load for event hooks, no config registration needed. Built
-  `subtask-gate.ts` on this and verified live end-to-end: committed a change to
-  `SESSION_PRIMER.md` → next `write` tool call hard-failed with the plugin's own error message →
-  model did not retry, reported progress and asked whether to continue instead. This is the
-  capability soulmate-3's "Known gap" said Continue couldn't have; Kilo actually has it.
-  `permanent`
-- [L06] `subtask-gate.ts`'s original in-memory `Set` did not survive across separate `kilo run`/
-  `--continue` invocations — the repo's own documented usage pattern — so the gate silently
-  never fired in exactly the scenario it matters most. Found by an independent, fresh, blind
-  validation agent running isolated two-process tests (Round 1); L05's own "verified live" claim
-  had only ever tested one process handling both steps. Fixed: state persists to
-  `.subtask-gate-state.json` next to the plugin file; re-verified with two genuinely separate
-  processes. Lesson: "verified live" needs to isolate the actual variable in question — the
-  original test proved the *hook fires*, not that it *survives a process boundary*, and those
-  are different claims. `permanent`
-- [L07] The gate's trigger was 100% elective — it only ever armed if a commit happened to touch
-  `wiki/handoffs/SESSION_PRIMER.md`, and nothing forced that commit to exist. An independent
-  validation round reproduced a full silent chain (2 files, 2 commits, zero stops, gate never
-  armed) — the exact failure this plugin exists to prevent. Fixed: `tool.execute.after` now
-  checks the real committed files via `git diff-tree`, not string-matching; N commits in a row
-  without touching the primer arms the gate anyway. Verified via direct unit test (3 commits
-  pass, 4th blocks) and a real two-process Kilo run (primer-touch path re-confirmed, no
-  regression). `permanent`
-
-- [L08] Round 3 confirmed the threshold=4 elective-arm fix (L07) has no false positives on
-  legitimate multi-commit work, but found its trigger (regex on the bash command text) was
-  itself both a false positive (an `echo` mentioning "git commit") and false negative (a commit
-  via alias). Fixed: compare real `git rev-parse HEAD` before/after every tool call instead.
-  `permanent`
-
-## Fixed Rules
-
-| Rule | Why |
-|---|---|
-| Commit per file, not per sub-task or per session — even with no protocol step explicitly invoked | deferring to "when done" loses everything on a session cutoff; the pre-commit hook is a backstop, not a substitute |
-| Local reasoning models: disable thinking at the inference server (`llama-server --reasoning off`), not per-request | no per-request reasoning toggle exists for an arbitrary openai-compatible provider — see L04 |
-| Never claim a sub-task "done" without actually running its build/typecheck command | code that only imports the right things is not verified — a real session declared two sub-tasks "✅ 완료" with `tsc --noEmit` never once invoked; the bug it would have caught (a zustand store's fields nested under `.state`, accessed as if top-level) sat live for an entire round |
-
 ## What's NOT here
 
 Current state, active sub-task, and this session's priorities — see
-`wiki/handoffs/SESSION_PRIMER.md` instead. Source-tree layout — see `AGENTS.md`'s File map
-instead.
+`wiki/handoffs/SESSION_PRIMER.md` instead. Learned/Fixed Rules and the File map — see
+`AGENTS.md` instead (moved back there to match the original soulmate's proven design: a rule
+only referenced from the auto-loaded file, not stated in it, doesn't reliably reach ad-hoc work
+— see `wiki/rule-archive.md` L02, soulmate-3's own finding, re-applied here).
