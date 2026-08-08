@@ -213,10 +213,19 @@ never crossing the gate's own arming threshold. Same underlying shape as L02 (se
 mechanically fire) and L07 (a brake is only as strong as its trigger), now confirmed for a 6th
 protocol the same way the first five were confirmed working.
 
-**Fix, not yet built**: extend `subtask-gate.ts` with a `tool.execute.before` check on a
-session's *first* mutating call — require at least one `read` on a `wiki/protocols/*.md` path to
-have already happened, block naming the missing doc if not (same disk-persisted-state shape as
-L06's fix). This needs its own unit test (Node, no Kilo) plus a live re-verification round the
-same way L06-L08's fixes were each re-verified, before it can be marked done — not yet started,
-pending Jay's decision on whether to spend the additional GPU/live-test time now or next session
-(this round alone used a fresh local-model session end-to-end, ~750s wall clock).
+**Fix, built and live-verified the same session**: extended `subtask-gate.ts` with a
+`tool.execute.before` check on a session's *first* mutating call — require at least one `read` on
+a `wiki/protocols/*.md` path to have already happened, block naming the missing doc if not (same
+disk-persisted-state shape as L06's fix). Jay chose to proceed with the fix immediately rather
+than defer it. 6 isolated unit tests (Node, no Kilo) passed first. The live re-verification
+needed a real GPU wait: Hermes's Seam longform cron was mid-run on the same shared RTX 3080 when
+the fix landed (VRAM ~9.2/10.2GB, L11) — waited ~8h for it to clear rather than contend with a
+production job, then re-ran round 4 trial 1's exact prompt against a fresh bootstrap seeded with
+the identical baseline module. Result: the first `write` call was blocked (`status: "error"` in
+the exported transcript); the model's very next actions were reading `refactor.md`, checking
+`git status --porcelain`, creating a named recovery branch, stating the rollback command in its
+own text *before* touching the file, running a real `pytest` (self-correcting from `python` to
+`python3` when the first invocation failed), and committing per file — every claim that failed
+3/3 in round 4 passed this time. Independently re-ran pytest and diffed the logic: no regression,
+unlike trial 1's silent bug. Full evidence in `wiki/rule-archive.md` L09; FEEDBACK #9 and #10
+both closed.
