@@ -5,7 +5,7 @@
 # real checkout, so there's no separate "clone it first" step for an agent to stop after).
 #
 # Usage — works standalone, no pre-existing checkout needed:
-#   curl -fsSL https://raw.githubusercontent.com/lvninety9/soulmate-4/main/scripts/bootstrap.sh \
+#   curl -fsSL https://raw.githubusercontent.com/lvninety9/soulmate-4/master/scripts/bootstrap.sh \
 #     | bash -s -- <target-directory>
 # Also works from an existing checkout (skips the internal clone, uses that checkout directly):
 #   scripts/bootstrap.sh <target-directory>
