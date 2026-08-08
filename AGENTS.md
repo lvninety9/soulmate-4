@@ -1,8 +1,7 @@
 # Soulmate 4
 
-> Kilo Code auto-loads this file every message (confirmed via the CLI binary — L03). No separate
-> kernel file exists here, unlike soulmate-3. Learned/Fixed Rules live here too — matches the
-> original soulmate's design (a rule only referenced from here doesn't reach ad-hoc work — L02).
+> Kilo auto-loads this file every message (L03), no separate kernel file. Rules live here too
+> (L02: unreferenced-from-here rules don't reach ad-hoc work).
 
 ## Language
 Docs/commits in English. Chat replies to the user in Korean.
@@ -31,15 +30,14 @@ Clearly-scoped: skip to build. Else: discuss → design → build → verify. No
 exists for any of these (see "Known gap") — read the matching doc yourself, every time.
 
 ## Sub-task gate (mechanical, not just prose)
-`.kilo/plugins/subtask-gate.ts` hooks Kilo's real `tool.execute.before`/`after` (unlike Continue
-— see "Known gap"): once a commit touches `wiki/handoffs/SESSION_PRIMER.md`, or N commits land
-without one touching it, the next mutating tool call is rejected once. One block per event, not
-a permanent lock — verified live, `wiki/rule-archive.md` L05-L08.
+`.kilo/plugins/subtask-gate.ts` hooks `tool.execute.before`/`after`/`chat.message` (unlike
+Continue): blocks every mutation until a `wiki/protocols/*.md` doc is read (L09); blocks once
+on a primer-touch/N-commit-elective trigger; warns on carried-over uncommitted work at the next
+message — verified live, `wiki/rule-archive.md` L05-L10.
 
 ## Known gap
-Custom slash commands (`.kilo/commands/*.md`) don't work yet — a canary file's content was
-never injected, the model just pattern-matched the command name (L02). Protocol steps above are
-self-served prose instead, same shape as soulmate-3's Continue gap.
+Custom slash commands (`.kilo/commands/*.md`) don't work yet (L02, canary-tested) — protocol
+steps above are self-served prose instead, same shape as soulmate-3's Continue gap.
 
 ## File map
 | Need | File |
@@ -51,10 +49,9 @@ self-served prose instead, same shape as soulmate-3's Continue gap.
 | local model provider config | `~/.config/kilo/kilo.jsonc` (global) |
 
 ## Caps + sub-task budget
-File Map ≤12 rows · SESSION_PRIMER ≤150 lines · this file ≤85 lines (matches the original
-soulmate's own CLAUDE.md cap — not lowered for a local model). No live token-usage signal exists
-mid-session: `design` sizes sub-tasks to finish under your model's context length by
-construction; `build` checkpoints the moment actual work overruns that plan.
+File Map ≤12 rows · SESSION_PRIMER ≤150 lines · this file ≤85 lines (matches original soulmate's
+cap, not lowered for a local model). No live token-usage signal mid-session: `design` sizes
+sub-tasks to finish under context length by construction; `build` checkpoints on overrun.
 
 ## Learned Rules
 
@@ -73,9 +70,11 @@ construction; `build` checkpoints the moment actual work overruns that plan.
   processes (fixed: disk persistence); trigger was 100% elective (fixed: also counts commits-
   since-primer via `git diff-tree`); commit detection was regex-on-bash-text (fixed: real `git
   HEAD` diff) `permanent` (evidence: rule-archive.md)
-- [L09] `refactor.md` self-serve never fires on its own — 3/3 round-4 trials skip reading the
-  doc before mutating; fixed via a first-mutation protocol-read check in subtask-gate.ts, unit +
-  live re-verified `permanent` (evidence: rule-archive.md)
+- [L09] `refactor.md` self-serve never fires on its own (3/3 round-4 trials) — fixed via a
+  protocol-read check blocking every mutation until compliance (round-5 hardened: an audit found
+  the original first-mutation-only version let later ones through) `permanent` (rule-archive.md)
+- [L10] opencode validates synthetic Part IDs strictly (must start with `prt`) — a bad ID
+  crashes the whole request, not a soft ignore; same discipline as L01 `permanent` (rule-archive.md)
 
 ## Fixed Rules
 | Rule | Why |
