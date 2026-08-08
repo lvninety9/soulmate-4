@@ -52,14 +52,16 @@ only thing discouraging that, and it hasn't been separately stress-tested (see
 ## File tree
 
 ```
-AGENTS.md                          # the ONLY file Kilo auto-loads every message — kept tight
+AGENTS.md                          # the ONLY file Kilo auto-loads every message — Learned/Fixed
+                                    #   Rules + File map live here too, kept tight
 .kilo/
   plugins/
-    subtask-gate.ts                # real mechanical enforcement via tool.execute.before/after
+    subtask-gate.ts                # real mechanical enforcement, tool.execute.before/after/chat.message
 wiki/
-  PROJECT_BACKGROUND.md            # entity map, glossary, pipeline, Learned/Fixed Rules
+  PROJECT_BACKGROUND.md            # entity map, glossary, pipeline, numbering legend
   session-log.md                   # one line per session
   rule-archive.md                  # full evidence behind each Learned Rule
+  rule-archive-archive.md          # oldest rule-archive.md entries, moved out once WATCHed
   protocols/
     discuss.md                     # self-served on recognizing the word — no real command
     design.md
@@ -70,7 +72,8 @@ wiki/
   handoffs/
     SESSION_PRIMER.md              # current state + current sub-task, rewritten every session
     FEEDBACK_PENDING.md            # open issues/gaps
-    SESSION_MASTER.md              # full narrative history, read only on request
+    SESSION_MASTER.md              # full narrative history ("why"), read only on request
+    SESSION_MASTER-archive.md      # oldest SESSION_MASTER.md sections, moved out once WATCHed
 templates/                        # copy-paste skeletons for adopting this into a new project
 scripts/
   bootstrap.sh                     # turnkey new-project setup
