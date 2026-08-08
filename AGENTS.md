@@ -74,6 +74,8 @@ sub-tasks to finish under context length by construction; `build` checkpoints on
   the original first-mutation-only version let later ones through) `permanent` (rule-archive.md)
 - [L10] opencode validates synthetic Part IDs strictly (must start with `prt`) — a bad ID
   crashes the whole request, not a soft ignore; same discipline as L01 `permanent` (rule-archive.md)
+- [L11] Primer/elective gate self-cleared on its first blocked call, letting an immediate retry
+  through — clear moved to `chat.message` (new user msg only) `permanent` (rule-archive.md)
 
 ## Fixed Rules
 | Rule | Why |
