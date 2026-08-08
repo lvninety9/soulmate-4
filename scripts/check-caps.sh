@@ -323,6 +323,31 @@ check_primer_handoff_reminder() {
   fi
 }
 
+# 127차(round 6, Jay 지시): an objective audit found templates/AGENTS.md.template drifted from
+# the real AGENTS.md in the SAME session that had just fixed an earlier instance of this exact
+# drift (L06-L08 merged in the template, but L09/L10 — added one commit later to the live file —
+# never got synced). check-caps.sh's own line/row counts never caught it because line count
+# alone can't tell "content matches" from "content is coincidentally the same length." Only
+# meaningful in this repo (soulmate-4 itself, source of the template) — downstream bootstrapped
+# projects don't keep templates/AGENTS.md.template around, so this skips cleanly there.
+check_template_drift() {
+  local live="AGENTS.md" tmpl="templates/AGENTS.md.template"
+  if [ ! -f "$live" ] || [ ! -f "$tmpl" ]; then
+    echo "skip: template drift check ($tmpl not present — expected outside soulmate-4 itself)"
+    return 0
+  fi
+  local live_ids tmpl_ids
+  live_ids=$(grep -oE '\[L[0-9]+(-L[0-9]+)?\]' "$live" | sort -u)
+  tmpl_ids=$(grep -oE '\[L[0-9]+(-L[0-9]+)?\]' "$tmpl" | sort -u)
+  if [ "$live_ids" != "$tmpl_ids" ]; then
+    echo "OVER CAP: templates/AGENTS.md.template's Learned Rule IDs don't match AGENTS.md's —" \
+         "the template drifted (live: $(echo "$live_ids" | tr '\n' ' ')| template: $(echo "$tmpl_ids" | tr '\n' ' ')). Sync the template's Sub-task gate/Learned Rules sections to match."
+    status=1
+  else
+    echo "ok: templates/AGENTS.md.template's Learned Rule IDs match AGENTS.md (no drift)"
+  fi
+}
+
 # Non-blocking, unlike everything above — these files (rule-archive/session-log/
 # SESSION_MASTER) are append-only by design, never auto-loaded, so a hard cap would fight their
 # purpose. But "no cap" can quietly become "nobody ever looks" — this just keeps them visible so
@@ -396,6 +421,7 @@ check_lines_warn "AGENTS.md" "$AGENTS_MD_WARN" "$AGENTS_MD_CAP" "AGENTS.md total
 check_section "AGENTS.md" "## File map" "$FILE_MAP_ROW_CAP" "File Map" "rows"
 check_section "AGENTS.md" "## Learned Rules" "$LEARNED_RULES_CAP" "Learned Rules" "entries"
 check_section "AGENTS.md" "## Fixed Rules" "$FIXED_RULES_ROW_CAP" "Fixed Rules" "rows"
+check_template_drift
 check_lines "wiki/PROJECT_BACKGROUND.md" "$PROJECT_BACKGROUND_CAP" "PROJECT_BACKGROUND.md"
 check_lines "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CAP" "SESSION_PRIMER.md"
 check_primer_handoff_reminder
