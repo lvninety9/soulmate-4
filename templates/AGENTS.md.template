@@ -7,7 +7,6 @@
   Delete these instructional HTML-comment blocks once you've filled a section in.
   Run scripts/check-caps.sh (copied from this repo) at self-harness's PRUNE step.
 -->
-
 # [project name]
 
 > Kilo Code auto-loads this file every message (confirmed via the CLI binary — L03). No separate
@@ -90,6 +89,6 @@ construction; `build` checkpoints the moment actual work overruns that plan.
 ## Fixed Rules
 | Rule | Why |
 |---|---|
-| Commit per file, not per sub-task or session — even with no protocol step invoked | deferring to "when done" loses everything on a session cutoff |
+| Commit per file, not per sub-task/session | deferring to "when done" loses everything on a cutoff |
 | Local reasoning models: disable thinking at the inference server, not per-request | no per-request toggle exists for an arbitrary openai-compatible provider — L04 |
 | Never claim a sub-task "done" without running its build/typecheck command | code that imports the right things isn't verified — a real bug sat live a full round otherwise |
