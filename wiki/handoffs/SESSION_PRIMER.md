@@ -1,4 +1,4 @@
-# SESSION PRIMER — session 5, round 7 complete (round 8 not yet started)
+# SESSION PRIMER — session 5, round 9 complete; round 9's doc-drift/cap/citation fixes in progress
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -41,7 +41,7 @@ keep running in future sessions until the score closes in on the original's.
 > `SESSION_MASTER.md`'s "Session 5 handoff re-verification" section (why-narrative, belongs
 > there per this file's own role rule, not here).
 
-## Current state — round 7 complete; **last measured score is round 6's 81/77, not yet re-measured after round 7's own fixes**
+## Current state — round 9 complete; round 9's own findings (doc drift, AGENTS.md cap, L01 citation) fixed this round, not yet re-scored by a fresh audit
 
 | Round | What it tested/built | Result | Evidence |
 |---|---|---|---|
@@ -53,36 +53,30 @@ keep running in future sessions until the score closes in on the original's.
 | 5 (objective audit) | Fresh non-fork agent, calibrated rubric against the *real* original repo, real bootstrap + real `kilo run` | **turnkey 74/100, structural 73/100** vs original's 87/98.75 | full report was this round's task notification; fixes: `35e90f0`..`8d3d590` |
 | 6 (re-score) | Fresh agent re-verified all 5 round-5 fixes live | all 5 held; **turnkey 74→81, structural 73→77**. New finding: `templates/AGENTS.md.template` drifted from `AGENTS.md` *again*, same session that had just fixed an earlier instance | fixes: `7438b59`..`e5c0ca0` |
 | 7 (re-score) | Fresh agent re-verified round 6's fixes live | held, but **structural regressed 77→69** (turnkey stayed 81) — `check_template_drift()` itself was content-blind (ID-only); FEEDBACK #4 (discuss.md) converted from "untested" to a live-confirmed failure | fixes: `7879c11`..`8997230` |
+| 8 (re-score) | Fresh agent re-verified round 7's 3 fixes live | held, but **both axes dropped: turnkey 81→78, structural 77→74** — nudge fires but doesn't change model behavior (2nd live failure of the same canonical case), plus a new CLI-invisibility bug (`chat.message` warnings never appear in normal `kilo run` terminal output) | fixes: `dbeffc7`..`041fe56` (FEEDBACK #3 closed, #4/#12 nudge reworded) |
+| 9 (re-score) | Fresh agent independently re-verified round 8's FEEDBACK #3 and #4/#12 fixes live (both held — #3's verbatim-retry block and #4/#12's reworded nudge both hands-on reconfirmed with fresh adversarial trials) | **turnkey ~70, structural ~68** (this grader's own estimate — explicitly not a strict continuation of prior rounds' internal formula, so some of the drop is scoring noise, not pure regression). Found 3 new issues: handoff docs mutually inconsistent (this file's title/table, `session-log.md` missing entries, `FEEDBACK_PENDING.md` row #18 mislabeled); `AGENTS.md` zero-headroom cap regression (3rd recurrence); L01 cited the wrong npm package path | this round's fixes below |
 
-**Round 7's fixes** (not yet re-scored by a fresh audit — that is Round 8's actual job, see
-"Next session's starter prompt"):
-1. `check_template_drift()` rewritten from ID-token diffing to full-content diffing from
-   `## Language` onward — live-verified by swapping a rule's body text under the same tag (old
-   version passed silently, new version correctly fails).
-2. `chat.message` gained a second, independent check (`looksAmbiguous()`): if a message has no
-   backtick-quoted code / file-extension-like token / quoted string, and is longer than a
-   greeting, inject a nudge suggesting `discuss.md`. **Explicitly a coarse heuristic, not a
-   classifier** — discuss.md produces zero tool calls, so no `tool.execute` hook can ever reach
-   it, and `chat.message` can inject text but cannot force real Q&A or block anything.
-3. **A real bug found and fixed while building #2**: `kilo run "<message>"` stores the CLI
-   argument with a literal wrapping quote pair as part of the actual message text — this
-   defeated the "quoted string" anchor check on *every single* CLI-driven message, so the nudge
-   could never have fired under the tool's own normal invocation pattern. Caught via a live
-   debug log on the real `chat.message` payload (not assumed from reading the code), fixed by
-   stripping one real wrapping pair before the check, re-verified live it now fires correctly.
-4. Mid-build self-correction, not left in: briefly registered a second hook under a fake key
-   `"chat.message.ambiguity"` (opencode only ever calls real hook names — this would silently
-   never have fired). Caught before commit, merged into the one real `"chat.message"` hook.
+**Round 8 fixes** (both held under round 9's independent live re-verification): FEEDBACK #3
+closed (gate clear moved to `chat.message`/new-message-only, L11, 17/17 unit tests); FEEDBACK
+#4/#12 nudge reworded (opt-out removed) — 0/3 old wording → 2/2+2/2 new wording across rounds
+8-9, CLI-invisibility half confirmed structurally unfixable, stated honestly as open. Full
+narrative + evidence: `FEEDBACK_PENDING.md` rows #3/#18, `rule-archive.md`.
 
-**Everything through round 7 is committed and pushed** — `git log origin/master -1` matches
-local `HEAD` exactly, verified fresh at the top of this rewrite, not assumed.
+**Round 9's own findings, fixed this round**: doc self-consistency (this file + `session-log.md`
++ `FEEDBACK_PENDING.md` row #18's round-label reconciled); `AGENTS.md` cap regression (3rd
+recurrence, 85→75 lines via Learned Rules compression, live-verified 76/85 with margin); L01
+citation corrected (`@opencode-ai/plugin`→`@kilocode/plugin`, real shipped path). Full narrative:
+`FEEDBACK_PENDING.md` row #19.
+
+**Everything through this round is committed; push status verified at the top of the next
+session's first `git status`/`git log origin/master -1` check, not assumed here.**
 
 ## Current sub-task
 
 ```
-시작: 없음 — round 7 완료, working tree clean, origin과 동기화 확인됨.
-목표: 다음 세션의 첫 작업은 Round 8 재채점(아래 "Next session's starter prompt" 그대로 사용)
-작업 사이클: 없음(이 세션의 sub-task는 완결). Round 8이 새 라운드로 시작됨.
+시작: 없음 — round 9의 3개 발견(문서 모순/AGENTS.md 캡/L01 인용) fix 완료, push 확인 필요.
+목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 10 재채점
+작업 사이클: 없음(이 세션의 sub-task는 완결). Round 10이 새 라운드로 시작됨.
 ```
 
 ## Hard constraints / warnings
@@ -113,10 +107,10 @@ local `HEAD` exactly, verified fresh at the top of this rewrite, not assumed.
 | # | Issue | Status |
 |---|---|---|
 | 2 | Custom slash commands (`.kilo/commands/*.md`) don't work in Kilo CLI v7.4.20 — Kilo's own limitation, may change in a future release | ⚠️ p2, open |
-| 3 | Gate's one-shot disarm: an immediate verbatim retry of the *exact same* blocked call still slips through unconditionally (distinct from round 5/7's fix, which only closed the "different mutation" gap, not the "same call retried" gap) | 🔴 p1, open, no code fix exists |
-| 4 | `discuss.md` self-serve failure — now **live-confirmed** (round 7), not just suspected. Round 7 shipped a partial mitigation (`chat.message` ambiguity nudge) but it's N=1 live trial so far; this repo's own precedent wants 3 | 🔴 p1, open (partial mitigation shipped round 7) |
-| 6 | Model self-report fabrication after a gate block — inherent LLM unreliability, same shape as soulmate-3's own finding; mitigation is procedural (always verify real git/file state) not code | 🔴 p1, open, no code fix possible |
-| 12 | `discuss.md` has zero mechanical backstop (the one protocol step with no tool calls, structurally unreachable by `tool.execute.*` hooks) | 🔴 p2, open (heuristic nudge shipped round 7, see #4 — this is the ceiling of what `chat.message` alone can do) |
+| 3 | Gate's one-shot disarm (verbatim retry of a blocked call slipping through) | ✅ **closed round 8** — clear moved to `chat.message`/new-message-only; independently reconfirmed live by round 9's own fresh adversarial trial |
+| 4 | `discuss.md` self-serve failure — nudge reworded round 8 (removed its own "ignore if..." opt-out): 0/3 old wording → 2/2 round 8 → 2/2 more round 9 (independent), clears this repo's N=3 bar. CLI-invisibility half (never renders in normal `kilo run` output) confirmed structurally unfixable with current hooks | 🔴 p1, open (behavior fix confirmed working; CLI-invisibility ceiling, no further code fix possible) |
+| 6 | Model self-report fabrication after a gate block — inherent LLM unreliability, same shape as soulmate-3's own finding; mitigation is procedural (always verify real git/file state, or the persisted `.subtask-gate-state.json`) not code | 🔴 p1, open, no code fix possible |
+| 12 | `discuss.md` has zero mechanical backstop (the one protocol step with no tool calls, structurally unreachable by `tool.execute.*` hooks) | 🔴 p2, open (nudge shipped+strengthened round 8, reconfirmed round 9, see #4 — this is the ceiling of what `chat.message` alone can do) |
 
 Deferred, not forgotten: FEEDBACK #6-in-the-*old* Hermes-adjacent sense (backporting
 `refactor.md` to Hermes/soulmate 1-3) — Jay's own stated condition was "after soulmate-4's
@@ -127,15 +121,20 @@ condition is arguably still not met. Worth asking Jay directly rather than assum
 
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 처음부터 끝까지
-읽어주세요 — 이번 핸드오프는 Jay가 명시적으로 요청한 정밀 재검증을 거쳤습니다(git log/실제
-코드/실제 테스트 실행 결과 전부 대조 완료, working tree clean, origin과 동기화 확인됨).
+읽어주세요. 먼저 git log/git status로 이 파일의 주장(round 9까지 fix 완료, push 여부)을
+직접 재검증할 것 — 문서만 믿지 말 것(round 9가 바로 이 문서 자체의 구식 상태를 지적한
+전례가 있음, "Round 9's own findings" 섹션 참조).
 
-Round 7까지 전부 완료·push된 상태입니다. 마지막으로 측정된 점수는 Round 6의 턴키81/구조77이고,
-Round 7의 fix 3건(drift 체커 content-diff화, discuss.md 넛지, kilo CLI 따옴표래핑 버그 수정)은
-아직 재채점 안 됐습니다.
+Round 9까지 완료 상태입니다. 마지막으로 측정된 점수는 Round 9의 턴키~70/구조~68이고,
+Round 9가 찾은 문서모순/AGENTS.md 캡/L01 인용 3건은 이번 라운드에 수정됐지만 아직
+fresh 에이전트로 재채점 안 됐습니다.
 
-Round 8 재채점부터 시작해주세요 — 원본 https://github.com/lvninety9/soulmate 를 다시 클론해서
+Round 10 재채점부터 시작해주세요 — 원본 https://github.com/lvninety9/soulmate 를 다시 클론해서
 루브릭을 재확인한 뒤, fresh non-fork 에이전트로 soulmate-4를 blind 채점(실제 bootstrap + 실제
-kilo run 포함). 결과 나오면 "Known open issues" 표 순서대로(특히 #3, #4/#12) 우선순위 판단해서
-다음 fix 사이클 진행해주세요. 매 fix는 단위테스트+실전 kilo run 재검증 둘 다 필수입니다.
+kilo run 포함). 결과 나오면 "Known open issues" 표 순서대로(FEEDBACK #3는 closed, 다음
+우선순위는 #4/#12의 CLI-invisibility 한계를 인정하고 넘어갈지 #6 모델 자기보고 조작 대응
+절차를 강화할지 판단) 다음 fix 사이클 진행해주세요. 매 fix는 단위테스트+실전 kilo run
+재검증 둘 다 필수입니다. Jay의 최종 기준: 구조(structural) 축이 원본의 98.75 수준(원본도
+100은 아니고 "진지한 적대적 시도에도 새 발견 0건"에서 스스로 CONVERGED 선언한 지점)에
+근접하면 합격, push하고 마무리.
 ```
