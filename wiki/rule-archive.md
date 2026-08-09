@@ -82,8 +82,8 @@ behavior under a specific input shape isn't discoverable from types/docs alone, 
 actually triggering it.
 
 **New capability, addressing the audit's #1-ranked highest-leverage fix (end-of-turn uncommitted
-work): `chat.message` hook, since opencode's plugin API has no true end-of-turn/session hook at
-all** (confirmed by reading `@opencode-ai/plugin`'s own shipped type definitions — same
+work): `chat.message` hook, since Kilo's plugin API has no true end-of-turn/session hook at
+all** (confirmed by reading `@kilocode/plugin`'s own shipped type definitions — same
 check-the-real-thing discipline as L01, not assumed from docs). `chat.message` fires when a
 *new* message starts — the closest available proxy. On every new message, if `git status
 --porcelain` is non-empty, prepend a synthetic warning part naming the exact leftover paths,
@@ -275,8 +275,11 @@ FEEDBACK #4/#12 (below) is unchanged — a human watching `kilo run` live still 
 nudge fire.
 
 **CLI-invisibility (FEEDBACK #12) — investigated, no code fix exists, confirmed by reading the
-actual shipped type definitions, not assumed.** `@opencode-ai/plugin`'s `Hooks` interface
-(`~/.opencode/node_modules/@opencode-ai/plugin/dist/index.d.ts`) shows `chat.message`'s only
+actual shipped type definitions, not assumed.** Kilo 7.4.20 loads `@kilocode/plugin` (a separate
+published fork of the opencode plugin API, not `@opencode-ai/plugin` itself — round-9 audit
+caught this repo citing the wrong package path; conclusion re-verified correct against the real
+one). Its `Hooks` interface (`~/.config/kilo/node_modules/@kilocode/plugin/dist/index.d.ts`)
+shows `chat.message`'s only
 writable output is `{ message: UserMessage; parts: Part[] }` — literally the parts of the
 *incoming user message itself*, not a separate notification channel. There is no `toast`/
 `notify`/system-message hook anywhere in the interface (full hook list confirmed: `event`,
