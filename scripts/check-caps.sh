@@ -379,6 +379,13 @@ check_watch_size() {
 # re-checked the file class the *previous* audit happened to flag, never the whole repo. This
 # replaces every one of those hand-picked greps with one pass over every tracked file, so there's
 # no more file class left to accidentally leave out of scope.
+#
+# round 12(audit) + round 13(fix): this used to print WARN and never set status=1 — it ran
+# automatically but enforced nothing, so a real pre-commit attempt with a stale claim staged
+# landed anyway. That's the exact "mechanism narrated as more capable than it is" bug this check
+# exists to catch, found inside itself. Live-tested against the current real repo before flipping
+# to a hard fail (zero false positives on the actual phrase list, including inside
+# FEEDBACK_PENDING.md's open table) — this is a real block now, not a reminder.
 check_stale_language() {
   local patterns=(
     "hasn't yet been" "has not yet been" "not yet verified"
@@ -386,11 +393,19 @@ check_stale_language() {
   )
   # Files whose entire purpose is to narrate what used to be true (this repo's own 4-tier doc
   # role separation, see AGENTS.md) — a stale-sounding phrase describing a past round here is
-  # usually correct, not a bug. FEEDBACK_PENDING.md's open table legitimately uses this language
-  # for real current gaps (that's what "open" means), so it's exempt whole rather than split by
-  # section, to keep this check itself simple. This script is exempt from itself (it necessarily
-  # quotes these exact phrases to define them).
-  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log\.md|wiki/handoffs/FEEDBACK_PENDING\.md|scripts/check-caps\.sh)$'
+  # usually correct, not a bug. This script is exempt from itself (it necessarily quotes these
+  # exact phrases to define them).
+  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log\.md|scripts/check-caps\.sh)$'
+  # round 13: FEEDBACK_PENDING.md used to be exempt whole-file — its open table legitimately uses
+  # this language for real current gaps, but its "## Completed history" section (below a clean
+  # heading boundary the repo already relies on elsewhere) is exactly as historical as the other
+  # exempt files. Split instead of blanket-exempting, now that a false positive here would be a
+  # real hard block on Jay's own routine feedback edits, not just a warning to skim past.
+  local fp_file="wiki/handoffs/FEEDBACK_PENDING.md" fp_history_line=999999999
+  if [ -f "$fp_file" ]; then
+    fp_history_line=$(grep -n '^## Completed history' "$fp_file" | head -1 | cut -d: -f1)
+    [ -z "$fp_history_line" ] && fp_history_line=999999999
+  fi
   local args=(-inF)
   local pat
   for pat in "${patterns[@]}"; do
@@ -400,8 +415,12 @@ check_stale_language() {
   while IFS=: read -r file line text; do
     [ -z "$file" ] && continue
     [[ "$file" =~ $exempt ]] && continue
+    if [ "$file" = "$fp_file" ] && [ "$line" -ge "$fp_history_line" ]; then
+      continue
+    fi
     hit=1
-    echo "WARN: possibly-stale mechanism-state claim in $file:$line — \"$(printf '%s' "$text" | sed 's/^[[:space:]]*//')\" — verify it's still true, or if it's describing a past round move it into historical narrative (wiki/rule-archive.md / SESSION_MASTER.md)"
+    status=1
+    echo "OVER CAP: possibly-stale mechanism-state claim in $file:$line — \"$(printf '%s' "$text" | sed 's/^[[:space:]]*//')\" — verify it's still true, or if it's describing a past round move it into historical narrative (wiki/rule-archive.md / SESSION_MASTER.md)"
   done < <(git grep "${args[@]}" -- . 2>/dev/null || true)
   if [ "$hit" -eq 0 ]; then
     echo "ok: stale-language sweep — no possibly-stale mechanism-state claims found outside historical narrative"
