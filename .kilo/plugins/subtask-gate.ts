@@ -321,8 +321,10 @@ export const SubtaskGate = async () => ({
   // wrote and manually tested a real file, then simply stopped — no further tool call, no
   // commit, and nothing above could catch it, because every check so far only fires inside
   // `tool.execute.before`/`after`, and neither runs again if the model just ends its turn.
-  // opencode's plugin API (confirmed by reading @opencode-ai/plugin's own type definitions —
-  // same L01-style "check the actual binary/types, not assumed docs" discipline) has no
+  // opencode's plugin API (confirmed by reading @kilocode/plugin's own type definitions — the
+  // package Kilo 7.4.20 actually loads, a separate published fork of the opencode plugin API,
+  // not @opencode-ai/plugin itself; same L01-style "check the actual binary/types, not assumed
+  // docs" discipline) has no
   // end-of-turn/end-of-session hook at all — `chat.message` (fires when a *new* message starts)
   // is the closest available thing. This can't catch a session that's abandoned outright and
   // never resumed (a real, honest limitation, not silently claimed as fixed) — but it does
