@@ -28,7 +28,7 @@ than assuming from public docs (which turned out to be stale/contradictory, see
 | Mechanical write/edit block | **none** — Continue's own "Known gap" | **Real**: `.kilo/plugins/subtask-gate.ts` via `tool.execute.before`/`after` (L05), verified live against a real project |
 | Mechanical commit-time backstop | `pre-commit-check-caps`, the *only* mechanical layer | same script, now a *second* layer behind the plugin |
 | Local-model reasoning | not applicable (soulmate-3 never hit this) | Qwen3-family "thinking" can burn an entire turn's output budget with zero result (L04) — fixed at the inference server (`llama-server --reasoning off`), not per-request |
-| Learned/Fixed Rules location | inside `AGENTS.md` (never auto-loaded there anyway) | moved to `wiki/PROJECT_BACKGROUND.md` — `AGENTS.md` is now auto-loaded, so it has to stay small on purpose |
+| Learned/Fixed Rules location | inside `AGENTS.md` (never auto-loaded there anyway) | inline in `AGENTS.md` too (moved out to `wiki/PROJECT_BACKGROUND.md` briefly, then merged back — since `AGENTS.md` is auto-loaded here, keeping rules elsewhere risked a rule being referenced but never actually loaded; session-4 architecture realignment, see `wiki/rule-archive.md`) |
 | Work sizing | sub-task, pre-split at design time | unchanged |
 | Verification | cold-read via a brand-new Continue chat tab | cold-read via a brand-new Kilo session (`kilo run`, fresh) — same caveat about shared kernel loading, not a true subagent |
 | wiki/ harness | yes | yes, unchanged in spirit |
@@ -42,12 +42,17 @@ v7.4.20 — confirmed live with a canary test (`wiki/rule-archive.md` L02), not 
 protocol steps are self-served prose (the model reads `wiki/protocols/*.md` on recognizing a
 word like "discuss") — the same shape of gap soulmate-3 has, for a different underlying reason.
 
-Separately, and unlike soulmate-3: `.kilo/plugins/subtask-gate.ts`'s block is **one-shot, not a
-permanent lock** — once a sub-task-closing commit lands, the very next mutating tool call fails,
-but the gate disarms immediately after. A model that ignores the error text and retries the
-exact same call verbatim would get through. `AGENTS.md`'s own "no 3rd verbatim retry" rule is the
-only thing discouraging that, and it hasn't been separately stress-tested (see
-`wiki/handoffs/FEEDBACK_PENDING.md` #3).
+Separately, and unlike soulmate-3: `.kilo/plugins/subtask-gate.ts` really does mechanically block
+a write/edit call mid-session. An earlier version of this gate had a real retry-bypass bug — an
+immediate verbatim retry of the exact same blocked call slipped through unconditionally, because
+the gate disarmed itself the instant the *first* block fired, not when the user actually responded
+to it. That's fixed (round 8): the gate now only clears on a genuinely new user message, matching
+what the block's own error text asks for. Independently re-verified live 3 separate times since
+(rounds 8, 9, 10) — see the closed entry in `wiki/handoffs/FEEDBACK_PENDING.md`'s completed
+history for the evidence trail. What's still genuinely open: `discuss.md` self-serve failures
+(#4), the model's own self-report after a block can't be trusted without checking real file/git
+state (#6), and `discuss.md` has no mechanical backstop at all since it produces zero tool calls
+(#12) — see `wiki/handoffs/FEEDBACK_PENDING.md` for current status on all of these.
 
 ## File tree
 
@@ -108,10 +113,10 @@ Then, by hand:
 5. Run `(cd <target-directory> && scripts/check-caps.sh --bootstrap-check)`.
 6. Open `<target-directory>` with Kilo and run `templates/harness-integration-test.md`'s steps —
    **especially Step 5** (the sub-task gate actually blocking a live tool call), which is this
-   repo's whole reason for existing over soulmate-3. This hasn't yet been independently verified
-   against a project produced by this repo's own `bootstrap.sh` (see
-   `wiki/handoffs/FEEDBACK_PENDING.md` #1) — don't assume it works from the docs alone the first
-   time you use this.
+   repo's whole reason for existing over soulmate-3. This has been independently verified against
+   a real project produced by this repo's own `bootstrap.sh` (rounds 9 and 10 each did a real
+   fresh bootstrap + live `kilo run` gate test) — but the sequence is worth running yourself once
+   rather than assuming it works from the docs alone the first time you use this.
 7. First real session: `design` your first real piece of work before touching any code.
 
 ## Preconditions
