@@ -372,6 +372,42 @@ check_watch_size() {
   fi
 }
 
+# Round 11 meta-lesson (mirrors the original soulmate's own [L04]: "a mechanism that needs a
+# fourth patch was the wrong shape from the second one"): the same bug — a doc/comment narrating
+# a mechanism as broken/unverified after it was actually fixed — recurred 4 times (3 handoff
+# docs, then README.md+subtask-gate.ts, then this very script) because each round's fix only
+# re-checked the file class the *previous* audit happened to flag, never the whole repo. This
+# replaces every one of those hand-picked greps with one pass over every tracked file, so there's
+# no more file class left to accidentally leave out of scope.
+check_stale_language() {
+  local patterns=(
+    "hasn't yet been" "has not yet been" "not yet verified"
+    "hasn't been independently verified" "unpatched" "still unpatched"
+  )
+  # Files whose entire purpose is to narrate what used to be true (this repo's own 4-tier doc
+  # role separation, see AGENTS.md) — a stale-sounding phrase describing a past round here is
+  # usually correct, not a bug. FEEDBACK_PENDING.md's open table legitimately uses this language
+  # for real current gaps (that's what "open" means), so it's exempt whole rather than split by
+  # section, to keep this check itself simple. This script is exempt from itself (it necessarily
+  # quotes these exact phrases to define them).
+  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log\.md|wiki/handoffs/FEEDBACK_PENDING\.md|scripts/check-caps\.sh)$'
+  local args=(-inF)
+  local pat
+  for pat in "${patterns[@]}"; do
+    args+=(-e "$pat")
+  done
+  local hit=0
+  while IFS=: read -r file line text; do
+    [ -z "$file" ] && continue
+    [[ "$file" =~ $exempt ]] && continue
+    hit=1
+    echo "WARN: possibly-stale mechanism-state claim in $file:$line — \"$(printf '%s' "$text" | sed 's/^[[:space:]]*//')\" — verify it's still true, or if it's describing a past round move it into historical narrative (wiki/rule-archive.md / SESSION_MASTER.md)"
+  done < <(git grep "${args[@]}" -- . 2>/dev/null || true)
+  if [ "$hit" -eq 0 ]; then
+    echo "ok: stale-language sweep — no possibly-stale mechanism-state claims found outside historical narrative"
+  fi
+}
+
 check_bootstrap_placeholders_filled() {
   local bad=0
   if [ -f "AGENTS.md" ] && grep -qF "[project name]" "AGENTS.md"; then
@@ -407,10 +443,10 @@ run_bootstrap_checks() {
   if [ "$status" = 0 ]; then
     echo ""
     echo "Bootstrap check passed. Unlike soulmate-3, this repo has a real mechanical safety net"
-    echo "(.kilo/plugins/subtask-gate.ts, via Kilo's tool.execute.before hook) — but that has"
-    echo "only been verified live in this repo's own test project, not yet in a fresh bootstrap."
-    echo "Run templates/harness-integration-test.md's Step 5 (the gate blocking a real tool call)"
-    echo "before trusting this passed check on a brand-new project."
+    echo "(.kilo/plugins/subtask-gate.ts, via Kilo's tool.execute.before hook) — independently"
+    echo "verified live against a fresh bootstrap output twice (rounds 9 and 10), not just in"
+    echo "this repo's own dogfooded copy. Re-run templates/harness-integration-test.md's Step 5"
+    echo "yourself if you want to reconfirm it on your own project rather than trust this claim."
   fi
 }
 
@@ -433,6 +469,7 @@ check_primer_handoff_reminder
 check_watch_size "wiki/rule-archive.md" 400
 check_watch_size "wiki/session-log.md" 200
 check_watch_size "wiki/handoffs/SESSION_MASTER.md" 150
+check_stale_language
 
 shopt -s nullglob
 feedback_files=(wiki/handoffs/FEEDBACK_PENDING*.md)
