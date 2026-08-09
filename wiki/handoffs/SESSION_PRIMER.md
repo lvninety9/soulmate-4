@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 13 complete (fix for round 12's enforcement-gap finding); round 13 not yet re-scored
+# SESSION PRIMER — round 15 complete (fix for round 14's line-wrap/exemption findings); round 15 not yet re-scored
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -55,7 +55,11 @@ keep running in future sessions until the score closes in on the original's.
 | 9 (re-score) | Fresh agent re-verified round 8's #3/#4/#12 fixes live — both held | **turnkey ~70, structural ~68**. Found 3 new issues: handoff docs mutually inconsistent, `AGENTS.md` zero-headroom cap (3rd recurrence), L01 wrong npm package citation | fixes: `2a882e7` |
 | 10 (re-score) | Fresh agent re-verified round 9's fixes live — all held | **turnkey ~76, structural ~77**. Found the *same* stale-narrative bug recurring in files round 9 never checked: `README.md`×2, `subtask-gate.ts:324`'s own copy of the L01 citation | fixes: `a05bf53`..`77320b8` |
 | 11 (re-score) | Fresh agent re-verified round 10's fixes live — all held, incl. `@kilocode/plugin` citation independently verified against the real installed binary | **turnkey 80, structural 78**. Found a 4th instance of the same recurring bug: `scripts/check-caps.sh:409-411`'s own stale claim — diagnosed root cause as *hand-picked sweep scope*, not a new bug type | fixes: `c481993`..`8736007` |
-| 12 (re-score) | Fresh agent re-verified round 11's `check_stale_language()` fix — installed the real pre-commit hook and attempted a real commit with a stale-claim injection staged, not just read the code | **turnkey 80 (held), structural 78→74 (regressed)**. The mechanism built to close the recurring bug had the recurring bug itself: printed WARN, never set `status=1` — the real commit landed anyway. Also confirmed `FEEDBACK_PENDING.md` was exempt whole-file | this round's fix below |
+| 12 (re-score) | Fresh agent re-verified round 11's `check_stale_language()` fix — installed the real pre-commit hook and attempted a real commit with a stale-claim injection staged, not just read the code | **turnkey 80 (held), structural 78→74 (regressed)**. The mechanism built to close the recurring bug had the recurring bug itself: printed WARN, never set `status=1` — the real commit landed anyway. Also confirmed `FEEDBACK_PENDING.md` was exempt whole-file | fixed round 13 |
+| 13 (re-score) | Fresh agent independently installed the hook + real-committed a stale injection again, post round-13-fix | **turnkey 80 (held), structural 74→80 (recovered)**. Round 12's exact gap genuinely closed this time — unswept-file injection blocked, FEEDBACK_PENDING open-table injection blocked, Completed-history text still passes. Verdict: real progress, not yet CONVERGED (structural had oscillated 78→74→80 across 3 rounds) | fixes: `4d20b11`..`296d4ba` |
+| 14 (re-score) | Fresh agent tried genuinely new adversarial angles (not repeating prior rounds' exact tests): fresh-bootstrapped-project survival (passed), phrase-match case/wrap variants, exemption-regex over/under-match | **turnkey 80 (held), structural 80→76**. Found 2 new real bugs in `check_stale_language()` itself: (1) a stale phrase split across this repo's own hard-wrap house style evades the per-line grep entirely (false negative); (2) `session-log.md` was missing the `-archive` exemption sibling its 2 neighbors already had, so this repo's own routine archiving convention for it would wrongly self-block (false positive) | this round's fix below |
+
+**Round 15's fix**: (1) line-wrap evasion — join each run of non-blank lines (one wrapped paragraph) into a single string before matching, so a phrase split at an arbitrary wrap point is still visible as contiguous text; a blank line still ends a paragraph, so two genuinely separate claims can't bridge into a false match. (2) added `(-archive)?` to the `session-log` exemption alternative, matching the existing `SESSION_MASTER`/`rule-archive` pattern exactly. Live-verified: both of round 14's exact repro cases now behave correctly (wrap-split blocks, archive file stays exempt), plus all of round 13's own regression checks re-run clean (unswept-file block, FEEDBACK_PENDING open-table block, Completed-history pass). Full narrative: `FEEDBACK_PENDING.md` row #23.
 
 **Round 8-10 fixes**: all independently re-confirmed live across rounds 9-11, not just unit-tested — FEEDBACK #3 closed (gate clear moved to `chat.message`/new-message-only), #4/#12 nudge reworked (0/3→2/2×3 rounds, clears this repo's N=3 bar; CLI-invisibility half confirmed structurally unfixable), doc self-consistency + `AGENTS.md` cap (85→75 lines, real headroom) + L01 citation fixed round 9, then found stale *again* in `README.md`+`subtask-gate.ts:324` and re-fixed round 10 via a hand-picked repo-wide grep. Full narrative + evidence: `FEEDBACK_PENDING.md` rows #3/#18/#19, `rule-archive.md`.
 
@@ -69,10 +73,9 @@ session's first `git status`/`git log origin/master -1` check, not assumed here.
 ## Current sub-task
 
 ```
-시작: 없음 — round 12의 발견(check_stale_language()가 status=1 미설정) fix 완료
-      (하드블록 전환+FEEDBACK_PENDING 예외범위 축소), push 확인 필요.
-목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 13 재채점
-작업 사이클: 없음(이 세션의 sub-task는 완결). Round 13이 새 라운드로 시작됨.
+시작: 없음 — round 14의 발견(줄바꿈 회피+session-log-archive 예외누락) fix 완료, push 확인 필요.
+목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 15 재채점
+작업 사이클: 없음(이 세션의 sub-task는 완결). Round 15가 새 라운드로 시작됨.
 ```
 
 ## Hard constraints / warnings
@@ -117,18 +120,20 @@ condition is arguably still not met. Worth asking Jay directly rather than assum
 
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽고 git log/status로
-이 파일의 주장(round 13까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것
-(round 9~12 전부 이 파일류 문서 자체가 구식이라는 걸 스스로 지적한 전례가 있음).
+이 파일의 주장(round 15까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것
+(round 9~14 전부 이 파일류 문서 자체가 구식이라는 걸 스스로 지적한 전례가 있음).
 
-Round 12가 찾은 진짜 심각한 문제: check_stale_language()가 감지는 하지만 status=1을 안 세워
-실제 커밋을 안 막고 있었음(경고만 찍고 통과) — round 13에서 하드블록으로 전환+
-FEEDBACK_PENDING.md 예외범위를 Completed-history 섹션만으로 축소, 실제 pre-commit hook
-설치 후 라이브 커밋 시도로 검증(차단 확인). 마지막 측정 점수는 Round 12의 턴키80/구조74.
+Round 14가 찾은 문제 2건: (1) 낡은 문구가 이 레포의 실제 줄바꿈 습관대로 두 줄에 걸쳐
+쪼개지면 per-line grep이 못 잡음(미탐지) (2) session-log.md만 -archive 예외 형제가
+빠져있어 정상 아카이빙 커밋이 오탐으로 막힘 — round 15에서 둘 다 수정+실측 검증
+(round 14의 재현사례 재확인 + round 13의 회귀체크 전부 재통과). 마지막 측정 점수는
+Round 14의 턴키80/구조76.
 
-Round 13 재채점부터 시작해주세요 — 원본을 다시 클론해 루브릭 재확인 후 fresh non-fork
-에이전트로 blind 채점(실제 bootstrap+kilo run). 이번엔 특히 "진짜로 커밋을 막는지"를
-직접 pre-commit hook 설치+실커밋 시도로 재검증해주세요(코드만 읽지 말 것 — round 11도
-이걸 안 해서 이 버그를 놓쳤음). 새 발견 0건이면 CONVERGED 판단. Jay의 최종 기준: 구조축이
+Round 15 재채점부터 시작해주세요 — 원본을 다시 클론해 루브릭 재확인 후 fresh non-fork
+에이전트로 blind 채점(실제 bootstrap+kilo run, 단 kilo run은 최소화 — 이전 라운드에
+불필요한 트라이얼로 시간 낭비한 전례 있음). 구조축이 최근 4라운드 78→74→80→76로
+계속 출렁였으니, 이번에도 "진짜 새 발견 0건"인지가 핵심 — 있으면 코드 읽기만으로
+끝내지 말고 실제 pre-commit hook 설치+실커밋으로 재검증할 것. Jay의 최종 기준: 구조축이
 원본의 98.75 수준(원본도 100은 아니고 "진지한 적대적 시도에도 새 발견 0건"에서 CONVERGED
 선언한 지점)에 근접하면 합격, push하고 마무리.
 ```
