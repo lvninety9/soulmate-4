@@ -1,4 +1,4 @@
-# SESSION PRIMER — session 5, round 9 complete; round 9's doc-drift/cap/citation fixes in progress
+# SESSION PRIMER — round 11 complete (turnkey 80/structural 78); round 12's stale-language mechanical check in progress
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -41,32 +41,24 @@ keep running in future sessions until the score closes in on the original's.
 > `SESSION_MASTER.md`'s "Session 5 handoff re-verification" section (why-narrative, belongs
 > there per this file's own role rule, not here).
 
-## Current state — round 9 complete; round 9's own findings (doc drift, AGENTS.md cap, L01 citation) fixed this round, not yet re-scored by a fresh audit
+## Current state — round 11 complete (turnkey 80/structural 78); round 12's fix in progress, not yet re-scored
 
 | Round | What it tested/built | Result | Evidence |
 |---|---|---|---|
 | 1-3 | discuss/design/build/verify self-serve + gate mechanics (3 separate fresh blind agents) | 3 real bugs found+fixed: gate state lost across processes, gate trigger 100% elective, commit detection regex-based (L06-L08) | `SESSION_MASTER.md`/`-archive.md`, `rule-archive.md` |
 | Architecture realignment | Checked the *original* soulmate repo's real caps (not soulmate-3's) | `AGENTS.md` cap 65→85 to match original; Learned/Fixed Rules merged back into `AGENTS.md` | `SESSION_MASTER.md` "Round 4 — architecture realignment" |
 | 4 (blind) | refactor.md self-serve, 3 independent trials | self-serve never fired once — backup/units/verify all failed as a result (L09 found) | `rule-archive.md` L09, `65dd69e`..`450f587` |
-| — | L09 fix (first version) + live re-verify | worked in that one trial | `450f587` |
-| — | Structural doc improvements Jay requested mid-session: archive-destination pattern, numbering legend, Learned-Rules compression priority, 4-tier doc role separation, canonical verification-command naming | all 4 shipped + pushed | `b54f19b`..`f7250c3` |
-| 5 (objective audit) | Fresh non-fork agent, calibrated rubric against the *real* original repo, real bootstrap + real `kilo run` | **turnkey 74/100, structural 73/100** vs original's 87/98.75 | full report was this round's task notification; fixes: `35e90f0`..`8d3d590` |
-| 6 (re-score) | Fresh agent re-verified all 5 round-5 fixes live | all 5 held; **turnkey 74→81, structural 73→77**. New finding: `templates/AGENTS.md.template` drifted from `AGENTS.md` *again*, same session that had just fixed an earlier instance | fixes: `7438b59`..`e5c0ca0` |
-| 7 (re-score) | Fresh agent re-verified round 6's fixes live | held, but **structural regressed 77→69** (turnkey stayed 81) — `check_template_drift()` itself was content-blind (ID-only); FEEDBACK #4 (discuss.md) converted from "untested" to a live-confirmed failure | fixes: `7879c11`..`8997230` |
-| 8 (re-score) | Fresh agent re-verified round 7's 3 fixes live | held, but **both axes dropped: turnkey 81→78, structural 77→74** — nudge fires but doesn't change model behavior (2nd live failure of the same canonical case), plus a new CLI-invisibility bug (`chat.message` warnings never appear in normal `kilo run` terminal output) | fixes: `dbeffc7`..`041fe56` (FEEDBACK #3 closed, #4/#12 nudge reworded) |
-| 9 (re-score) | Fresh agent independently re-verified round 8's FEEDBACK #3 and #4/#12 fixes live (both held — #3's verbatim-retry block and #4/#12's reworded nudge both hands-on reconfirmed with fresh adversarial trials) | **turnkey ~70, structural ~68** (this grader's own estimate — explicitly not a strict continuation of prior rounds' internal formula, so some of the drop is scoring noise, not pure regression). Found 3 new issues: handoff docs mutually inconsistent (this file's title/table, `session-log.md` missing entries, `FEEDBACK_PENDING.md` row #18 mislabeled); `AGENTS.md` zero-headroom cap regression (3rd recurrence); L01 cited the wrong npm package path | this round's fixes below |
+| 5 (objective audit) | Fresh non-fork agent, calibrated rubric against the *real* original repo, real bootstrap + real `kilo run` | **turnkey 74/100, structural 73/100** vs original's 87/98.75 | fixes: `35e90f0`..`8d3d590` |
+| 6 (re-score) | Fresh agent re-verified all 5 round-5 fixes live | all held; **turnkey 74→81, structural 73→77**. `templates/AGENTS.md.template` drifted again | fixes: `7438b59`..`e5c0ca0` |
+| 7 (re-score) | Fresh agent re-verified round 6's fixes live | held, but **structural regressed 77→69** — `check_template_drift()` was content-blind (ID-only) | fixes: `7879c11`..`8997230` |
+| 8 (re-score) | Fresh agent re-verified round 7's fixes live | held, but **both axes dropped: turnkey 81→78, structural 77→74** — nudge fires but doesn't change model behavior (2nd live failure), new CLI-invisibility bug found | fixes: `dbeffc7`..`041fe56` (FEEDBACK #3 closed, #4/#12 nudge reworded) |
+| 9 (re-score) | Fresh agent re-verified round 8's #3/#4/#12 fixes live — both held | **turnkey ~70, structural ~68**. Found 3 new issues: handoff docs mutually inconsistent, `AGENTS.md` zero-headroom cap (3rd recurrence), L01 wrong npm package citation | fixes: `2a882e7` |
+| 10 (re-score) | Fresh agent re-verified round 9's fixes live — all held | **turnkey ~76, structural ~77**. Found the *same* stale-narrative bug recurring in files round 9 never checked: `README.md`×2, `subtask-gate.ts:324`'s own copy of the L01 citation | fixes: `a05bf53`..`77320b8` |
+| 11 (re-score) | Fresh agent re-verified round 10's fixes live — all held, incl. `@kilocode/plugin` citation independently verified against the real installed binary | **turnkey 80, structural 78**. Found a 4th instance of the same recurring bug: `scripts/check-caps.sh:409-411`'s own stale claim — diagnosed root cause as *hand-picked sweep scope*, not a new bug type | this round's fix below |
 
-**Round 8 fixes** (both held under round 9's independent live re-verification): FEEDBACK #3
-closed (gate clear moved to `chat.message`/new-message-only, L11, 17/17 unit tests); FEEDBACK
-#4/#12 nudge reworded (opt-out removed) — 0/3 old wording → 2/2+2/2 new wording across rounds
-8-9, CLI-invisibility half confirmed structurally unfixable, stated honestly as open. Full
-narrative + evidence: `FEEDBACK_PENDING.md` rows #3/#18, `rule-archive.md`.
+**Round 8-10 fixes**: all independently re-confirmed live across rounds 9-11, not just unit-tested — FEEDBACK #3 closed (gate clear moved to `chat.message`/new-message-only), #4/#12 nudge reworked (0/3→2/2×3 rounds, clears this repo's N=3 bar; CLI-invisibility half confirmed structurally unfixable), doc self-consistency + `AGENTS.md` cap (85→75 lines, real headroom) + L01 citation fixed round 9, then found stale *again* in `README.md`+`subtask-gate.ts:324` and re-fixed round 10 via a hand-picked repo-wide grep. Full narrative + evidence: `FEEDBACK_PENDING.md` rows #3/#18/#19, `rule-archive.md`.
 
-**Round 9's own findings, fixed this round**: doc self-consistency (this file + `session-log.md`
-+ `FEEDBACK_PENDING.md` row #18's round-label reconciled); `AGENTS.md` cap regression (3rd
-recurrence, 85→75 lines via Learned Rules compression, live-verified 76/85 with margin); L01
-citation corrected (`@opencode-ai/plugin`→`@kilocode/plugin`, real shipped path). Full narrative:
-`FEEDBACK_PENDING.md` row #19.
+**Round 11's finding, fixed this round (12)**: the recurring bug wasn't a new instance each time, it was the *same process gap* — every sweep so far manually picked which files to check. Built `check_stale_language()` in `check-caps.sh` — one mechanical, repo-wide grep (a short list of stale-claim phrasings, tuned against this repo's own last 4 recurrences, plus a short exemption list for genuinely-historical files) wired into the pre-commit hook, so no future round has to remember to re-grep by hand. Fixed `check-caps.sh:409-411`'s own stale claim (the concrete instance round 11 found). Live-verified the new check fires on injected staleness in a live file and stays quiet on the same text in an exempted historical file. Full narrative: `FEEDBACK_PENDING.md` row #20, `rule-archive.md`.
 
 **Everything through this round is committed; push status verified at the top of the next
 session's first `git status`/`git log origin/master -1` check, not assumed here.**
@@ -74,9 +66,10 @@ session's first `git status`/`git log origin/master -1` check, not assumed here.
 ## Current sub-task
 
 ```
-시작: 없음 — round 9의 3개 발견(문서 모순/AGENTS.md 캡/L01 인용) fix 완료, push 확인 필요.
-목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 10 재채점
-작업 사이클: 없음(이 세션의 sub-task는 완결). Round 10이 새 라운드로 시작됨.
+시작: 없음 — round 11의 발견(check-caps.sh 자체의 낡은 서술) + 근본원인(수동 스윕 범위)
+      fix 완료(기계적 stale-language 체크 신설), push 확인 필요.
+목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 12 재채점
+작업 사이클: 없음(이 세션의 sub-task는 완결). Round 12가 새 라운드로 시작됨.
 ```
 
 ## Hard constraints / warnings
@@ -121,20 +114,22 @@ condition is arguably still not met. Worth asking Jay directly rather than assum
 
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 처음부터 끝까지
-읽어주세요. 먼저 git log/git status로 이 파일의 주장(round 9까지 fix 완료, push 여부)을
-직접 재검증할 것 — 문서만 믿지 말 것(round 9가 바로 이 문서 자체의 구식 상태를 지적한
-전례가 있음, "Round 9's own findings" 섹션 참조).
+읽어주세요. 먼저 git log/git status로 이 파일의 주장(round 11까지 fix 완료, push 여부)을
+직접 재검증할 것 — 문서만 믿지 말 것(round 9/10/11 전부 이 파일류 문서 자체가 구식이라는
+걸 스스로 지적한 전례가 있음).
 
-Round 9까지 완료 상태입니다. 마지막으로 측정된 점수는 Round 9의 턴키~70/구조~68이고,
-Round 9가 찾은 문서모순/AGENTS.md 캡/L01 인용 3건은 이번 라운드에 수정됐지만 아직
-fresh 에이전트로 재채점 안 됐습니다.
+Round 11까지 완료 상태입니다. 마지막으로 측정된 점수는 Round 11의 턴키80/구조78이고,
+Round 11이 찾은 check-caps.sh 자체의 낡은 서술은 수정했고, 근본원인(수동 스윕 범위)도
+check_stale_language() 기계적 체크 신설로 고쳤지만 아직 fresh 에이전트로 재채점 안 됐습니다.
 
-Round 10 재채점부터 시작해주세요 — 원본 https://github.com/lvninety9/soulmate 를 다시 클론해서
+Round 12 재채점부터 시작해주세요 — 원본 https://github.com/lvninety9/soulmate 를 다시 클론해서
 루브릭을 재확인한 뒤, fresh non-fork 에이전트로 soulmate-4를 blind 채점(실제 bootstrap + 실제
-kilo run 포함). 결과 나오면 "Known open issues" 표 순서대로(FEEDBACK #3는 closed, 다음
-우선순위는 #4/#12의 CLI-invisibility 한계를 인정하고 넘어갈지 #6 모델 자기보고 조작 대응
-절차를 강화할지 판단) 다음 fix 사이클 진행해주세요. 매 fix는 단위테스트+실전 kilo run
-재검증 둘 다 필수입니다. Jay의 최종 기준: 구조(structural) 축이 원본의 98.75 수준(원본도
-100은 아니고 "진지한 적대적 시도에도 새 발견 0건"에서 스스로 CONVERGED 선언한 지점)에
-근접하면 합격, push하고 마무리.
+kilo run 포함). 이번 라운드는 특히 이 새 check_stale_language() 자체를 스트레스테스트해주세요
+— 진짜로 낡은 서술을 새로 찾아내는지, 정상적인 과거 서술(rule-archive.md 등)엔 조용한지.
+그게 확인되면(새 발견 0건) 이 저장소가 원본처럼 CONVERGED 시작점에 온 건지 판단해주세요.
+결과 나오면 "Known open issues" 표 순서대로(#4/#12의 CLI-invisibility 한계를 인정하고
+넘어갈지 #6 모델 자기보고 조작 대응 절차를 강화할지 판단) 다음 fix 사이클 진행해주세요.
+매 fix는 단위테스트+실전 kilo run 재검증 둘 다 필수입니다. Jay의 최종 기준: 구조(structural)
+축이 원본의 98.75 수준(원본도 100은 아니고 "진지한 적대적 시도에도 새 발견 0건"에서 스스로
+CONVERGED 선언한 지점)에 근접하면 합격, push하고 마무리.
 ```
