@@ -386,6 +386,14 @@ check_watch_size() {
 # exists to catch, found inside itself. Live-tested against the current real repo before flipping
 # to a hard fail (zero false positives on the actual phrase list, including inside
 # FEEDBACK_PENDING.md's open table) — this is a real block now, not a reminder.
+#
+# round 14(audit) found 2 more bugs in this same function, live-reproduced: (1) a per-line grep
+# never sees a stale phrase split across this repo's own ~90-100col hard-wrap house style — fixed
+# by joining each run of non-blank lines (one wrapped paragraph) into a single string before
+# matching; a blank line still ends a paragraph, so two genuinely separate claims can't bridge
+# into a false match. (2) session-log.md was missing the "-archive" exemption sibling its two
+# neighbors already had, so the routine archiving this repo already does for it would wrongly
+# self-block — added, matching the existing pattern exactly.
 check_stale_language() {
   local patterns=(
     "hasn't yet been" "has not yet been" "not yet verified"
@@ -395,7 +403,7 @@ check_stale_language() {
   # role separation, see AGENTS.md) — a stale-sounding phrase describing a past round here is
   # usually correct, not a bug. This script is exempt from itself (it necessarily quotes these
   # exact phrases to define them).
-  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log\.md|scripts/check-caps\.sh)$'
+  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log(-archive)?\.md|scripts/check-caps\.sh)$'
   # round 13: FEEDBACK_PENDING.md used to be exempt whole-file — its open table legitimately uses
   # this language for real current gaps, but its "## Completed history" section (below a clean
   # heading boundary the repo already relies on elsewhere) is exactly as historical as the other
@@ -406,22 +414,33 @@ check_stale_language() {
     fp_history_line=$(grep -n '^## Completed history' "$fp_file" | head -1 | cut -d: -f1)
     [ -z "$fp_history_line" ] && fp_history_line=999999999
   fi
-  local args=(-inF)
-  local pat
-  for pat in "${patterns[@]}"; do
-    args+=(-e "$pat")
-  done
   local hit=0
-  while IFS=: read -r file line text; do
-    [ -z "$file" ] && continue
+  local file
+  while IFS= read -r file; do
     [[ "$file" =~ $exempt ]] && continue
-    if [ "$file" = "$fp_file" ] && [ "$line" -ge "$fp_history_line" ]; then
-      continue
-    fi
-    hit=1
-    status=1
-    echo "OVER CAP: possibly-stale mechanism-state claim in $file:$line — \"$(printf '%s' "$text" | sed 's/^[[:space:]]*//')\" — verify it's still true, or if it's describing a past round move it into historical narrative (wiki/rule-archive.md / SESSION_MASTER.md)"
-  done < <(git grep "${args[@]}" -- . 2>/dev/null || true)
+    [ -f "$file" ] || continue
+    while IFS=: read -r startline block; do
+      [ -z "$block" ] && continue
+      if [ "$file" = "$fp_file" ] && [ "$startline" -ge "$fp_history_line" ]; then
+        continue
+      fi
+      local pat matched="" lower_block="${block,,}"
+      for pat in "${patterns[@]}"; do
+        case "$lower_block" in *"${pat,,}"*) matched="$pat" ;; esac
+        [ -n "$matched" ] && break
+      done
+      if [ -n "$matched" ]; then
+        hit=1
+        status=1
+        echo "OVER CAP: possibly-stale mechanism-state claim in $file:$startline — \"$(printf '%s' "$block" | cut -c1-160)\" — verify it's still true, or if it's describing a past round move it into historical narrative (wiki/rule-archive.md / SESSION_MASTER.md)"
+      fi
+    done < <(awk '
+      BEGIN{buf=""; startline=0}
+      /^[[:space:]]*$/ { if (buf!="") print startline":"buf; buf=""; next }
+      { if (buf=="") startline=NR; buf = buf (buf=="" ? "" : " ") $0 }
+      END{ if (buf!="") print startline":"buf }
+    ' "$file")
+  done < <(git grep -Il '' -- . 2>/dev/null || true)
   if [ "$hit" -eq 0 ]; then
     echo "ok: stale-language sweep — no possibly-stale mechanism-state claims found outside historical narrative"
   fi
