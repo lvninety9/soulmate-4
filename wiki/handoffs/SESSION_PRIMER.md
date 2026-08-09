@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 11 complete (turnkey 80/structural 78); round 12's stale-language mechanical check in progress
+# SESSION PRIMER — round 13 complete (fix for round 12's enforcement-gap finding); round 13 not yet re-scored
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -54,11 +54,14 @@ keep running in future sessions until the score closes in on the original's.
 | 8 (re-score) | Fresh agent re-verified round 7's fixes live | held, but **both axes dropped: turnkey 81→78, structural 77→74** — nudge fires but doesn't change model behavior (2nd live failure), new CLI-invisibility bug found | fixes: `dbeffc7`..`041fe56` (FEEDBACK #3 closed, #4/#12 nudge reworded) |
 | 9 (re-score) | Fresh agent re-verified round 8's #3/#4/#12 fixes live — both held | **turnkey ~70, structural ~68**. Found 3 new issues: handoff docs mutually inconsistent, `AGENTS.md` zero-headroom cap (3rd recurrence), L01 wrong npm package citation | fixes: `2a882e7` |
 | 10 (re-score) | Fresh agent re-verified round 9's fixes live — all held | **turnkey ~76, structural ~77**. Found the *same* stale-narrative bug recurring in files round 9 never checked: `README.md`×2, `subtask-gate.ts:324`'s own copy of the L01 citation | fixes: `a05bf53`..`77320b8` |
-| 11 (re-score) | Fresh agent re-verified round 10's fixes live — all held, incl. `@kilocode/plugin` citation independently verified against the real installed binary | **turnkey 80, structural 78**. Found a 4th instance of the same recurring bug: `scripts/check-caps.sh:409-411`'s own stale claim — diagnosed root cause as *hand-picked sweep scope*, not a new bug type | this round's fix below |
+| 11 (re-score) | Fresh agent re-verified round 10's fixes live — all held, incl. `@kilocode/plugin` citation independently verified against the real installed binary | **turnkey 80, structural 78**. Found a 4th instance of the same recurring bug: `scripts/check-caps.sh:409-411`'s own stale claim — diagnosed root cause as *hand-picked sweep scope*, not a new bug type | fixes: `c481993`..`8736007` |
+| 12 (re-score) | Fresh agent re-verified round 11's `check_stale_language()` fix — installed the real pre-commit hook and attempted a real commit with a stale-claim injection staged, not just read the code | **turnkey 80 (held), structural 78→74 (regressed)**. The mechanism built to close the recurring bug had the recurring bug itself: printed WARN, never set `status=1` — the real commit landed anyway. Also confirmed `FEEDBACK_PENDING.md` was exempt whole-file | this round's fix below |
 
 **Round 8-10 fixes**: all independently re-confirmed live across rounds 9-11, not just unit-tested — FEEDBACK #3 closed (gate clear moved to `chat.message`/new-message-only), #4/#12 nudge reworked (0/3→2/2×3 rounds, clears this repo's N=3 bar; CLI-invisibility half confirmed structurally unfixable), doc self-consistency + `AGENTS.md` cap (85→75 lines, real headroom) + L01 citation fixed round 9, then found stale *again* in `README.md`+`subtask-gate.ts:324` and re-fixed round 10 via a hand-picked repo-wide grep. Full narrative + evidence: `FEEDBACK_PENDING.md` rows #3/#18/#19, `rule-archive.md`.
 
-**Round 11's finding, fixed this round (12)**: the recurring bug wasn't a new instance each time, it was the *same process gap* — every sweep so far manually picked which files to check. Built `check_stale_language()` in `check-caps.sh` — one mechanical, repo-wide grep (a short list of stale-claim phrasings, tuned against this repo's own last 4 recurrences, plus a short exemption list for genuinely-historical files) wired into the pre-commit hook, so no future round has to remember to re-grep by hand. Fixed `check-caps.sh:409-411`'s own stale claim (the concrete instance round 11 found). Live-verified the new check fires on injected staleness in a live file and stays quiet on the same text in an exempted historical file. Full narrative: `FEEDBACK_PENDING.md` row #20, `rule-archive.md`.
+**Round 11's finding, fixed round 12**: the recurring bug wasn't a new instance each time, it was the *same process gap* — every sweep so far manually picked which files to check. Built `check_stale_language()` in `check-caps.sh`. Full narrative: `FEEDBACK_PENDING.md` row #20, `rule-archive.md`.
+
+**Round 12's finding, fixed this round (13)**: `check_stale_language()` detected correctly but never set `status=1` — advisory only, despite being narrated as a hard backstop. Now sets `status=1` on a match; `FEEDBACK_PENDING.md`'s exemption narrowed to just its Completed-history section (its open table is swept now, not blanket-exempt). Live-verified with the real pre-commit hook installed: baseline clean, injection in an unswept file blocks, injection in FEEDBACK_PENDING's open table blocks, same text after the Completed-history heading stays clean, a real commit attempt with staleness staged is genuinely rejected. Full narrative: `FEEDBACK_PENDING.md` row #22.
 
 **Everything through this round is committed; push status verified at the top of the next
 session's first `git status`/`git log origin/master -1` check, not assumed here.**
@@ -66,10 +69,10 @@ session's first `git status`/`git log origin/master -1` check, not assumed here.
 ## Current sub-task
 
 ```
-시작: 없음 — round 11의 발견(check-caps.sh 자체의 낡은 서술) + 근본원인(수동 스윕 범위)
-      fix 완료(기계적 stale-language 체크 신설), push 확인 필요.
-목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 12 재채점
-작업 사이클: 없음(이 세션의 sub-task는 완결). Round 12가 새 라운드로 시작됨.
+시작: 없음 — round 12의 발견(check_stale_language()가 status=1 미설정) fix 완료
+      (하드블록 전환+FEEDBACK_PENDING 예외범위 축소), push 확인 필요.
+목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 13 재채점
+작업 사이클: 없음(이 세션의 sub-task는 완결). Round 13이 새 라운드로 시작됨.
 ```
 
 ## Hard constraints / warnings
@@ -113,23 +116,19 @@ condition is arguably still not met. Worth asking Jay directly rather than assum
 ## Next session's starter prompt
 
 ```
-soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 처음부터 끝까지
-읽어주세요. 먼저 git log/git status로 이 파일의 주장(round 11까지 fix 완료, push 여부)을
-직접 재검증할 것 — 문서만 믿지 말 것(round 9/10/11 전부 이 파일류 문서 자체가 구식이라는
-걸 스스로 지적한 전례가 있음).
+soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽고 git log/status로
+이 파일의 주장(round 13까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것
+(round 9~12 전부 이 파일류 문서 자체가 구식이라는 걸 스스로 지적한 전례가 있음).
 
-Round 11까지 완료 상태입니다. 마지막으로 측정된 점수는 Round 11의 턴키80/구조78이고,
-Round 11이 찾은 check-caps.sh 자체의 낡은 서술은 수정했고, 근본원인(수동 스윕 범위)도
-check_stale_language() 기계적 체크 신설로 고쳤지만 아직 fresh 에이전트로 재채점 안 됐습니다.
+Round 12가 찾은 진짜 심각한 문제: check_stale_language()가 감지는 하지만 status=1을 안 세워
+실제 커밋을 안 막고 있었음(경고만 찍고 통과) — round 13에서 하드블록으로 전환+
+FEEDBACK_PENDING.md 예외범위를 Completed-history 섹션만으로 축소, 실제 pre-commit hook
+설치 후 라이브 커밋 시도로 검증(차단 확인). 마지막 측정 점수는 Round 12의 턴키80/구조74.
 
-Round 12 재채점부터 시작해주세요 — 원본 https://github.com/lvninety9/soulmate 를 다시 클론해서
-루브릭을 재확인한 뒤, fresh non-fork 에이전트로 soulmate-4를 blind 채점(실제 bootstrap + 실제
-kilo run 포함). 이번 라운드는 특히 이 새 check_stale_language() 자체를 스트레스테스트해주세요
-— 진짜로 낡은 서술을 새로 찾아내는지, 정상적인 과거 서술(rule-archive.md 등)엔 조용한지.
-그게 확인되면(새 발견 0건) 이 저장소가 원본처럼 CONVERGED 시작점에 온 건지 판단해주세요.
-결과 나오면 "Known open issues" 표 순서대로(#4/#12의 CLI-invisibility 한계를 인정하고
-넘어갈지 #6 모델 자기보고 조작 대응 절차를 강화할지 판단) 다음 fix 사이클 진행해주세요.
-매 fix는 단위테스트+실전 kilo run 재검증 둘 다 필수입니다. Jay의 최종 기준: 구조(structural)
-축이 원본의 98.75 수준(원본도 100은 아니고 "진지한 적대적 시도에도 새 발견 0건"에서 스스로
-CONVERGED 선언한 지점)에 근접하면 합격, push하고 마무리.
+Round 13 재채점부터 시작해주세요 — 원본을 다시 클론해 루브릭 재확인 후 fresh non-fork
+에이전트로 blind 채점(실제 bootstrap+kilo run). 이번엔 특히 "진짜로 커밋을 막는지"를
+직접 pre-commit hook 설치+실커밋 시도로 재검증해주세요(코드만 읽지 말 것 — round 11도
+이걸 안 해서 이 버그를 놓쳤음). 새 발견 0건이면 CONVERGED 판단. Jay의 최종 기준: 구조축이
+원본의 98.75 수준(원본도 100은 아니고 "진지한 적대적 시도에도 새 발견 0건"에서 CONVERGED
+선언한 지점)에 근접하면 합격, push하고 마무리.
 ```
