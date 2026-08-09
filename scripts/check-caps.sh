@@ -401,9 +401,22 @@ check_stale_language() {
   )
   # Files whose entire purpose is to narrate what used to be true (this repo's own 4-tier doc
   # role separation, see AGENTS.md) — a stale-sounding phrase describing a past round here is
-  # usually correct, not a bug. This script is exempt from itself (it necessarily quotes these
-  # exact phrases to define them).
-  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log(-archive)?\.md|scripts/check-caps\.sh)$'
+  # usually correct, not a bug. This script and tests/stale-language.fuzz.test.mjs are both
+  # exempt from this check themselves (both necessarily quote these exact phrases as literal
+  # fixtures to define/test them — caught live when this fuzz test's own commit tripped the
+  # check it introduces, round 16).
+  #
+  # round 16: was an enumerated list of each historical file + its "-archive" sibling
+  # individually — every time this repo's own PRUNE convention (check_watch_size():
+  # archive_dest="${file%.md}-archive.md") produces a new archive file, the list needed a
+  # matching code change, and round 14 found a real false-positive from exactly that (session-log
+  # had no -archive entry). Replaced with a naming-pattern rule: the 3 base historical files by
+  # exact name, plus *any* path ending "-archive.md" (this repo's one established convention for
+  # "this content is a PRUNE-archived past narrative"), so a future archive file needs no code
+  # change to be recognized. A file that merely contains "archive" mid-name but doesn't end in
+  # "-archive.md" (e.g. a hypothetical "archive-notes.md") is deliberately NOT covered by this —
+  # only the exact suffix this repo's own tooling produces.
+  local exempt='^(wiki/handoffs/SESSION_MASTER\.md|wiki/rule-archive\.md|wiki/session-log\.md|scripts/check-caps\.sh|tests/stale-language\.fuzz\.test\.mjs)$|-archive\.md$'
   # round 13: FEEDBACK_PENDING.md used to be exempt whole-file — its open table legitimately uses
   # this language for real current gaps, but its "## Completed history" section (below a clean
   # heading boundary the repo already relies on elsewhere) is exactly as historical as the other
@@ -437,7 +450,7 @@ check_stale_language() {
     done < <(awk '
       BEGIN{buf=""; startline=0}
       /^[[:space:]]*$/ { if (buf!="") print startline":"buf; buf=""; next }
-      { if (buf=="") startline=NR; buf = buf (buf=="" ? "" : " ") $0 }
+      { gsub(/[ \t]+/, " "); if (buf=="") startline=NR; buf = buf (buf=="" ? "" : " ") $0 }
       END{ if (buf!="") print startline":"buf }
     ' "$file")
   done < <(git grep -Il '' -- . 2>/dev/null || true)
