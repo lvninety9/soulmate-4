@@ -116,12 +116,30 @@ expect("two unrelated half-phrases separated by a real heading must NOT match",
 // --- exemption-pattern dimension (round 16's actual redesign) ---
 expect("legitimately historical *-archive.md file stays exempt",
   withNewFile("wiki/rule-archive-archive.md", "# archive\nThis was noted as unpatched in an earlier round.\n"), false)
-expect("brand-new future archive file is auto-exempt with no code change",
-  withNewFile("wiki/new-subsystem-archive.md", "# archive\nThis was hasn't yet been verified, as of that past round.\n"), false)
+// round 17: the generic "*-archive.md" wildcard this test used to validate ("any future archive
+// file is auto-exempt with no code change") is exactly what round 16's own audit found a real
+// false-exemption bug in — an unrelated file that happens to end "-archive.md" for a different
+// reason (a real deployment manifest, still-current content) was silently, wrongly exempted.
+// Narrowed to the 3 known PRUNE-convention stems; an archive-named file outside those 3 is now
+// correctly swept, not exempt.
+expect("archive-suffixed file for an unrelated file (not one of the 3 known historical stems) stays swept",
+  withNewFile("wiki/new-subsystem-archive.md", "# archive\nThis was hasn't yet been verified, as of that past round.\n"), true)
+expect("wiki/deploy-archive.md naming collision — present-tense content stays swept, not silently exempt",
+  withNewFile("wiki/deploy-archive.md",
+    "# Deployment archive\n\nThis is an open, present-tense gap in the CURRENT deploy pipeline, not a historical note: the rollback step has not yet been verified.\n"),
+  true)
 expect("similarly-named but NOT a real archive file stays swept",
   withNewFile("wiki/archive-notes.md", "This has not yet been verified and needs a look.\n"), true)
 expect("filename containing 'archive' mid-word but not the suffix stays swept",
   withNewFile("wiki/rule-archive-notes.md", "This has not yet been verified either.\n"), true)
+
+// --- fenced code / inline code dimension (round 17) ---
+expect("stale phrase inside a fenced code block must NOT match (example/quoted text, not a live claim)",
+  withAppend("\n```\nThis has not yet been verified — example error text, not a real claim.\n```\n"), false)
+expect("stale phrase inside an inline `code span` must NOT match",
+  withAppend("\nSee the `has not yet been verified` flag in the config for details.\n"), false)
+expect("stale phrase as real prose right after a closed code fence still matches",
+  withAppend("\n```\nsome_example_code();\n```\nThis integration has not yet been verified for real.\n"), true)
 
 // --- FEEDBACK_PENDING split-exemption regression (round 13) ---
 expect("FEEDBACK_PENDING.md open table (before Completed history) stays swept",

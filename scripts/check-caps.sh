@@ -406,17 +406,15 @@ check_stale_language() {
   # fixtures to define/test them — caught live when this fuzz test's own commit tripped the
   # check it introduces, round 16).
   #
-  # round 16: was an enumerated list of each historical file + its "-archive" sibling
-  # individually — every time this repo's own PRUNE convention (check_watch_size():
-  # archive_dest="${file%.md}-archive.md") produces a new archive file, the list needed a
-  # matching code change, and round 14 found a real false-positive from exactly that (session-log
-  # had no -archive entry). Replaced with a naming-pattern rule: the 3 base historical files by
-  # exact name, plus *any* path ending "-archive.md" (this repo's one established convention for
-  # "this content is a PRUNE-archived past narrative"), so a future archive file needs no code
-  # change to be recognized. A file that merely contains "archive" mid-name but doesn't end in
-  # "-archive.md" (e.g. a hypothetical "archive-notes.md") is deliberately NOT covered by this —
-  # only the exact suffix this repo's own tooling produces.
-  local exempt='^(wiki/handoffs/SESSION_MASTER\.md|wiki/rule-archive\.md|wiki/session-log\.md|scripts/check-caps\.sh|tests/stale-language\.fuzz\.test\.mjs)$|-archive\.md$'
+  # round 16 built a generic "*-archive.md" wildcard so a future PRUNE-archived file (see
+  # check_watch_size(): archive_dest="${file%.md}-archive.md") wouldn't need a code change to be
+  # recognized — but round 16's own audit then found the wildcard silently exempts ANY file that
+  # happens to end in "-archive.md" for an unrelated reason (e.g. a real "wiki/deploy-archive.md"
+  # deployment manifest, still-current content, wrongly swallowed as historical). Narrowed back
+  # to the 3 known stems this repo's PRUNE convention actually produces, each with an explicit
+  # "-archive" sibling — closes the collision risk entirely (an unrelated file matches none of
+  # these) while losing zero real coverage (no other stem has ever been archived here).
+  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log(-archive)?\.md|scripts/check-caps\.sh|tests/stale-language\.fuzz\.test\.mjs)$'
   # round 13: FEEDBACK_PENDING.md used to be exempt whole-file — its open table legitimately uses
   # this language for real current gaps, but its "## Completed history" section (below a clean
   # heading boundary the repo already relies on elsewhere) is exactly as historical as the other
@@ -448,9 +446,21 @@ check_stale_language() {
         echo "OVER CAP: possibly-stale mechanism-state claim in $file:$startline — \"$(printf '%s' "$block" | cut -c1-160)\" — verify it's still true, or if it's describing a past round move it into historical narrative (wiki/rule-archive.md / SESSION_MASTER.md)"
       fi
     done < <(awk '
-      BEGIN{buf=""; startline=0}
+      # round 17: fenced code blocks and inline `code spans` were matched the same as prose —
+      # a stale-sounding phrase inside an example/quote got flagged as a live claim. Skip fence
+      # content entirely (state toggle on lines starting with ``` ), and strip inline `...` spans
+      # from each line before it joins the paragraph buffer.
+      BEGIN{buf=""; startline=0; infence=0}
+      /^```/ { infence = !infence; next }
+      infence { next }
       /^[[:space:]]*$/ { if (buf!="") print startline":"buf; buf=""; next }
-      { gsub(/[ \t]+/, " "); if (buf=="") startline=NR; buf = buf (buf=="" ? "" : " ") $0 }
+      {
+        line=$0
+        gsub(/`[^`]*`/, "", line)
+        gsub(/[ \t]+/, " ", line)
+        if (buf=="") startline=NR
+        buf = buf (buf=="" ? "" : " ") line
+      }
       END{ if (buf!="") print startline":"buf }
     ' "$file")
   done < <(git grep -Il '' -- . 2>/dev/null || true)
