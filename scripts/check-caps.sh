@@ -450,10 +450,19 @@ check_watch_size() {
 # this — the obvious fix (force-close any suspected-unclosed comment at the next blank line) was
 # tried and immediately broke real content: templates/FEEDBACK_PENDING.md.template and
 # templates/SUBSYSTEM-learnings.md.template both have a genuine multi-paragraph instructional
-# HTML comment with a blank line inside it, and there is no reliable syntactic signal that tells
-# a real multi-paragraph comment apart from an accidental cross-paragraph pairing. This remains
-# an accepted, documented gap (see FEEDBACK_PENDING.md) — backtick-quoting (now verified safe
-# above) is the real way to avoid it, not a mechanical guarantee against every bare-token case.
+# HTML comment with a blank line inside it, and there is no reliable syntactic signal that
+# tells a real multi-paragraph comment apart from an accidental cross-paragraph pairing. This
+# remains an accepted, documented gap (see FEEDBACK_PENDING.md).
+#
+# round 23's audit then found the "backtick-quoting avoids it" mitigation above is imprecise:
+# same-line backtick-quoting (e.g. `<!--` alone on one line) IS verified safe — that's the round
+# 23 fix. But a backtick SPAN that wraps across a hard-wrap line break (opens on one line, closes
+# on the next, no blank line between — the exact legitimate authoring shape round 18 already
+# proved happens in this repo's own prose style) is only protected later, at the buffer-level
+# backtick-strip step that runs AFTER comment detection — so a wrap-split span containing "<!--"
+# is NOT protected by this mitigation and falls under the same bare-token accepted gap above,
+# live-confirmed round 23's own audit. So: backtick-quoting avoids this gap only when the quoted
+# span stays on one physical line; a wrapped span offers no such guarantee.
 check_stale_language() {
   local patterns=(
     "hasn't yet been" "has not yet been" "not yet verified"

@@ -247,9 +247,22 @@ expect("a real (non-backtick) unclosed comment is still caught even on a line th
 // repo already has (templates/FEEDBACK_PENDING.md.template and
 // templates/SUBSYSTEM-learnings.md.template both have a genuine multi-paragraph instructional
 // HTML comment with a blank line inside it), and there is no reliable syntactic signal that
-// tells a real multi-paragraph comment apart from an accidental cross-paragraph pairing. Not
-// asserting a behavior here that is not actually guaranteed — backtick-quoting (now fixed
-// above) is the real, verified way to avoid this in practice.
+// tells a real multi-paragraph comment apart from an accidental cross-paragraph pairing.
+// Backtick-quoting avoids this gap, but ONLY when the quoted span stays on one physical line
+// (round 23's fix) — round 24 found the "backtick-quoting is the mitigation" wording didn't say
+// that, since a wrap-split backtick span (opens one line, closes the next, no blank line
+// between — the same legitimate authoring shape round 18 proved happens in this repo's own
+// prose) is only protected later, at the buffer-level backtick-strip step that runs AFTER
+// comment detection. The case below documents the CURRENT, accepted behavior (silently not
+// caught) as a named, asserted test — not because it's correct, but so a future change to
+// either direction is a deliberate, visible diff, not an accidental regression or an accidental
+// fix nobody notices.
+expect("KNOWN GAP (accepted, not a bug to fix): a backtick span wrapped across a line break, " +
+  "containing '<!--', still does not protect a real claim between it and a later unrelated " +
+  "'-->' — backtick-quoting's guarantee is same-line only, see check_stale_language()'s comment",
+  withAppend("\nThe opener is `<!--\nsplit-across-a-wrap` and never closes on this line.\n\n" +
+    "This claim has not yet been independently verified.\n\n" +
+    "Unrelated closer appears later: -->\n"), false)
 
 console.log(failures === 0 ? `\nALL PASS (${total}/${total})` : `\n${failures}/${total} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)
