@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 16 complete (structural redesign, per Jay's direct request); round 16 not yet re-scored
+# SESSION PRIMER — round 17 complete (fence/archive-collision fixes + fuzz wiring); round 17 not yet re-scored
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -41,7 +41,7 @@ keep running in future sessions until the score closes in on the original's.
 > `SESSION_MASTER.md`'s "Session 5 handoff re-verification" section (why-narrative, belongs
 > there per this file's own role rule, not here).
 
-## Current state — round 14 last-measured turnkey 80/structural 76; rounds 15-16 fixed since, neither re-scored yet
+## Current state — round 16 last-measured turnkey 80/structural 83; round 17 fixed since, not yet re-scored
 
 | Round | What it tested/built | Result | Evidence |
 |---|---|---|---|
@@ -58,12 +58,15 @@ keep running in future sessions until the score closes in on the original's.
 | 12 (re-score) | Fresh agent re-verified round 11's `check_stale_language()` fix — installed the real pre-commit hook and attempted a real commit with a stale-claim injection staged, not just read the code | **turnkey 80 (held), structural 78→74 (regressed)**. The mechanism built to close the recurring bug had the recurring bug itself: printed WARN, never set `status=1` — the real commit landed anyway. Also confirmed `FEEDBACK_PENDING.md` was exempt whole-file | fixed round 13 |
 | 13 (re-score) | Fresh agent independently installed the hook + real-committed a stale injection again, post round-13-fix | **turnkey 80 (held), structural 74→80 (recovered)**. Round 12's exact gap genuinely closed this time — unswept-file injection blocked, FEEDBACK_PENDING open-table injection blocked, Completed-history text still passes. Verdict: real progress, not yet CONVERGED (structural had oscillated 78→74→80 across 3 rounds) | fixes: `4d20b11`..`296d4ba` |
 | 14 (re-score) | Fresh agent tried genuinely new adversarial angles (not repeating prior rounds' exact tests): fresh-bootstrapped-project survival (passed), phrase-match case/wrap variants, exemption-regex over/under-match | **turnkey 80 (held), structural 80→76**. Found 2 new real bugs in `check_stale_language()` itself: (1) a stale phrase split across this repo's own hard-wrap house style evades the per-line grep entirely (false negative); (2) `session-log.md` was missing the `-archive` exemption sibling its 2 neighbors already had, so this repo's own routine archiving convention for it would wrongly self-block (false positive) | fixed round 15 |
+| 15/16 (re-score) | Fresh agent independently re-tested rounds 13/14's fixes + tried genuinely new angles (fresh-project bootstrap survival, fenced code/inline code, `*-archive.md` naming-semantic collision, whether the new fuzz suite is wired to anything) | **turnkey 80 (held), structural 76→83 (real gain)**. Fuzz-based strategy validated within its own dimensions (0 new wrap/case/whitespace bugs) but 2 new bugs found from different angles: fenced-code/inline-code false-positive risk, and `*-archive.md` wildcard silently exempting an unrelated present-tense file by name coincidence (dangerous, silent-evasion direction) — plus the fuzz suite itself wasn't wired into bootstrap.sh or the pre-commit hook, the same "narrated as more capable than it is" bug class one level up | fixed round 17 |
 
 **Round 15's fix**: (1) line-wrap evasion — join each run of non-blank lines (one wrapped paragraph) into a single string before matching, so a phrase split at an arbitrary wrap point is still visible as contiguous text; a blank line still ends a paragraph, so two genuinely separate claims can't bridge into a false match. (2) added `(-archive)?` to the `session-log` exemption alternative, matching the existing `SESSION_MASTER`/`rule-archive` pattern exactly. Live-verified: both of round 14's exact repro cases now behave correctly (wrap-split blocks, archive file stays exempt), plus all of round 13's own regression checks re-run clean (unswept-file block, FEEDBACK_PENDING open-table block, Completed-history pass). Full narrative: `FEEDBACK_PENDING.md` row #23.
 
 **Round 16 — Jay's direct intervention, structural not incremental**: rounds 11-15 each found one new edge case in `check_stale_language()` per round (enforcement missing → line-wrap evasion → exemption gap), one manually-designed adversarial idea at a time — a slow discovery rate against an inherently unbounded input space. Jay pushed back directly and asked for two structural changes instead of another point-patch: (1) the enumerated per-file exemption list (needing a code change for every new archive-style file) replaced with a naming-pattern rule — 3 base historical files by exact name, plus any path ending `-archive.md` (this repo's one real archiving convention), so a future archive file needs no code change; (2) a property-based fuzz test (`tests/stale-language.fuzz.test.mjs`, 19 generated cases across wrap-position/casing/whitespace/punctuation/paragraph-boundary/exemption-pattern dimensions) instead of waiting for round N+1 to manually think of one more edge case. The fuzz suite found 2 real bugs on its first run: internal whitespace (multiple spaces/tabs between words) wasn't normalized before matching, so an irregularly-spaced presentation of one of the 6 tracked phrases silently evaded the check — fixed in the same commit; and the fuzz test file itself tripped its own check on commit (it necessarily quotes the stale phrases as literal fixtures) — fixed by adding it to the self-exemption, same as `check-caps.sh` already had for itself. Live-verified with the real pre-commit hook: all of rounds 13/14/15's regression cases still pass correctly post-redesign. Full narrative: `FEEDBACK_PENDING.md` row #24.
 
-**Round 8-10 fixes**: all independently re-confirmed live across rounds 9-11, not just unit-tested — FEEDBACK #3 closed (gate clear moved to `chat.message`/new-message-only), #4/#12 nudge reworked (0/3→2/2×3 rounds, clears this repo's N=3 bar; CLI-invisibility half confirmed structurally unfixable), doc self-consistency + `AGENTS.md` cap (85→75 lines, real headroom) + L01 citation fixed round 9, then found stale *again* in `README.md`+`subtask-gate.ts:324` and re-fixed round 10 via a hand-picked repo-wide grep. Full narrative + evidence: `FEEDBACK_PENDING.md` rows #3/#18/#19, `rule-archive.md`.
+**Round 17's fix**: (1) `check_stale_language()`'s awk pass now skips fenced-code-block content and strips inline `` `...` `` spans before matching. (2) the `*-archive.md` wildcard narrowed back to the 3 known PRUNE-convention stems (`(-archive)?` on each, not an unbounded suffix) — closes the naming-collision risk, loses zero real coverage. (3) `bootstrap.sh` now copies `tests/stale-language.fuzz.test.mjs` into fresh projects (was missing); pre-commit hook deliberately left NOT invoking either `.mjs` suite, matching this repo's own existing precedent (`subtask-gate.test.mjs` isn't hook-wired either — both are run-before-trusting-a-fix, not commit-gated). (4) `FILE_MAP_ROW_CAP` 12→10, matching the original's real value (unreconciled soulmate-3 leftover, git blame confirmed). 23/23 fuzz (4 new cases), 17/17 subtask-gate, full regression battery (rounds 13-16) + 3 fresh manual live-commit tests all pass. Full narrative: `FEEDBACK_PENDING.md` row #25.
+
+**Round 8-10 fixes**: FEEDBACK #3/#4/#12 closed+reworked, doc self-consistency + `AGENTS.md` cap fixed round 9, restale'd + re-fixed round 10. Full narrative: `FEEDBACK_PENDING.md` rows #3/#18/#19.
 
 **Round 11's finding, fixed round 12**: the recurring bug wasn't a new instance each time, it was the *same process gap* — every sweep so far manually picked which files to check. Built `check_stale_language()` in `check-caps.sh`. Full narrative: `FEEDBACK_PENDING.md` row #20, `rule-archive.md`.
 
@@ -75,9 +78,9 @@ session's first `git status`/`git log origin/master -1` check, not assumed here.
 ## Current sub-task
 
 ```
-시작: 없음 — round 16(예외패턴 재설계+퍼즈 테스트, Jay 직접 지시) fix 완료, push 확인 필요.
-목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 16 재채점
-작업 사이클: 없음(이 세션의 sub-task는 완결). Round 16이 새 라운드로 시작됨.
+시작: 없음 — round 17(코드블록 인식+archive 이름충돌 수정+퍼즈배선+File Map캡) fix 완료, push 확인 필요.
+목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 17 재채점
+작업 사이클: 없음(이 세션의 sub-task는 완결). Round 17이 새 라운드로 시작됨.
 ```
 
 ## Hard constraints / warnings
@@ -122,23 +125,18 @@ condition is arguably still not met. Worth asking Jay directly rather than assum
 
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽고 git log/status로
-이 파일의 주장(round 16까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것
-(round 9~15 전부 이 파일류 문서 자체가 구식이라는 걸 스스로 지적한 전례가 있음).
+이 파일의 주장(round 17까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것.
 
-Round 16은 Jay의 직접 지시로 점진적 패치 대신 구조 개선을 택함: (1) 예외목록을
-열거형에서 "-archive.md" 패턴 기반으로 재설계(형제 파일 누락 버그 클래스 자체를 차단)
-(2) 매 라운드 하나씩 수동으로 엣지케이스 찾는 대신 퍼즈 테스트(19개 생성 케이스)를
-만들어 한 번에 여러 차원(줄바꿈위치/대소문자/공백/구두점/문단경계/예외패턴)을 검증 —
-실행 중 진짜 버그 2건 발견+즉시 수정(공백 미정규화, 퍼즈 테스트 파일 자체가 자기 체크에
-걸림). round 13/14/15의 회귀 케이스 전부 재통과 실측 확인. 마지막 실측 점수는
-Round 14의 턴키80/구조76(round 15/16은 아직 미채점).
+Round 16(Jay 직접 지시로 구조 개선: 예외패턴화+퍼즈 테스트)이 실제로 구조 76→83 실측
+상승을 냈으나, 감사가 다른 각도(코드블록/이름충돌/퍼즈배선)에서 새 버그 2건 발견 →
+Round 17이 전부 수정: 코드펜스/인라인코드 인식, archive 이름충돌 닫음(패턴 재축소),
+bootstrap.sh 퍼즈스위트 복사 배선, File Map 캡 12→10(원본과 재정렬). 23/23 퍼즈+17/17
+단위테스트+round 13-16 회귀배터리+수동 실커밋 3건 전부 통과. 마지막 실측 점수는
+Round 16의 턴키80/구조83(round 17은 아직 미채점).
 
-Round 16 재채점부터 시작해주세요 — 원본을 다시 클론해 루브릭 재확인 후 fresh non-fork
-에이전트로 blind 채점(실제 bootstrap+kilo run, 단 kilo run은 최소화). 이번엔 퍼즈
-테스트 자체가 정말 효과적이었는지도 평가 대상 — 감사 에이전트가 퍼즈 테스트가 놓친
-새 엣지케이스를 찾아내는지, 아니면 진짜로 "새 발견 0건"에 가까워졌는지 확인할 것.
-구조축이 최근 5라운드(78→74→80→76→?)째 출렁이고 있으니, 있으면 코드 읽기만으로 끝내지
-말고 실제 pre-commit hook 설치+실커밋으로 재검증할 것. Jay의 최종 기준: 구조축이 원본의
-98.75 수준(원본도 100은 아니고 "진지한 적대적 시도에도 새 발견 0건"에서 CONVERGED 선언한
-지점)에 근접하면 합격, push하고 마무리.
+Round 17 재채점부터 시작해주세요 — 원본 재클론해 루브릭 재확인 후 fresh non-fork
+에이전트로 blind 채점. 특히 이번 라운드가 "새 발견 0건"에 가까워졌는지(수렴 신호)
+확인할 것 — 코드 읽기만으로 끝내지 말고 실제 pre-commit hook 설치+실커밋 검증 필수.
+Jay의 최종 기준: 구조축이 원본의 98.75 수준(원본도 100 아닌 "적대적 시도에도 새 발견
+0건"에서 CONVERGED)에 근접하면 합격, push하고 마무리.
 ```
