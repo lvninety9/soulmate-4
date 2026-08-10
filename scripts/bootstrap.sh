@@ -58,6 +58,14 @@ if [ -f "$SELF_DIR/tests/subtask-gate.test.mjs" ]; then
   mkdir -p "$TARGET/tests"
   cp "$SELF_DIR/tests/subtask-gate.test.mjs" "$TARGET/tests/"
 fi
+# round 17: check_stale_language()'s own fuzz regression suite wasn't copied into fresh
+# bootstraps at all — a new project inherited the checker but not its test net. Same rationale
+# as the line above: a fresh project should get a real, deterministic regression check for the
+# check it just inherited, not just prose claiming the check works.
+if [ -f "$SELF_DIR/tests/stale-language.fuzz.test.mjs" ]; then
+  mkdir -p "$TARGET/tests"
+  cp "$SELF_DIR/tests/stale-language.fuzz.test.mjs" "$TARGET/tests/"
+fi
 cp "$SELF_DIR/wiki/protocols/"*.md "$TARGET/wiki/protocols/"
 cp "$SELF_DIR/templates/AGENTS.md.template" "$TARGET/AGENTS.md"
 cp "$SELF_DIR/templates/PROJECT_BACKGROUND.md.template" "$TARGET/wiki/PROJECT_BACKGROUND.md"
