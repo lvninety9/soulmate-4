@@ -446,22 +446,32 @@ check_stale_language() {
         echo "OVER CAP: possibly-stale mechanism-state claim in $file:$startline — \"$(printf '%s' "$block" | cut -c1-160)\" — verify it's still true, or if it's describing a past round move it into historical narrative (wiki/rule-archive.md / SESSION_MASTER.md)"
       fi
     done < <(awk '
-      # round 17: fenced code blocks and inline `code spans` were matched the same as prose —
-      # a stale-sounding phrase inside an example/quote got flagged as a live claim. Skip fence
-      # content entirely (state toggle on lines starting with ``` ), and strip inline `...` spans
-      # from each line before it joins the paragraph buffer.
+      # round 17: fenced code blocks and inline `code spans` were matched the same as prose — a
+      # stale-sounding phrase inside an example/quote got flagged as a live claim. round 18(audit)
+      # found the round-17 fix still missed two valid-markdown forms, both from the same root
+      # cause: inline spans were stripped per ORIGINAL line, before wrapped lines get joined into
+      # one paragraph, so a `code span` split across this repos own hard-wrap never forms a
+      # matched pair; and 4-space/tab indented code blocks (CommonMarks other code-block form)
+      # were not recognized at all. Reordered instead of patching each case separately: exclude
+      # fence AND indented-code lines first (never enter the paragraph buffer), join what is left
+      # into paragraphs exactly as before, THEN strip inline `...` spans from the joined text —
+      # a span split at a wrap point is contiguous again once its paragraph is joined, so one
+      # backtick-strip on the joined buffer now catches it without a separate special case.
       BEGIN{buf=""; startline=0; infence=0}
       /^```/ { infence = !infence; next }
       infence { next }
-      /^[[:space:]]*$/ { if (buf!="") print startline":"buf; buf=""; next }
+      /^[[:space:]]*$/ {
+        if (buf!="") { gsub(/`[^`]*`/, "", buf); print startline":"buf }
+        buf=""; next
+      }
+      /^(    |\t)/ { next }
       {
         line=$0
-        gsub(/`[^`]*`/, "", line)
         gsub(/[ \t]+/, " ", line)
         if (buf=="") startline=NR
         buf = buf (buf=="" ? "" : " ") line
       }
-      END{ if (buf!="") print startline":"buf }
+      END{ if (buf!="") { gsub(/`[^`]*`/, "", buf); print startline":"buf } }
     ' "$file")
   done < <(git grep -Il '' -- . 2>/dev/null || true)
   if [ "$hit" -eq 0 ]; then
