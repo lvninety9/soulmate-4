@@ -408,14 +408,19 @@ check_watch_size() {
 # indented code stayed its own per-line check instead of joining the table: it's a per-line
 # property, not a delimited region with distinct start/end markers).
 #
-# This closes every non-prose construct found across 19 rounds of real adversarial testing
-# (fenced code, indented code, inline code spans, HTML comments, YAML frontmatter). It does NOT
-# attempt full CommonMark coverage — tables, `<details>`/`<summary>` blocks, link-reference
-# definitions, and any other construct nobody has hit yet are explicitly out of scope by decision,
-# not oversight (see FEEDBACK_PENDING.md for the reasoning). Any of those slipping through is a
-# false POSITIVE (blocks a legitimate commit until the line is reworded) — the safe direction,
-# never a silent miss — so the fix if one is ever hit in practice is either reword the line or add
-# one row to the table above, not another audit-and-patch round.
+# This closes every non-prose construct found across 20 rounds of real adversarial testing
+# (fenced code, indented code, inline code spans, HTML comments, YAML frontmatter) — including
+# round 20's fix for a real silent miss in HTML-comment closing-line handling (trailing prose
+# after "-->" was being discarded unscanned, not flagged as a false positive; live-verified fixed).
+# The design GOAL for these 5 constructs is false-positive-only failure (annoying, not dangerous) —
+# but this is a hand-rolled state machine, not a proven parser, so treat that as a goal actively
+# defended by live pre-commit testing each round it's touched, not a formal guarantee that no other
+# silent-miss edge exists. It does NOT attempt full CommonMark coverage — tables, `<details>`/
+# `<summary>` blocks, link-reference definitions, and any other construct nobody has hit yet are
+# explicitly out of scope by decision, not oversight (see FEEDBACK_PENDING.md for the reasoning).
+# Any of those is expected to fail as a false POSITIVE (blocks a legitimate commit until reworded)
+# — the fix if one is ever hit in practice is either reword the line or add one row to the table
+# above, not another audit-and-patch round.
 check_stale_language() {
   local patterns=(
     "hasn't yet been" "has not yet been" "not yet verified"
@@ -480,7 +485,14 @@ check_stale_language() {
         o[2]="^---[[:space:]]*$";  c[2]="^---[[:space:]]*$";  lineonly[2]=1
       }
       region>0 { if ($0 ~ c[region]) region=0; next }
-      incmt    { if ($0 ~ /-->/) incmt=0; next }
+      incmt {
+        # round 20: closing line of a multi-line comment can carry trailing prose
+        # after the "-->" (e.g. "still commented --> real claim.") — strip only the
+        # commented prefix and fall through to the normal rules below instead of
+        # unconditionally discarding the whole line, mirroring how the same-line-open
+        # case already keeps scanning the rest of its line.
+        if ($0 ~ /-->/) { sub(/^.*-->/, "", $0); incmt=0 } else next
+      }
       {
         # HTML comments are asymmetric (open != close) and usually self-contained on one line
         # (`<!-- todo -->`) with real prose alongside — strip the same-line span and keep
