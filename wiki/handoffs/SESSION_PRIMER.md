@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 17 complete (fence/archive-collision fixes + fuzz wiring); round 17 not yet re-scored
+# SESSION PRIMER — round 18 complete (code-strip pipeline reorder); round 18 not yet re-scored
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -41,7 +41,7 @@ keep running in future sessions until the score closes in on the original's.
 > `SESSION_MASTER.md`'s "Session 5 handoff re-verification" section (why-narrative, belongs
 > there per this file's own role rule, not here).
 
-## Current state — round 16 last-measured turnkey 80/structural 83; round 17 fixed since, not yet re-scored
+## Current state — round 17 last-measured turnkey 82/structural 86; round 18 fixed since, not yet re-scored
 
 | Round | What it tested/built | Result | Evidence |
 |---|---|---|---|
@@ -59,6 +59,7 @@ keep running in future sessions until the score closes in on the original's.
 | 13 (re-score) | Fresh agent independently installed the hook + real-committed a stale injection again, post round-13-fix | **turnkey 80 (held), structural 74→80 (recovered)**. Round 12's exact gap genuinely closed this time — unswept-file injection blocked, FEEDBACK_PENDING open-table injection blocked, Completed-history text still passes. Verdict: real progress, not yet CONVERGED (structural had oscillated 78→74→80 across 3 rounds) | fixes: `4d20b11`..`296d4ba` |
 | 14 (re-score) | Fresh agent tried genuinely new adversarial angles (not repeating prior rounds' exact tests): fresh-bootstrapped-project survival (passed), phrase-match case/wrap variants, exemption-regex over/under-match | **turnkey 80 (held), structural 80→76**. Found 2 new real bugs in `check_stale_language()` itself: (1) a stale phrase split across this repo's own hard-wrap house style evades the per-line grep entirely (false negative); (2) `session-log.md` was missing the `-archive` exemption sibling its 2 neighbors already had, so this repo's own routine archiving convention for it would wrongly self-block (false positive) | fixed round 15 |
 | 15/16 (re-score) | Fresh agent independently re-tested rounds 13/14's fixes + tried genuinely new angles (fresh-project bootstrap survival, fenced code/inline code, `*-archive.md` naming-semantic collision, whether the new fuzz suite is wired to anything) | **turnkey 80 (held), structural 76→83 (real gain)**. Fuzz-based strategy validated within its own dimensions (0 new wrap/case/whitespace bugs) but 2 new bugs found from different angles: fenced-code/inline-code false-positive risk, and `*-archive.md` wildcard silently exempting an unrelated present-tense file by name coincidence (dangerous, silent-evasion direction) — plus the fuzz suite itself wasn't wired into bootstrap.sh or the pre-commit hook, the same "narrated as more capable than it is" bug class one level up | fixed round 17 |
+| 17 (re-score) | Fresh agent verified round 17's 4 fixes (File Map cap, bootstrap fuzz-copy, fence handling, archive-collision narrowing) hands-on, incl. dogfooding the repo's own real double-archive files (`rule-archive-archive.md`) | **turnkey 80→82, structural 83→86 (both up)**. But a targeted retest of the exact mechanism this round touched (code-fence/inline-code awareness) found 2 more valid-markdown forms slipping through within minutes: an inline `code span` split across this repo's own hard-wrap style, and 4-space indented code blocks (CommonMark's other code-block form, never recognized at all). Auditor's own diagnosis: "a hand-rolled, non-CommonMark markdown recognizer keeps yielding one more slipped-through form each time someone looks from a new angle" — both false positives (over-flagging), not the dangerous silent-evasion direction | fixed round 18 |
 
 **Round 15's fix**: (1) line-wrap evasion — join each run of non-blank lines (one wrapped paragraph) into a single string before matching, so a phrase split at an arbitrary wrap point is still visible as contiguous text; a blank line still ends a paragraph, so two genuinely separate claims can't bridge into a false match. (2) added `(-archive)?` to the `session-log` exemption alternative, matching the existing `SESSION_MASTER`/`rule-archive` pattern exactly. Live-verified: both of round 14's exact repro cases now behave correctly (wrap-split blocks, archive file stays exempt), plus all of round 13's own regression checks re-run clean (unswept-file block, FEEDBACK_PENDING open-table block, Completed-history pass). Full narrative: `FEEDBACK_PENDING.md` row #23.
 
@@ -66,11 +67,11 @@ keep running in future sessions until the score closes in on the original's.
 
 **Round 17's fix**: (1) `check_stale_language()`'s awk pass now skips fenced-code-block content and strips inline `` `...` `` spans before matching. (2) the `*-archive.md` wildcard narrowed back to the 3 known PRUNE-convention stems (`(-archive)?` on each, not an unbounded suffix) — closes the naming-collision risk, loses zero real coverage. (3) `bootstrap.sh` now copies `tests/stale-language.fuzz.test.mjs` into fresh projects (was missing); pre-commit hook deliberately left NOT invoking either `.mjs` suite, matching this repo's own existing precedent (`subtask-gate.test.mjs` isn't hook-wired either — both are run-before-trusting-a-fix, not commit-gated). (4) `FILE_MAP_ROW_CAP` 12→10, matching the original's real value (unreconciled soulmate-3 leftover, git blame confirmed). 23/23 fuzz (4 new cases), 17/17 subtask-gate, full regression battery (rounds 13-16) + 3 fresh manual live-commit tests all pass. Full narrative: `FEEDBACK_PENDING.md` row #25.
 
+**Round 18's fix — reorder, not another special case**: round 17's audit traced both new gaps to one root cause: inline `` `...` `` spans were stripped per ORIGINAL line, before wrapped lines join into a paragraph, so a span split at the wrap point never formed a matched pair; and 4-space/tab indented code blocks weren't recognized as code at all. Reordered the pipeline instead of patching each case: exclude fence-content AND indented-code lines first (never enter the paragraph buffer) → join what's left into paragraphs exactly as before (blank line still ends a paragraph) → THEN strip inline spans from the now-joined text, so a span split at a wrap point is contiguous again and one backtick-strip catches it with no extra special-casing. Net diff: +17/-7 lines in one function. Live-verified with the real installed pre-commit hook: both of round 17's exact failing cases now correctly pass (not flagged); full regression battery (rounds 13-17: never-swept file blocks, `deploy-archive.md` collision blocks, real double-archive files stay exempt, `session-log-archive.md` passes, original prose wrap-split blocks, plain fenced code still passes) all hold; 2 new fuzz cases added for round 17's exact scenarios, suite now 25/25; `subtask-gate.test.mjs` unaffected, 17/17. Full narrative: `FEEDBACK_PENDING.md` row #26.
+
 **Round 8-10 fixes**: FEEDBACK #3/#4/#12 closed+reworked, doc self-consistency + `AGENTS.md` cap fixed round 9, restale'd + re-fixed round 10. Full narrative: `FEEDBACK_PENDING.md` rows #3/#18/#19.
 
-**Round 11's finding, fixed round 12**: the recurring bug wasn't a new instance each time, it was the *same process gap* — every sweep so far manually picked which files to check. Built `check_stale_language()` in `check-caps.sh`. Full narrative: `FEEDBACK_PENDING.md` row #20, `rule-archive.md`.
-
-**Round 12's finding, fixed this round (13)**: `check_stale_language()` detected correctly but never set `status=1` — advisory only, despite being narrated as a hard backstop. Now sets `status=1` on a match; `FEEDBACK_PENDING.md`'s exemption narrowed to just its Completed-history section (its open table is swept now, not blanket-exempt). Live-verified with the real pre-commit hook installed: baseline clean, injection in an unswept file blocks, injection in FEEDBACK_PENDING's open table blocks, same text after the Completed-history heading stays clean, a real commit attempt with staleness staged is genuinely rejected. Full narrative: `FEEDBACK_PENDING.md` row #22.
+**Round 11-13 fixes**: `check_stale_language()` built (round 11, closing the "hand-picked sweep scope" process gap) → found advisory-only, no `status=1` (round 12) → fixed to a real hard-fail, `FEEDBACK_PENDING.md` exemption narrowed to just Completed-history (round 13). Full narrative: `FEEDBACK_PENDING.md` rows #20/#22, `rule-archive.md`.
 
 **Everything through this round is committed; push status verified at the top of the next
 session's first `git status`/`git log origin/master -1` check, not assumed here.**
@@ -78,9 +79,9 @@ session's first `git status`/`git log origin/master -1` check, not assumed here.
 ## Current sub-task
 
 ```
-시작: 없음 — round 17(코드블록 인식+archive 이름충돌 수정+퍼즈배선+File Map캡) fix 완료, push 확인 필요.
-목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 17 재채점
-작업 사이클: 없음(이 세션의 sub-task는 완결). Round 17이 새 라운드로 시작됨.
+시작: 없음 — round 18(check_stale_language() 코드제외 순서 재정렬) fix 완료, push 확인 필요.
+목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 18 재채점
+작업 사이클: 없음(이 세션의 sub-task는 완결). Round 18이 새 라운드로 시작됨.
 ```
 
 ## Hard constraints / warnings
@@ -116,27 +117,32 @@ session's first `git status`/`git log origin/master -1` check, not assumed here.
 | 6 | Model self-report fabrication after a gate block — inherent LLM unreliability, same shape as soulmate-3's own finding; mitigation is procedural (always verify real git/file state, or the persisted `.subtask-gate-state.json`) not code | 🔴 p1, open, no code fix possible |
 | 12 | `discuss.md` has zero mechanical backstop (the one protocol step with no tool calls, structurally unreachable by `tool.execute.*` hooks) | 🔴 p2, open (nudge shipped+strengthened round 8, reconfirmed round 9, see #4 — this is the ceiling of what `chat.message` alone can do) |
 
-Deferred, not forgotten: FEEDBACK #6-in-the-*old* Hermes-adjacent sense (backporting
-`refactor.md` to Hermes/soulmate 1-3) — Jay's own stated condition was "after soulmate-4's
-validation is finished," and given the loop is explicitly still running (round 8+ ahead), that
-condition is arguably still not met. Worth asking Jay directly rather than assuming either way.
+Deferred, not forgotten: backporting `refactor.md` to Hermes/soulmate 1-3 — Jay's own condition was "after soulmate-4's validation is finished," arguably still not met given the loop is still running. Ask Jay directly rather than assuming.
 
 ## Next session's starter prompt
 
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽고 git log/status로
-이 파일의 주장(round 17까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것.
+이 파일의 주장(round 18까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것.
 
-Round 16(Jay 직접 지시로 구조 개선: 예외패턴화+퍼즈 테스트)이 실제로 구조 76→83 실측
-상승을 냈으나, 감사가 다른 각도(코드블록/이름충돌/퍼즈배선)에서 새 버그 2건 발견 →
-Round 17이 전부 수정: 코드펜스/인라인코드 인식, archive 이름충돌 닫음(패턴 재축소),
-bootstrap.sh 퍼즈스위트 복사 배선, File Map 캡 12→10(원본과 재정렬). 23/23 퍼즈+17/17
-단위테스트+round 13-16 회귀배터리+수동 실커밋 3건 전부 통과. 마지막 실측 점수는
-Round 16의 턴키80/구조83(round 17은 아직 미채점).
+Round 17 재채점 결과 턴키 80→82, 구조 83→86(둘 다 상승) — 하지만 이번 라운드가 직접
+건드린 바로 그 메커니즘(코드펜스/인라인코드 인식)을 다른 각도로 재시도하니 몇 분 만에
+새 구멍 2건(줄바꿈에 걸친 인라인코드, 4칸 들여쓰기 코드블록) 또 발견. 감사 에이전트 자신의
+진단: "손으로 짠 마크다운 인식기는 새 각도로 볼 때마다 하나씩 더 샌다." 둘 다 오탐 방향
+(과잉차단)이라 위험한 침묵회피 방향은 아님.
 
-Round 17 재채점부터 시작해주세요 — 원본 재클론해 루브릭 재확인 후 fresh non-fork
-에이전트로 blind 채점. 특히 이번 라운드가 "새 발견 0건"에 가까워졌는지(수렴 신호)
-확인할 것 — 코드 읽기만으로 끝내지 말고 실제 pre-commit hook 설치+실커밋 검증 필수.
-Jay의 최종 기준: 구조축이 원본의 98.75 수준(원본도 100 아닌 "적대적 시도에도 새 발견
-0건"에서 CONVERGED)에 근접하면 합격, push하고 마무리.
+Round 18에서 이번엔 각 사례를 따로 패치하지 않고 **처리 순서 자체를 재정렬**: 펜스+들여쓰기
+코드를 먼저 제외(문단 버퍼에 아예 안 들어감) → 남은 줄만 문단으로 합치기(기존 로직 그대로)
+→ 그다음에 합쳐진 텍스트에서 인라인 `...` 스팬 벗기기. 줄바꿈에 걸친 스팬은 합쳐지고 나면
+다시 하나로 붙어있어서, 별도 특수처리 없이 기존 벗기기 로직 하나로 두 구멍 다 막힘(net
++17/-7줄). 실제 pre-commit 훅으로 round 17의 두 실패사례 재현→통과 확인, round 13-17
+회귀배터리 전부 재확인, 퍼즈 2건 추가(25/25), 단위테스트 17/17 그대로. 커밋
+`3fb601a`/`489f9b8`, push 완료.
+
+Round 18 재채점부터 시작해주세요 — 원본 재클론해 루브릭 재확인 후 fresh non-fork
+에이전트로 blind 채점. 특히 이번엔 "재정렬"이라는 구조적 접근이 또 다른 마크다운 형태
+(예: 각주, HTML 주석, YAML frontmatter 안의 텍스트 등)에도 견고한지, 아니면 이 계열
+버그가 재정렬 이후에도 계속 재발하는지 확인할 것 — 코드 읽기만으로 끝내지 말고 실제
+pre-commit hook 설치+실커밋 검증 필수. Jay의 최종 기준: 구조축이 원본의 98.75 수준(원본도
+100 아닌 "적대적 시도에도 새 발견 0건"에서 CONVERGED)에 근접하면 합격, push하고 마무리.
 ```
