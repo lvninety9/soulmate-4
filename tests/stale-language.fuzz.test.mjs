@@ -171,6 +171,17 @@ expect("stale phrase inside a single-line HTML comment must NOT match",
   withAppend("\n<!-- todo: this hasn't yet been verified end to end -->\n"), false)
 expect("stale phrase inside a multi-line HTML comment must NOT match",
   withAppend("\n<!--\nthis has not yet been verified\n-->\n"), false)
+
+// --- HTML-comment closing-line silent miss (round 20) — round 19's audit found the closing
+// line of a multi-line comment was unconditionally discarded whole, silently dropping any real
+// prose trailing the "-->" on that same line (the one genuine silent-miss found across 20
+// rounds on this mechanism; every other finding here was a safe-direction false positive).
+// round 20 mirrors the same-line-open handling: strip up through "-->", then keep scanning
+// whatever remains on that line instead of unconditionally skipping it.
+expect("real prose trailing '-->' on a multi-line comment's OWN closing line still matches",
+  withAppend("\n<!--\ncommented\nstill commented --> This feature is still unpatched as of today.\n"), true)
+expect("multi-line comment with nothing after '-->' on the closing line still stays clean",
+  withAppend("\n<!--\nthis has not yet been verified\n-->\n"), false)
 expect("real prose on the same line as a closed HTML comment still matches",
   withAppend("\nThis feature <!-- old note --> still unpatched as of today.\n"), true)
 expect("stale phrase inside YAML frontmatter must NOT match",
