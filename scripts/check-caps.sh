@@ -434,6 +434,26 @@ check_watch_size() {
 # (see FEEDBACK_PENDING.md for the reasoning). Any of those is expected to fail as a false
 # POSITIVE (blocks a legitimate commit until reworded) — the fix if one is ever hit in practice
 # is either reword the line or add one row to the table above, not another audit-and-patch round.
+#
+# round 22's audit then found round 22's own new parity check produced a real false POSITIVE:
+# comment detection ran on raw per-line text, and backtick-span stripping (the thing meant to
+# make a quoted example token safe) only happened later on the joined paragraph buffer — so a
+# backtick-quoted `<!--` example was misread as a genuinely unclosed opener. Same shape as
+# rounds 14/18's earlier lesson (wrong pipeline order between exclusion mechanisms), recurring
+# between a different pair of stages. round 23 fixed this by stripping same-line backtick spans
+# BEFORE comment detection sees the raw text, on any line not already mid-comment — live-verified
+# this closes the false positive without regressing round 17/18's wrap-split-code-span handling.
+#
+# round 22's audit also found a second, separate gap: a bare (no backticks) "<!--" in one
+# paragraph can pair across a real blank-line paragraph break with an unrelated bare "-->" in a
+# LATER paragraph, silently exempting real content in between. round 23 deliberately did NOT fix
+# this — the obvious fix (force-close any suspected-unclosed comment at the next blank line) was
+# tried and immediately broke real content: templates/FEEDBACK_PENDING.md.template and
+# templates/SUBSYSTEM-learnings.md.template both have a genuine multi-paragraph instructional
+# HTML comment with a blank line inside it, and there is no reliable syntactic signal that tells
+# a real multi-paragraph comment apart from an accidental cross-paragraph pairing. This remains
+# an accepted, documented gap (see FEEDBACK_PENDING.md) — backtick-quoting (now verified safe
+# above) is the real way to avoid it, not a mechanical guarantee against every bare-token case.
 check_stale_language() {
   local patterns=(
     "hasn't yet been" "has not yet been" "not yet verified"

@@ -226,5 +226,30 @@ expect("properly closed comment (no parity issue) stays clean, unaffected by the
 expect("standalone '-->' inside inline code with zero real <!-- anywhere must NOT be treated as unclosed",
   withAppend("\nSee the `sub(/^.*-->/)` pattern discussed in the docs — no real comment here at all.\n"), false)
 
+// --- backtick-protection vs comment detection ordering (round 23) — round 22's own parity
+// hard-FAIL introduced a new false positive: strip_comments() ran on raw per-line text, and
+// backtick-span stripping only happened later on the joined paragraph buffer, so a
+// backtick-quoted example token like `<!--` (this repo's own established "quote it in
+// backticks to be safe" convention) was misread as a genuinely unclosed comment opener. Same
+// shape of bug as rounds 14/18 (wrong pipeline order between exclusion mechanisms), just
+// between a different pair of stages. Fixed by stripping same-line backtick spans before
+// comment detection ever sees the raw text, on any line that is not already mid-comment.
+expect("backtick-quoted example token (e.g. `<!--`) with no real closer must NOT be treated as unclosed",
+  withAppend("\nThe opener token is `<!--` and is only used here as a documentation example, never actually closed.\n"), false)
+expect("a real (non-backtick) unclosed comment is still caught even on a line that also has backtick code",
+  withAppend("\n<!-- never closes, and this line also has `some code` on it\n\nThis claim has not yet been independently verified.\n"), true)
+
+// Deliberately NOT covered here (documented, accepted limitation — see check_stale_language()'s
+// own comment and FEEDBACK_PENDING.md): a bare (non-backtick-quoted) "<!--" in one paragraph
+// pairing across a real blank-line paragraph break with an unrelated bare "-->" in a LATER
+// paragraph still silently exempts real content in between. Tried fixing this by closing any
+// suspected-unclosed comment at the next blank line — that broke real, legitimate content this
+// repo already has (templates/FEEDBACK_PENDING.md.template and
+// templates/SUBSYSTEM-learnings.md.template both have a genuine multi-paragraph instructional
+// HTML comment with a blank line inside it), and there is no reliable syntactic signal that
+// tells a real multi-paragraph comment apart from an accidental cross-paragraph pairing. Not
+// asserting a behavior here that is not actually guaranteed — backtick-quoting (now fixed
+// above) is the real, verified way to avoid this in practice.
+
 console.log(failures === 0 ? `\nALL PASS (${total}/${total})` : `\n${failures}/${total} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)
