@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 20 complete (HTML-comment closing-line silent-miss fix); not yet re-scored
+# SESSION PRIMER — round 20 re-scored (turnkey 82, structural 82 — 2nd silent-miss found); round 21 fix done, not yet re-scored
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -39,7 +39,7 @@ keep running in future sessions until the score closes in on the original's.
 > rigorously against ground truth, not rush or trust a prior draft — see `SESSION_MASTER.md`'s
 > "Session 5 handoff re-verification" section for the full why-narrative.
 
-## Current state — round 19 last-measured turnkey 82/structural 84; round 20 fixed since, not yet re-scored
+## Current state — round 20 last-measured turnkey 82/structural 82; round 21 fixed since, not yet re-scored
 
 | Round | What it tested/built | Result | Evidence |
 |---|---|---|---|
@@ -56,16 +56,11 @@ keep running in future sessions until the score closes in on the original's.
 | 12 (re-score) | Fresh agent re-verified round 11's `check_stale_language()` fix — installed the real pre-commit hook and attempted a real commit with a stale-claim injection staged, not just read the code | **turnkey 80 (held), structural 78→74 (regressed)**. The mechanism built to close the recurring bug had the recurring bug itself: printed WARN, never set `status=1` — the real commit landed anyway. Also confirmed `FEEDBACK_PENDING.md` was exempt whole-file | fixed round 13 |
 | 13 (re-score) | Fresh agent independently installed the hook + real-committed a stale injection again, post round-13-fix | **turnkey 80 (held), structural 74→80 (recovered)**. Round 12's exact gap genuinely closed this time — unswept-file injection blocked, FEEDBACK_PENDING open-table injection blocked, Completed-history text still passes. Verdict: real progress, not yet CONVERGED (structural had oscillated 78→74→80 across 3 rounds) | fixes: `4d20b11`..`296d4ba` |
 | 14 (re-score) | Fresh agent tried genuinely new adversarial angles (not repeating prior rounds' exact tests): fresh-bootstrapped-project survival (passed), phrase-match case/wrap variants, exemption-regex over/under-match | **turnkey 80 (held), structural 80→76**. Found 2 new real bugs in `check_stale_language()` itself: (1) a stale phrase split across this repo's own hard-wrap house style evades the per-line grep entirely (false negative); (2) `session-log.md` was missing the `-archive` exemption sibling its 2 neighbors already had, so this repo's own routine archiving convention for it would wrongly self-block (false positive) | fixed round 15 |
-| 15/16 (re-score) | Fresh agent independently re-tested rounds 13/14's fixes + tried genuinely new angles (fresh-project bootstrap survival, fenced code/inline code, `*-archive.md` naming-semantic collision, whether the new fuzz suite is wired to anything) | **turnkey 80 (held), structural 76→83 (real gain)**. Fuzz-based strategy validated within its own dimensions (0 new wrap/case/whitespace bugs) but 2 new bugs found from different angles: fenced-code/inline-code false-positive risk, and `*-archive.md` wildcard silently exempting an unrelated present-tense file by name coincidence (dangerous, silent-evasion direction) — plus the fuzz suite itself wasn't wired into bootstrap.sh or the pre-commit hook, the same "narrated as more capable than it is" bug class one level up | fixed round 17 |
-| 17 (re-score) | Fresh agent verified round 17's 4 fixes (File Map cap, bootstrap fuzz-copy, fence handling, archive-collision narrowing) hands-on, incl. dogfooding the repo's own real double-archive files (`rule-archive-archive.md`) | **turnkey 80→82, structural 83→86 (both up)**. But a targeted retest of the exact mechanism this round touched (code-fence/inline-code awareness) found 2 more valid-markdown forms slipping through within minutes: an inline `code span` split across this repo's own hard-wrap style, and 4-space indented code blocks (CommonMark's other code-block form, never recognized at all). Auditor's own diagnosis: "a hand-rolled, non-CommonMark markdown recognizer keeps yielding one more slipped-through form each time someone looks from a new angle" — both false positives (over-flagging), not the dangerous silent-evasion direction | fixed round 18 |
-| 18 (re-score) | Fresh agent verified round 18's reorder fix hands-on, incl. constructing its own mixed wrap+dual-inline-code stress case (held — the reorder genuinely generalizes) | **turnkey 82 (held), structural 86→83**. But 2 more non-prose constructs neither round 16 nor 17 tried came back positive within minutes: HTML comments and YAML frontmatter, both real live-reproduced false positives. Warned: "unless the next fix generalizes the concept... expect round 19 to find another instance" (named tables/`<details>`/link-refs as likely next) | fixed round 19 |
-| 19 (re-score) | Fresh agent verified round 19's generic table + HTML-comment/frontmatter handling — own test cases, not the fix's own fuzz fixtures | **turnkey 82→82 (held), structural 83→84**. All 3 claimed-closed gaps genuinely closed (frontmatter, fence, bare-`---`-is-not-frontmatter all held). But found a real **silent-miss** (dangerous direction, unlike every prior finding here): a multi-line HTML comment's closing line discarded trailing same-line prose after `-->` unscanned — directly contradicted the fix's own "never a silent miss" code-comment claim. Table/`<details>` false positives confirmed exactly as the docs honestly predicted (not a new finding, expected) | fixed round 20 |
+| 20 (re-score) | Fresh agent verified round 20's closing-line fix hands-on, then independently tried a composition neither round 19 nor round 20 tested: a closing line carrying a SECOND, trailing same-line comment after the true close | **turnkey 82 (held), structural 84→82**. Round 20's exact reported case now held — but this new composition found the fix was still regex-based (`sub(/^.*-->/)`) and GREEDY, consuming through the LAST `-->` on the line instead of the first, silently swallowing real prose between the two closers. A 2nd genuine silent-miss on the same mechanism. Auditor's diagnosis: the ceiling on this hand-rolled approach may be "low-to-mid 80s" without a structural (not patch) fix | fixed round 21 |
 
-**Round 8-18 fixes** (compressed — full narrative in `FEEDBACK_PENDING.md` rows #3/#18-20/#22-26): FEEDBACK #3/#4/#12 closed+reworked (8) → doc self-consistency + `AGENTS.md` cap (9) → restale'd, re-fixed (10) → `check_stale_language()` built (11) → found advisory-only (12) → real hard-fail (13) → line-wrap evasion + `session-log` exemption sibling fixed (15) → Jay's structural pivot: naming-pattern exemption + property-based fuzz suite, found 2 bugs on first run (16) → fence/inline-code + `*-archive.md` collision narrowing + fuzz-suite wiring + File Map cap fix (17) → pipeline reorder closes both round-17 gaps at the root (18).
+**Round 8-20 fixes** (compressed — full narrative in `FEEDBACK_PENDING.md` rows #3/#18-20/#22-29): FEEDBACK #3/#4/#12 closed+reworked (8) → doc self-consistency + `AGENTS.md` cap (9) → restale'd, re-fixed (10) → `check_stale_language()` built (11) → found advisory-only (12) → real hard-fail (13) → line-wrap evasion + `session-log` exemption sibling fixed (15) → Jay's structural pivot: naming-pattern exemption + property-based fuzz suite, found 2 bugs on first run (16) → fence/inline-code + `*-archive.md` collision narrowing + fuzz-suite wiring + File Map cap fix (17) → pipeline reorder closes both round-17 gaps at the root (18) → symmetric (open,close)-table generalization for fence/frontmatter + own HTML-comment handling, explicit scope-stop for tables/`<details>`/link-refs (19) → 1st silent-miss found+fixed: closing-line trailing prose was discarded unscanned (20).
 
-**Round 19's fix — one more generalization, then an honest stop (Jay's explicit instruction)**: round 18's 2 gaps (HTML comments, YAML frontmatter) redesigned around a small (open-marker, close-marker) table for *symmetric* regions (fence+frontmatter share one loop; a future symmetric construct is one table row). HTML comments are asymmetric (open≠close, usually self-contained on one line with real prose alongside) so they keep their own small same-line-strip-else-block-skip logic. Frontmatter is line-1-anchored (a bare `---` later in a file is a horizontal rule, verified does NOT suppress). Live-verified via the real pre-commit hook, fuzz suite 25→31/31. **Explicit scope decision**: tables/`<details>`/link-ref-definitions stay out of scope — false positives only (safe direction), workaround is reword-the-line or add-a-table-row. Full narrative: `FEEDBACK_PENDING.md` row #27.
-
-**Round 20's fix — the one real silent-miss found across this whole thread**: round 19's audit found the closing line of a multi-line HTML comment unconditionally discarded whole via `next`, silently dropping any real prose trailing the `-->` on that same line (e.g. `still commented --> This feature is still unpatched.`) — a genuine false negative, unlike every other finding on this mechanism across 20 rounds (all were false positives, the safe direction). Fixed by mirroring the already-correct same-line-open handling: strip up through `-->`, clear the comment state, then fall through to keep scanning whatever remains on that line instead of unconditionally skipping it. Also softened the code comment's absolute "never a silent miss" claim to an actively-defended design goal, not a formal guarantee — the prior wording was directly falsified by this bug. Live-verified with the real pre-commit hook: round 19's exact repro now blocks; a control case (comment content genuinely still inside the comment, not leaked) stays clean; the full regression battery (rounds 13-19: never-swept file, `deploy-archive.md` collision, real double-archive files, `session-log-archive.md`, wrap-split prose/inline-code, indented code, mixed wrap+dual-inline-code, single/multi-line comment suppression, frontmatter, bare-`---`-not-frontmatter) all hold — 17 live commit tests total. 2 new fuzz cases added, suite 31→33/33; `subtask-gate.test.mjs` 17/17 unaffected. Full narrative: `FEEDBACK_PENDING.md` row #28.
+**Round 21's fix — Jay's explicit instruction: stop patching this mechanism with more regex, switch to `index()`-based direct position search.** Root cause of round 20's regression: `sub(/^.*-->/, "", $0)` is GREEDY (POSIX ERE `.*` always matches maximally, awk has no non-greedy quantifier) — a line with a decoy trailing comment after the true close made it consume through the wrong `-->`. Replaced both the same-line-open and closing-line branches with one `strip_comments()` procedure: `index()` finds the FIRST occurrence by definition, so pairing nearest-open with nearest-close is structurally impossible to get wrong — not a smaller version of the same bug class, a different technique that can't produce it. Live-verified: round 20's exact bug case now blocks; 22-case HTML-comment/rounds-13-19 regression battery all held; 3 extra adversarial compositions tried beyond the brief (3 comments on one line, unterminated-to-EOF, unterminated-then-closed-5-lines-later-with-2-more-comments) all correct. 2 new fuzz cases (33→35/35). Code comment now explains *why* index()-based pairing is structurally sounder, not just that it's a goal. One self-inflicted `git reset --hard` wiped the uncommitted fix mid-verification — caught immediately, reapplied, committed before any further destructive git ops (same mistake round 13/16/18/20 also each caught once). Full narrative: `FEEDBACK_PENDING.md` row #29.
 
 **Everything through this round is committed; push status verified at the top of the next
 session's first `git status`/`git log origin/master -1` check, not assumed here.**
@@ -73,15 +68,15 @@ session's first `git status`/`git log origin/master -1` check, not assumed here.
 ## Current sub-task
 
 ```
-시작: 없음 — round 20(HTML주석 닫는줄 은밀누락 버그 수정+안전성 주장 문구 완화) fix
-완료, push 확인 필요.
-목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 20 재채점
-작업 사이클: 없음(이 세션의 sub-task는 완결). Round 20이 새 라운드로 시작됨.
+시작: 없음 — round 21(HTML주석 index() 기반 재작성, greedy 정규식 은밀누락 2번째 재발 수정)
+fix 완료, push 확인 필요.
+목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 21 재채점
+작업 사이클: 없음(이 세션의 sub-task는 완결). Round 21이 새 라운드로 시작됨.
 ```
 
 ## Hard constraints / warnings
 
-- **Never trust a single live re-run as "fully fixed."** Reconfirmed repeatedly (rounds 4-18): the
+- **Never trust a single live re-run as "fully fixed."** Reconfirmed repeatedly (rounds 4-20): the
   fix that closes THIS round's finding is not exempt from having its own bugs — always unit test
   *and* live-verify every fix, even a fix to a fix, via a real installed pre-commit hook + real
   commit, not just code-reading.
@@ -116,23 +111,28 @@ Deferred, not forgotten: backporting `refactor.md` to Hermes/soulmate 1-3 — Ja
 
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽고 git log/status로
-이 파일의 주장(round 20까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것.
+이 파일의 주장(round 21까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것.
 
-Round 19 재채점 결과 턴키 82(유지), 구조 83→84 — round 19가 고쳤다는 3건(펜스/frontmatter/
-HTML주석)은 전부 실제로 닫혔지만, 감사 에이전트가 **처음으로 위험한 방향의 버그**(은밀한
-누락, false negative)를 하나 찾음: 여러줄 HTML주석의 닫는 줄에 실제 문장이 같이 붙어있으면
-그 문장이 통째로 사라져서 검사가 아예 안 됨 — "이 메커니즘 실패는 전부 오탐이지 은밀누락은
-없다"던 코드 주석의 명시적 안전성 약속이 깨진 사례.
+Round 20 재채점 결과 턴키 82(유지), 구조 84→82 — round 20이 고쳤다는 은밀누락은 그 정확한
+사례에선 진짜로 닫혔지만, 감사 에이전트가 한 줄에 닫는 마커가 2개 있는 조합(디코이 주석이
+진짜 닫힘 뒤에 하나 더 있는 경우)을 시도하자 **같은 종류의 은밀누락이 2번째로 재발**함을
+발견 — 원인은 `sub(/^.*-->/)`가 정규식 탐욕적(greedy) 매칭이라 마지막 `-->`까지 지워버리는
+것. 감사 에이전트 진단: "이 손짜기 방식의 천장은 80대 중반 정도일 수 있다, 패치가 아니라
+구조적 수정이 필요."
 
-Round 20: 그 은밀누락을 고침 — 이미 잘 동작하던 "같은 줄에서 여는 경우" 처리와 대칭이 되게,
-닫는 줄에서도 `-->` 이후 텍스트를 버리지 않고 계속 스캔하도록 수정. 코드 주석의 "은밀누락은
-절대 없다"는 단정적 문구도 "매 라운드 실측으로 지켜지는 목표"로 완화(방금 이 버그로 그
-단정이 틀렸었으므로). 실제 pre-commit 훅으로 17건 라이브 커밋 테스트(회귀배터리 전부+신규
-케이스), 퍼즈 31→33/33, 단위테스트 17/17 그대로.
+Round 21(Jay 명시적 지시): 정규식 패턴 매칭 자체를 버리고 `index()` 기반 직접 위치탐색으로
+전면 교체 — "가장 가까운 열림→가장 가까운 닫힘" 쌍을 찾는 방식이라 탐욕적 매칭이라는 개념
+자체가 알고리즘적으로 존재하지 않음(더 작은 패치가 아니라 이 버그 클래스를 못 만드는 다른
+기법). 실제 pre-commit 훅으로 22건 회귀배터리 전부 통과 + 지시받은 것 이상으로 3건 추가
+적대적 조합(한 줄에 주석 3개, 파일 끝까지 안 닫히는 주석, 5줄 뒤에 닫히며 중간에 주석 2개
+더 낀 경우) 전부 통과. 퍼즈 33→35/35, 단위테스트 17/17 그대로. 세션 중 `git reset --hard`로
+미커밋 fix를 스스로 날려먹었다가(round 13/16/18/20도 각각 한 번씩 겪은 바로 그 실수) 즉시
+발견+재적용+커밋 완료.
 
-Round 20 재채점부터 시작해주세요 — 원본 재클론해 루브릭 재확인 후 fresh non-fork
+Round 21 재채점부터 시작해주세요 — 원본 재클론해 루브릭 재확인 후 fresh non-fork
 에이전트로 blind 채점, 코드 읽기만으로 끝내지 말고 실제 pre-commit hook 설치+실커밋
-검증 필수. 이번엔 특히 이 은밀누락 수정 자체가 정말 안전한지(또 다른 위험방향 버그가
-숨어있진 않은지) 확인할 것. Jay의 최종 기준: 구조축이 원본의 98.75 수준(원본도 100 아닌
-"적대적 시도에도 새 발견 0건"에서 CONVERGED)에 근접하면 합격, push하고 마무리.
+검증 필수. 이번엔 특히 index() 기반 재설계가 정말로 이 버그 클래스 자체를 구조적으로
+막았는지(또 다른 개별 사례가 아니라) 확인할 것. Jay의 최종 기준: 구조축이 원본의 98.75
+수준(원본도 100 아닌 "적대적 시도에도 새 발견 0건"에서 CONVERGED)에 근접하면 합격,
+push하고 마무리.
 ```
