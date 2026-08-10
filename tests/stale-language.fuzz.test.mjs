@@ -161,5 +161,25 @@ expect("FEEDBACK_PENDING.md Completed history section stays exempt",
     "# Feedback\n\n| # | issue |\n|---|---|\n\n## Completed history\n\n| # | issue |\n|---|---|\n| P1 | this has not yet been fixed, per that old round |\n"),
   false)
 
+// --- HTML comment / YAML frontmatter dimension (round 19) — round 18's audit found the
+// reordered pipeline still had no concept of HTML comments or YAML frontmatter, two more
+// non-prose constructs neither round 16 nor 17 tried. round 19 generalized fence/frontmatter
+// exclusion into a (open-marker, close-marker) table and gave HTML comments their own small
+// same-line-strip-else-block-skip handling (asymmetric markers, usually self-contained on one
+// line with real prose alongside — a different shape than the symmetric table entries).
+expect("stale phrase inside a single-line HTML comment must NOT match",
+  withAppend("\n<!-- todo: this hasn't yet been verified end to end -->\n"), false)
+expect("stale phrase inside a multi-line HTML comment must NOT match",
+  withAppend("\n<!--\nthis has not yet been verified\n-->\n"), false)
+expect("real prose on the same line as a closed HTML comment still matches",
+  withAppend("\nThis feature <!-- old note --> still unpatched as of today.\n"), true)
+expect("stale phrase inside YAML frontmatter must NOT match",
+  withNewFile("wiki/protocols/withfm.md",
+    "---\nstatus: has not yet been reviewed\n---\n\n# Doc\n\nReal content.\n"), false)
+expect("bare '---' mid-document (a markdown rule, not frontmatter) does not suppress prose after it",
+  withAppend("\nSome text.\n\n---\n\nThis integration has not yet been verified for real.\n"), true)
+expect("stale phrase inside a footnote definition still matches (renders as visible prose, correctly not exempt)",
+  withAppend("\nSee the note.[^1]\n\n[^1]: This claim has not yet been independently verified.\n"), true)
+
 console.log(failures === 0 ? `\nALL PASS (${total}/${total})` : `\n${failures}/${total} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)
