@@ -544,12 +544,30 @@ check_stale_language() {
       }
       region>0 { if ($0 ~ c[region]) region=0; next }
       {
+        # round 23: fence/frontmatter region-open is checked on the RAW line, before any
+        # stripping -- gsub-ing backticks first could otherwise mangle a literal "```" fence
+        # delimiter (a "`[^`]*`" match eats 2 of its 3 backticks, e.g. turning "```python"
+        # into "`python") and silently break fence detection. Only checked on a genuinely
+        # fresh line (not mid-comment-continuation), matching the precedence this already
+        # had before round 23 -- a line that is still resolving a prior line unclosed "<!--"
+        # only ever gets scanned for its closer, same as always.
+        was_incmt = incmt
+        if (!was_incmt) {
+          for (i=1;i<=n;i++) {
+            if (lineonly[i] && NR!=1) continue
+            if ($0 ~ o[i]) { region=i; next }
+          }
+          # round 23: strip same-line backtick spans BEFORE comment detection sees the raw
+          # text, so a backtick-quoted example token like `<!--` can never be mistaken for a
+          # real unclosed opener (round 22 audit finding: this repo own established "quote
+          # it in backticks to be safe" convention gave zero protection here before). A span
+          # split across a wrap (opening backtick on this line, closing on a later one) is not
+          # caught by this early pass -- it is still caught by the existing buffer-level gsub
+          # at flush time below, unchanged since round 18.
+          gsub(/`[^`]*`/, "", $0)
+        }
         $0 = strip_comments($0)
         if (incmt) next
-        for (i=1;i<=n;i++) {
-          if (lineonly[i] && NR!=1) continue
-          if ($0 ~ o[i]) { region=i; next }
-        }
       }
       /^[[:space:]]*$/ {
         if (buf!="") { gsub(/`[^`]*`/, "", buf); print startline":"buf }
