@@ -394,6 +394,28 @@ check_watch_size() {
 # into a false match. (2) session-log.md was missing the "-archive" exemption sibling its two
 # neighbors already had, so the routine archiving this repo already does for it would wrongly
 # self-block — added, matching the existing pattern exactly.
+#
+# round 18(audit) found this had settled into "one more markdown construct per round" (fence ->
+# inline-code/indent -> HTML comments + YAML frontmatter, each round finding what the last one's
+# hand-rolled recognizer didn't know about). round 19: rather than add HTML-comment and
+# frontmatter as two more bespoke special cases, the awk pass below now drives fence/frontmatter
+# exclusion off a small (open-marker, close-marker) table — adding a future *symmetric* delimited
+# construct is one table row, not new state-machine code. HTML comments are asymmetric
+# (`<!--`/`-->` differ, and the common case is fully self-contained on one line, e.g.
+# `<!-- todo -->`, where the surrounding prose on that same line still needs checking) so they're
+# handled by their own small gsub-then-fallback block rather than forced into the symmetric
+# table — that's a genuine shape difference, not laziness (same reasoning as why 4-space/tab
+# indented code stayed its own per-line check instead of joining the table: it's a per-line
+# property, not a delimited region with distinct start/end markers).
+#
+# This closes every non-prose construct found across 19 rounds of real adversarial testing
+# (fenced code, indented code, inline code spans, HTML comments, YAML frontmatter). It does NOT
+# attempt full CommonMark coverage — tables, `<details>`/`<summary>` blocks, link-reference
+# definitions, and any other construct nobody has hit yet are explicitly out of scope by decision,
+# not oversight (see FEEDBACK_PENDING.md for the reasoning). Any of those slipping through is a
+# false POSITIVE (blocks a legitimate commit until the line is reworded) — the safe direction,
+# never a silent miss — so the fix if one is ever hit in practice is either reword the line or add
+# one row to the table above, not another audit-and-patch round.
 check_stale_language() {
   local patterns=(
     "hasn't yet been" "has not yet been" "not yet verified"
@@ -446,20 +468,30 @@ check_stale_language() {
         echo "OVER CAP: possibly-stale mechanism-state claim in $file:$startline — \"$(printf '%s' "$block" | cut -c1-160)\" — verify it's still true, or if it's describing a past round move it into historical narrative (wiki/rule-archive.md / SESSION_MASTER.md)"
       fi
     done < <(awk '
-      # round 17: fenced code blocks and inline `code spans` were matched the same as prose — a
-      # stale-sounding phrase inside an example/quote got flagged as a live claim. round 18(audit)
-      # found the round-17 fix still missed two valid-markdown forms, both from the same root
-      # cause: inline spans were stripped per ORIGINAL line, before wrapped lines get joined into
-      # one paragraph, so a `code span` split across this repos own hard-wrap never forms a
-      # matched pair; and 4-space/tab indented code blocks (CommonMarks other code-block form)
-      # were not recognized at all. Reordered instead of patching each case separately: exclude
-      # fence AND indented-code lines first (never enter the paragraph buffer), join what is left
-      # into paragraphs exactly as before, THEN strip inline `...` spans from the joined text —
-      # a span split at a wrap point is contiguous again once its paragraph is joined, so one
-      # backtick-strip on the joined buffer now catches it without a separate special case.
-      BEGIN{buf=""; startline=0; infence=0}
-      /^```/ { infence = !infence; next }
-      infence { next }
+      # generic delimited-region table (round 19) — o[i]/c[i] are symmetric open==close markers
+      # (whole line IS the delimiter, never carries sibling prose, so a match just toggles
+      # region state and consumes the line). Add a future symmetric construct here, not as new
+      # code. lineonly[i] restricts a marker to line 1 only (frontmatter: a bare "---" later in
+      # a file is a markdown horizontal rule, not a frontmatter boundary).
+      BEGIN{
+        buf=""; startline=0; region=0; incmt=0
+        n=2
+        o[1]="^```";               c[1]="^```";               lineonly[1]=0
+        o[2]="^---[[:space:]]*$";  c[2]="^---[[:space:]]*$";  lineonly[2]=1
+      }
+      region>0 { if ($0 ~ c[region]) region=0; next }
+      incmt    { if ($0 ~ /-->/) incmt=0; next }
+      {
+        # HTML comments are asymmetric (open != close) and usually self-contained on one line
+        # (`<!-- todo -->`) with real prose alongside — strip the same-line span and keep
+        # checking the rest of the line; only fall into block-skip state if left unclosed here.
+        gsub(/<!--[^>]*-->/, "")
+        if ($0 ~ /<!--/) { incmt=1; next }
+        for (i=1;i<=n;i++) {
+          if (lineonly[i] && NR!=1) continue
+          if ($0 ~ o[i]) { region=i; next }
+        }
+      }
       /^[[:space:]]*$/ {
         if (buf!="") { gsub(/`[^`]*`/, "", buf); print startline":"buf }
         buf=""; next
