@@ -141,6 +141,16 @@ expect("stale phrase inside an inline `code span` must NOT match",
 expect("stale phrase as real prose right after a closed code fence still matches",
   withAppend("\n```\nsome_example_code();\n```\nThis integration has not yet been verified for real.\n"), true)
 
+// --- fenced/inline-code, harder forms (round 18) — round 17's fix stripped inline `...` spans
+// per ORIGINAL line, before wrapped lines join into a paragraph, so a span split at the wrap
+// point never formed a matched pair; and 4-space/tab indented code blocks (CommonMark's other
+// code-block form) weren't recognized at all. round 18 reordered: exclude fence+indented lines
+// first, join what's left, THEN strip inline spans from the joined text.
+expect("inline `code span` split across this repo's own hard-wrap must NOT match",
+  withAppend("\nExample: `this hasn't\nyet been` released, just illustrating wrapped inline code.\n"), false)
+expect("stale phrase inside a 4-space indented code block must NOT match",
+  withAppend("\nExample:\n\n    this hasn't yet been tested in production\n\nMore text.\n"), false)
+
 // --- FEEDBACK_PENDING split-exemption regression (round 13) ---
 expect("FEEDBACK_PENDING.md open table (before Completed history) stays swept",
   withNewFile("wiki/handoffs/FEEDBACK_PENDING.md",
