@@ -408,19 +408,24 @@ check_watch_size() {
 # indented code stayed its own per-line check instead of joining the table: it's a per-line
 # property, not a delimited region with distinct start/end markers).
 #
-# This closes every non-prose construct found across 20 rounds of real adversarial testing
-# (fenced code, indented code, inline code spans, HTML comments, YAML frontmatter) — including
-# round 20's fix for a real silent miss in HTML-comment closing-line handling (trailing prose
-# after "-->" was being discarded unscanned, not flagged as a false positive; live-verified fixed).
-# The design GOAL for these 5 constructs is false-positive-only failure (annoying, not dangerous) —
-# but this is a hand-rolled state machine, not a proven parser, so treat that as a goal actively
-# defended by live pre-commit testing each round it's touched, not a formal guarantee that no other
-# silent-miss edge exists. It does NOT attempt full CommonMark coverage — tables, `<details>`/
-# `<summary>` blocks, link-reference definitions, and any other construct nobody has hit yet are
-# explicitly out of scope by decision, not oversight (see FEEDBACK_PENDING.md for the reasoning).
-# Any of those is expected to fail as a false POSITIVE (blocks a legitimate commit until reworded)
-# — the fix if one is ever hit in practice is either reword the line or add one row to the table
-# above, not another audit-and-patch round.
+# This closes every non-prose construct found across 21 rounds of real adversarial testing
+# (fenced code, indented code, inline code spans, HTML comments, YAML frontmatter). HTML-comment
+# stripping in particular went through two failure shapes before landing here: round 19 added it
+# as regex sub()/gsub() (missed the closing-line case entirely — round 20), round 20 patched that
+# with a still-regex fix that was GREEDY and matched the wrong occurrence when a line had two
+# closers (round 21). Round 21's strip_comments() replaced regex pattern-description with
+# index()-based direct position search — pairing "nearest open" with "nearest close" this way
+# makes matching the wrong occurrence structurally impossible, not just less likely, since
+# index() has no greedy/non-greedy mode to misconfigure in the first place. The design GOAL for
+# all 5 constructs is false-positive-only failure (annoying, not dangerous) — but even a
+# structurally-sounder mechanism is still a hand-rolled recognizer, not a proven parser, so treat
+# that as a goal actively defended by live pre-commit testing each round it's touched, not a
+# formal guarantee that no other silent-miss edge exists anywhere. It does NOT attempt full
+# CommonMark coverage — tables, `<details>`/`<summary>` blocks, link-reference definitions, and
+# any other construct nobody has hit yet are explicitly out of scope by decision, not oversight
+# (see FEEDBACK_PENDING.md for the reasoning). Any of those is expected to fail as a false
+# POSITIVE (blocks a legitimate commit until reworded) — the fix if one is ever hit in practice
+# is either reword the line or add one row to the table above, not another audit-and-patch round.
 check_stale_language() {
   local patterns=(
     "hasn't yet been" "has not yet been" "not yet verified"
