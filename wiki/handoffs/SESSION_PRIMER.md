@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 21 re-scored (turnkey 82, structural 80 — unclosed-comment parity gap found); round 22 fix done, not yet re-scored
+# SESSION PRIMER — round 22 re-scored (turnkey 82, structural 79 — backtick-vs-comment ordering bug found); round 23 fix done, not yet re-scored
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state tables only — no "why" narrative** (that's `SESSION_MASTER.md`).
@@ -39,7 +39,7 @@ keep running in future sessions until the score closes in on the original's.
 > rigorously against ground truth, not rush or trust a prior draft — see `SESSION_MASTER.md`'s
 > "Session 5 handoff re-verification" section for the full why-narrative.
 
-## Current state — round 21 last-measured turnkey 82/structural 80; round 22 fixed since, not yet re-scored
+## Current state — round 22 last-measured turnkey 82/structural 79; round 23 fixed since, not yet re-scored
 
 | Round | What it tested/built | Result | Evidence |
 |---|---|---|---|
@@ -57,11 +57,12 @@ keep running in future sessions until the score closes in on the original's.
 | 13 (re-score) | Fresh agent independently installed the hook + real-committed a stale injection again, post round-13-fix | **turnkey 80 (held), structural 74→80 (recovered)**. Round 12's exact gap genuinely closed this time — unswept-file injection blocked, FEEDBACK_PENDING open-table injection blocked, Completed-history text still passes. Verdict: real progress, not yet CONVERGED (structural had oscillated 78→74→80 across 3 rounds) | fixes: `4d20b11`..`296d4ba` |
 | 14 (re-score) | Fresh agent tried genuinely new adversarial angles (not repeating prior rounds' exact tests): fresh-bootstrapped-project survival (passed), phrase-match case/wrap variants, exemption-regex over/under-match | **turnkey 80 (held), structural 80→76**. Found 2 new real bugs in `check_stale_language()` itself: (1) a stale phrase split across this repo's own hard-wrap house style evades the per-line grep entirely (false negative); (2) `session-log.md` was missing the `-archive` exemption sibling its 2 neighbors already had, so this repo's own routine archiving convention for it would wrongly self-block (false positive) | fixed round 15 |
 | 20 (re-score) | Fresh agent verified round 20's closing-line fix hands-on, then independently tried a composition neither round 19 nor round 20 tested: a closing line carrying a SECOND, trailing same-line comment after the true close | **turnkey 82 (held), structural 84→82**. Round 20's exact reported case now held — but this new composition found the fix was still regex-based (`sub(/^.*-->/)`) and GREEDY, consuming through the LAST `-->` on the line instead of the first, silently swallowing real prose between the two closers. A 2nd genuine silent-miss on the same mechanism. Auditor's diagnosis: the ceiling on this hand-rolled approach may be "low-to-mid 80s" without a structural (not patch) fix | fixed round 21 |
-| 21 (re-score) | Fresh agent stress-tested round 21's `index()`-based rewrite specifically (60 comments on one line, hand-verified position math, several adversarial compositions) | **turnkey 82 (held), structural 82→80**. The wrong-occurrence-matching bug class is genuinely closed — could not reproduce it under heavy stress. But found a *different*, pre-existing (since round 19) silent-miss: an HTML comment opener that never finds its closer anywhere in the file left `incmt` stuck at 1 for the rest of the scan, silently exempting every real claim after it to EOF, unbounded, unwarned — contradicts the mechanism's own "false-positive-only" design goal | fixed round 22 |
+| 21 (re-score) | Fresh agent stress-tested round 21's `index()`-based rewrite specifically (60 comments on one line, hand-verified position math, several adversarial compositions) | **turnkey 82 (held), structural 82→80**. Wrong-occurrence-matching class genuinely closed. Found a *different*, pre-existing (since round 19) silent-miss: unclosed comment opener left `incmt` stuck at 1, silently exempting everything after it to EOF, unwarned | fixed round 22 |
+| 22 (re-score) | Independently reproduced round 22's parity fix (real hook, real commit) — held. Tried the fix's own suggested angle: bare-token prose using literal `<!--`/`-->` tokens (with/without backticks) | **turnkey 82 (held), structural 80→79**. Parity check itself has no backtick-awareness: comment detection runs on raw per-line text, backtick-strip only happens later on the joined buffer — a backtick-quoted example token like `` `<!--` `` false-positived the new parity hard-FAIL. Separately confirmed (code-read + live) a pre-existing gap: bare tokens across a real paragraph break still silently pair | fixed round 23 |
 
-**Round 8-21 fixes** (compressed — full narrative in `FEEDBACK_PENDING.md` rows #3/#18-20/#22-30): FEEDBACK #3/#4/#12 closed+reworked (8) → doc self-consistency + `AGENTS.md` cap (9) → restale'd, re-fixed (10) → `check_stale_language()` built (11) → found advisory-only (12) → real hard-fail (13) → line-wrap evasion + `session-log` exemption sibling fixed (15) → Jay's structural pivot: naming-pattern exemption + property-based fuzz suite, found 2 bugs on first run (16) → fence/inline-code + `*-archive.md` collision narrowing + fuzz-suite wiring + File Map cap fix (17) → pipeline reorder closes both round-17 gaps at the root (18) → symmetric (open,close)-table generalization for fence/frontmatter + own HTML-comment handling, explicit scope-stop for tables/`<details>`/link-refs (19) → 1st silent-miss found+fixed: closing-line trailing prose was discarded unscanned (20) → 2nd silent-miss (greedy regex) replaced with `index()`-based nearest-pair search, structurally closes the wrong-occurrence class (21).
+**Round 8-22 fixes** (compressed — full narrative in `FEEDBACK_PENDING.md` rows #3/#18-20/#22-31): FEEDBACK #3/#4/#12 closed+reworked (8) → doc self-consistency + `AGENTS.md` cap (9) → restale'd, re-fixed (10) → `check_stale_language()` built (11) → found advisory-only (12) → real hard-fail (13) → line-wrap evasion + `session-log` exemption sibling fixed (15) → Jay's structural pivot: naming-pattern exemption + property-based fuzz suite, found 2 bugs on first run (16) → fence/inline-code + `*-archive.md` collision narrowing + fuzz-suite wiring + File Map cap fix (17) → pipeline reorder closes both round-17 gaps at the root (18) → symmetric (open,close)-table generalization for fence/frontmatter + own HTML-comment handling, explicit scope-stop for tables/`<details>`/link-refs (19) → 1st silent-miss found+fixed: closing-line trailing prose discarded unscanned (20) → 2nd silent-miss (greedy regex) replaced with `index()`-based nearest-pair search (21) → unclosed-comment parity check mirroring `check_fence_parity` (22).
 
-**Round 22's fix — unclosed-comment parity check, mirroring `check_fence_parity`'s odd-fence-count hard-FAIL.** A raw opener/closer occurrence count was tried first and immediately produced real false positives on this repo's own handoff docs (both legitimately quote a standalone closer token inside backtick spans documenting this exact bug's regex, with zero real openers anywhere) — switched to reusing `strip_comments()`'s own `incmt` state instead (only starts counting after it actually finds a real opener, same contextual pairing the normal match path already uses correctly), checked at `END` and reported as a distinct hard-FAIL message. Live-verified via the real installed pre-commit hook: a genuinely unclosed comment with real stale claims after it is now blocked (was silently passing); properly closed comments and the backtick-quoted-arrow false-positive case both stay clean; full rounds-13-21 regression battery (never-swept file, `deploy-archive.md` collision, real double-archive files, `session-log-archive.md`, wrap-split prose/inline-code, indented code, YAML frontmatter, bare `---`, fenced code, 60-comment stress, unclosed-then-closed-with-decoys) all held. 4 new fuzz cases (35→39/39). One self-inflicted `git stash` (inside a test helper) stashed away the uncommitted fix mid-verification — same mistake every round since 13 has independently hit once — caught via `git stash list` + diffing the stash content, popped back cleanly, verified again from scratch before committing.
+**Round 23's fix — backtick-strip reordered before comment detection.** Same shape as rounds 14/18's earlier lesson (wrong pipeline order between exclusion mechanisms), recurring between a different pair of stages. Fix: on a fresh (non-continuation) line, check fence/frontmatter region-open on the RAW line first (gsub-ing backticks first could mangle a literal ` ``` ` fence delimiter), then strip same-line backtick spans, then run comment detection — region-check and backtick-strip both skipped on lines still resolving a prior unclosed opener, unchanged from before. Live-verified: backtick-quoted example token no longer false-positives; round 17/18's wrap-split-code-span handling unregressed; full rounds-13-22 battery held. **Deliberately NOT fixed** — tried force-closing any suspected-unclosed comment at the next blank line (the obvious fix for the bare cross-paragraph gap); this immediately broke real content: `templates/FEEDBACK_PENDING.md.template`/`SUBSYSTEM-learnings.md.template` both have a genuine multi-paragraph instructional comment with a blank line inside it, and there is no reliable signal distinguishing that from an accidental bare-token pairing. Documented as an accepted, known gap instead (see `check_stale_language()`'s own comment + FEEDBACK_PENDING.md) — backtick-quoting is the real, verified mitigation. 2 new fuzz cases (39→41/41). Self-inflicted `git reset --hard` wiped the uncommitted fix mid-task (same mistake every round since 13 has independently hit once) — caught immediately, reapplied, verified again before committing.
 
 **Everything through this round is committed; push status verified at the top of the next
 session's first `git status`/`git log origin/master -1` check, not assumed here.**
@@ -69,10 +70,11 @@ session's first `git status`/`git log origin/master -1` check, not assumed here.
 ## Current sub-task
 
 ```
-시작: 없음 — round 22(HTML주석 미종료→EOF까지 조용히 누락되던 버그, fence parity와
-동일 패턴의 hard-FAIL로 수정) fix 완료, push 확인 필요.
-목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 22 재채점
-작업 사이클: 없음(이 세션의 sub-task는 완결). Round 22가 새 라운드로 시작됨.
+시작: 없음 — round 23(백틱 벗기기를 HTML주석 감지보다 먼저 실행하도록 순서 재배치,
+문단경계 무단토큰 페어링은 실측으로 부작용 확인 후 의도적으로 안 고치고 문서화) fix
+완료, push 확인 필요.
+목표: 다음 세션의 첫 작업은 git status/log로 push 상태 확인 후 Round 23 재채점
+작업 사이클: 없음(이 세션의 sub-task는 완결). Round 23이 새 라운드로 시작됨.
 ```
 
 ## Hard constraints / warnings
@@ -112,24 +114,24 @@ Deferred, not forgotten: backporting `refactor.md` to Hermes/soulmate 1-3 — Ja
 
 ```
 soulmate-4 이어서 진행합니다. wiki/handoffs/SESSION_PRIMER.md 전체를 읽고 git log/status로
-이 파일의 주장(round 22까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것.
+이 파일의 주장(round 23까지 fix 완료, push 여부)을 직접 재검증할 것 — 문서만 믿지 말 것.
 
-Round 21 재채점 결과 턴키 82(유지), 구조 82→80 — round 21의 index() 기반 재설계는 "잘못된
-쌍을 매칭하는" 버그 클래스 자체는 정말로 닫았음(한 줄에 주석 60개까지 넣어 직접 위치계산
-검증). 다만 감사 에이전트가 **다른, round 19부터 있던** 버그를 발견: HTML 주석 여는 마커가
-파일 끝까지 안 닫히면 그 뒤 모든 실제 문장이 조용히(경고도 없이) 검사에서 빠짐 — "오탐만
-나야 한다"는 이 메커니즘 자신의 설계원칙을 어김.
+Round 22 재채점 결과 턴키 82(유지), 구조 80→79 — round 22가 새로 만든 주석 미종료 hard-FAIL
+자체가 새 오탐을 냄: 백틱으로 감싼 예시 토큰(예 `` `<!--` ``)을 진짜 미종료 주석으로 오인.
+원인은 round 14/18과 똑같은 종류(제외 메커니즘 간 처리 순서 오류) — 이번엔 백틱벗기기 vs
+주석감지 사이. 별도로, 문단 경계를 넘어 무관한 `<!--`/`-->` 토큰이 우연히 짝지어지며 그
+사이 진짜 문장이 조용히 빠지는 기존 버그도 재확인.
 
-Round 22: `check_fence_parity`(닫히지 않은 펜스 감지)와 정확히 같은 패턴으로 hard-FAIL 추가.
-주의할 함정 하나 실측으로 발견: 단순히 여는/닫는 마커 개수를 세면 이 저장소 자신의 문서(이
-버그의 정규식을 백틱 인용부호 안에 그대로 적어놓은 SESSION_PRIMER.md/FEEDBACK_PENDING.md)에서
-바로 오탐이 남 — `strip_comments()`가 이미 쓰는 `incmt` 상태를 재사용해서 해결(실제 여는 마커를
-찾은 경우에만 카운트 시작하므로 백틱 인용은 자연히 무시됨). 실제 pre-commit 훅으로 미종료
-주석 뒤 실제 문장 3개가 이제 정상 차단되는 것 확인, rounds 13-21 회귀배터리 전부 유지. 퍼즈
-35→39/39. 세션 중 테스트 헬퍼의 `git stash`가 미커밋 fix를 스스로 치워버렸다가(round 13
-이후 매 라운드가 한 번씩 겪는 바로 그 실수) `git stash list`로 발견+복구+재검증 완료.
+Round 23: 백틱벗기기를 주석감지보다 먼저 실행하도록 순서 재배치(펜스/프론트매터 열림감지는
+원본 줄 그대로 유지 — 안 그러면 백틱 벗기기가 ` ``` ` 펜스 마커 자체를 훼손함). 백틱 오탐은
+실측으로 완전히 닫힘, round 17/18의 줄바꿈-분할 인라인코드 처리도 회귀 없음 확인. **문단경계
+무단토큰 페어링은 의도적으로 안 고쳤음** — 빈 줄에서 강제로 주석상태를 닫는 방법을 시도했으나
+이 저장소 자신의 템플릿(FEEDBACK_PENDING.md.template/SUBSYSTEM-learnings.md.template)에 실제
+존재하는 정상적인 여러 문단짜리 안내주석(내부에 빈 줄 포함)을 즉시 깨뜨림 — 실측으로 발견한
+진짜 회귀. 진짜 다문단 주석과 우연한 토큰 페어링을 구분할 신뢰 가능한 신호가 없어서, 알려진
+한계로 정직하게 문서화하고 멈춤(백틱 인용이 실질적 회피 수단). 퍼즈 39→41/41.
 
-Round 22 재채점부터 시작해주세요 — 원본 재클론해 루브릭 재확인 후 fresh non-fork
+Round 23 재채점부터 시작해주세요 — 원본 재클론해 루브릭 재확인 후 fresh non-fork
 에이전트로 blind 채점, 코드 읽기만으로 끝내지 말고 실제 pre-commit hook 설치+실커밋
 검증 필수. Jay의 최종 기준: 구조축이 원본의 98.75 수준(원본도 100 아닌 "적대적 시도에도
 새 발견 0건"에서 CONVERGED)에 근접하면 합격, push하고 마무리.
