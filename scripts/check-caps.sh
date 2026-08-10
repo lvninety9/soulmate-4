@@ -416,11 +416,19 @@ check_watch_size() {
 # closers (round 21). Round 21's strip_comments() replaced regex pattern-description with
 # index()-based direct position search — pairing "nearest open" with "nearest close" this way
 # makes matching the wrong occurrence structurally impossible, not just less likely, since
-# index() has no greedy/non-greedy mode to misconfigure in the first place. The design GOAL for
-# all 5 constructs is false-positive-only failure (annoying, not dangerous) — but even a
-# structurally-sounder mechanism is still a hand-rolled recognizer, not a proven parser, so treat
-# that as a goal actively defended by live pre-commit testing each round it's touched, not a
-# formal guarantee that no other silent-miss edge exists anywhere. It does NOT attempt full
+# index() has no greedy/non-greedy mode to misconfigure in the first place. Round 21's own audit
+# then found one more way the false-positive-only goal could still be violated: a <!-- that never
+# finds a --> ANYWHERE in the file left incmt stuck at 1 for the rest of the scan, silently
+# exempting every real claim after the mistake to EOF with zero warning — round 22 closed that
+# specific gap by reusing strip_comments()'s own incmt state (not a separate raw-text count, which
+# was tried first and immediately produced real false positives on this repo's own docs, which
+# legitimately quote "-->" in backtick spans with no real <!-- anywhere) to hard-FAIL, mirroring
+# check_fence_parity's odd-fence-count treatment. The design GOAL for all 5 constructs is
+# false-positive-only failure (annoying, not dangerous) — that specific unclosed-to-EOF violation
+# is now closed and live-verified (round 22), but even a structurally-sounder mechanism is still a
+# hand-rolled recognizer, not a proven parser, so treat the broader goal as actively defended by
+# live pre-commit testing each round it's touched, not a formal guarantee that no other
+# silent-miss edge exists anywhere else in it. It does NOT attempt full
 # CommonMark coverage — tables, `<details>`/`<summary>` blocks, link-reference definitions, and
 # any other construct nobody has hit yet are explicitly out of scope by decision, not oversight
 # (see FEEDBACK_PENDING.md for the reasoning). Any of those is expected to fail as a false
