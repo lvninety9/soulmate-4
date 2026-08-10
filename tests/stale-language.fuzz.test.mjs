@@ -184,6 +184,19 @@ expect("multi-line comment with nothing after '-->' on the closing line still st
   withAppend("\n<!--\nthis has not yet been verified\n-->\n"), false)
 expect("real prose on the same line as a closed HTML comment still matches",
   withAppend("\nThis feature <!-- old note --> still unpatched as of today.\n"), true)
+
+// --- HTML-comment greedy-regex silent miss (round 21) — round 20's own fix (sub(/^.*-->/))
+// was still regex-based and GREEDY: a closing line carrying a second, trailing same-line
+// comment after the true close made ".*" consume through the LAST "-->" instead of the first,
+// silently swallowing the real prose in between. round 21 replaced the whole mechanism with
+// index()-based nearest-open/nearest-close pairing, which cannot match the wrong occurrence
+// by construction (index() always finds the first occurrence, there is no "how greedy" to
+// misconfigure). These 2 cases are the exact composition that broke the round-20 regex fix.
+expect("round 20's exact bug: trailing decoy comment after the true close must not hide real prose",
+  withAppend("\n<!--\ncommented\nstill commented --> This feature has not yet been verified. <!-- todo: cleanup -->\n"), true)
+expect("prose before an open AND after the true close, with a decoy second comment, both real claims caught",
+  withAppend("\nEarlier claim: this has not yet been verified. <!-- old --> Later claim: still unpatched. <!-- todo -->\n"), true)
+
 expect("stale phrase inside YAML frontmatter must NOT match",
   withNewFile("wiki/protocols/withfm.md",
     "---\nstatus: has not yet been reviewed\n---\n\n# Doc\n\nReal content.\n"), false)
