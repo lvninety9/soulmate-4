@@ -484,21 +484,37 @@ check_stale_language() {
         o[1]="^```";               c[1]="^```";               lineonly[1]=0
         o[2]="^---[[:space:]]*$";  c[2]="^---[[:space:]]*$";  lineonly[2]=1
       }
-      region>0 { if ($0 ~ c[region]) region=0; next }
-      incmt {
-        # round 20: closing line of a multi-line comment can carry trailing prose
-        # after the "-->" (e.g. "still commented --> real claim.") — strip only the
-        # commented prefix and fall through to the normal rules below instead of
-        # unconditionally discarding the whole line, mirroring how the same-line-open
-        # case already keeps scanning the rest of its line.
-        if ($0 ~ /-->/) { sub(/^.*-->/, "", $0); incmt=0 } else next
+      # round 21: HTML-comment stripping rewritten from regex sub()/gsub() to index()-based
+      # direct position search. The old sub(/^.*-->/, "", $0) on a multi-line comment closing
+      # line was GREEDY (POSIX ERE .* always matches as much as possible, and awk has no
+      # non-greedy quantifier) -- a line with a trailing same-line comment after the true close
+      # (still commented --> real claim. <!-- todo -->) consumed through the LAST closer,
+      # silently swallowing "real claim." (round 20 finding, a genuine silent miss). index()
+      # finds the FIRST occurrence by definition, so pairing nearest-open with nearest-close
+      # this way makes matching the wrong occurrence structurally impossible, not just less
+      # likely -- replaces both the old same-line and closing-line branches with one procedure.
+      function strip_comments(s,    out, p, q) {
+        out = ""
+        if (incmt) {
+          q = index(s, "-->")
+          if (q == 0) return ""
+          s = substr(s, q + 3)
+          incmt = 0
+        }
+        while (1) {
+          p = index(s, "<!--")
+          if (p == 0) { out = out s; break }
+          out = out substr(s, 1, p - 1)
+          q = index(substr(s, p + 4), "-->")
+          if (q == 0) { incmt = 1; break }
+          s = substr(s, p + q + 6)
+        }
+        return out
       }
+      region>0 { if ($0 ~ c[region]) region=0; next }
       {
-        # HTML comments are asymmetric (open != close) and usually self-contained on one line
-        # (`<!-- todo -->`) with real prose alongside — strip the same-line span and keep
-        # checking the rest of the line; only fall into block-skip state if left unclosed here.
-        gsub(/<!--[^>]*-->/, "")
-        if ($0 ~ /<!--/) { incmt=1; next }
+        $0 = strip_comments($0)
+        if (incmt) next
         for (i=1;i<=n;i++) {
           if (lineonly[i] && NR!=1) continue
           if ($0 ~ o[i]) { region=i; next }
