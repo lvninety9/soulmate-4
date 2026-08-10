@@ -44,7 +44,11 @@ let total = 0
 function expect(label, dir, wantBlocked) {
   total++
   const { blocked, output } = runCheck(dir)
+  // round 22: an unclosed HTML comment blocks via a different, non-"possibly-stale" message
+  // (it's a parity failure, not a phrase match — see check_stale_language()'s own comment) but
+  // is exactly as much "a real reason to block" as a phrase hit for this test's purposes.
   const staleHit = output.includes("OVER CAP: possibly-stale mechanism-state claim")
+    || output.includes("never closes anywhere in the file")
   const ok = wantBlocked ? staleHit : !staleHit
   if (ok) {
     console.log(`ok: ${label}`)
@@ -204,6 +208,23 @@ expect("bare '---' mid-document (a markdown rule, not frontmatter) does not supp
   withAppend("\nSome text.\n\n---\n\nThis integration has not yet been verified for real.\n"), true)
 expect("stale phrase inside a footnote definition still matches (renders as visible prose, correctly not exempt)",
   withAppend("\nSee the note.[^1]\n\n[^1]: This claim has not yet been independently verified.\n"), true)
+
+// --- unclosed-comment parity (round 22) — round 21's audit found a <!-- that never finds a
+// --> anywhere in the file leaves the awk pass's incmt state stuck at 1 for the rest of the
+// scan: every real claim after the mistake goes unswept, unbounded, unwarned (the exact
+// dangerous silent-miss shape this mechanism's whole design goal rules out). Mirrors
+// check_fence_parity's odd-fence-count hard-FAIL, reusing strip_comments()'s own incmt state
+// (not a separate raw-text <!--/--> count) so it can't misfire on real content like this repo's
+// own docs, which legitimately quote "-->" inside backtick spans documenting this exact bug's
+// regex with zero real <!-- anywhere in the file.
+expect("a <!-- that never closes anywhere in the file is caught, even with real claims after it",
+  withAppend("\n<!-- todo: never gets closed\n\nThis feature has not yet been verified.\nAnother claim: this is still unpatched.\n"), true)
+expect("a <!-- that never closes, but has NO real claims after it, is still caught (parity, not phrase-driven)",
+  withAppend("\n<!-- todo: never gets closed, and nothing stale follows either\n"), true)
+expect("properly closed comment (no parity issue) stays clean, unaffected by the new check",
+  withAppend("\n<!-- fine, this closes normally -->\nReal text is fine.\n"), false)
+expect("standalone '-->' inside inline code with zero real <!-- anywhere must NOT be treated as unclosed",
+  withAppend("\nSee the `sub(/^.*-->/)` pattern discussed in the docs — no real comment here at all.\n"), false)
 
 console.log(failures === 0 ? `\nALL PASS (${total}/${total})` : `\n${failures}/${total} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)

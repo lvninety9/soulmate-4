@@ -464,6 +464,24 @@ check_stale_language() {
     [ -f "$file" ] || continue
     while IFS=: read -r startline block; do
       [ -z "$block" ] && continue
+      if [ "$block" = "__STALE_LANG_UNCLOSED_COMMENT__" ]; then
+        # round 22: an <!-- that never finds a --> anywhere in the file (via the SAME index()
+        # pairing strip_comments() already uses, not a separate raw-text count -- a naive
+        # grep -c '<!--' vs grep -c '\-\->' count was tried first and immediately produced real
+        # false positives on this repo's own SESSION_PRIMER.md/FEEDBACK_PENDING.md, both of which
+        # legitimately contain standalone `-->` INSIDE inline-code spans documenting this exact
+        # bug's own regex, with no <!-- anywhere in the file -- that's not an unclosed comment,
+        # it's prose about one. Reusing strip_comments()'s own incmt state sidesteps this because
+        # it only starts counting after it actually finds a real <!--, exactly like the normal
+        # match path already does) leaves incmt=1 for the rest of the file -- every real claim
+        # after it goes unswept, unbounded, unwarned (round 21's audit finding). Same shape as
+        # check_fence_parity's odd-fence-count check: fail loudly before trusting any count in
+        # this file, rather than silently trusting a scan that already broke.
+        hit=1
+        status=1
+        echo "OVER CAP: $file has an HTML comment (\`<!--\`) that never closes anywhere in the file — fix the markdown before trusting the stale-language sweep on this file"
+        continue
+      fi
       if [ "$file" = "$fp_file" ] && [ "$startline" -ge "$fp_history_line" ]; then
         continue
       fi
@@ -536,7 +554,10 @@ check_stale_language() {
         if (buf=="") startline=NR
         buf = buf (buf=="" ? "" : " ") line
       }
-      END{ if (buf!="") { gsub(/`[^`]*`/, "", buf); print startline":"buf } }
+      END{
+        if (buf!="") { gsub(/`[^`]*`/, "", buf); print startline":"buf }
+        if (incmt) print "-1:__STALE_LANG_UNCLOSED_COMMENT__"
+      }
     ' "$file")
   done < <(git grep -Il '' -- . 2>/dev/null || true)
   if [ "$hit" -eq 0 ]; then
