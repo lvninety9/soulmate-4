@@ -49,8 +49,10 @@ steps above are self-served prose instead, same shape as soulmate-3's Continue g
 | local model provider config | `~/.config/kilo/kilo.jsonc` (global) |
 
 ## Caps + sub-task budget
-File Map ≤12 rows · SESSION_PRIMER ≤150 lines · this file ≤85 lines (matches original soulmate's
-cap, not lowered for a local model). No live token-usage signal mid-session: `design` sizes
+File Map ≤10 rows (round 17: was 12, an unreconciled soulmate-3 leftover — matches original
+soulmate's real cap now, current usage has real headroom either way) · SESSION_PRIMER ≤150
+lines · this file ≤85 lines (matches original soulmate's cap, not lowered for a local model).
+No live token-usage signal mid-session: `design` sizes
 sub-tasks to finish under context length by construction; `build` checkpoints on overrun.
 
 ## Learned Rules
