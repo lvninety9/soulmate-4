@@ -80,11 +80,51 @@ wiki/
     SESSION_MASTER.md              # full narrative history ("why"), read only on request
     SESSION_MASTER-archive.md      # oldest SESSION_MASTER.md sections, moved out once WATCHed
 templates/                        # copy-paste skeletons for adopting this into a new project
+tests/
+  subtask-gate.test.mjs            # unit tests for the sub-task gate, run before trusting a fix
+  stale-language.fuzz.test.mjs     # regression net for check-caps.sh's stale-language sweep (below)
 scripts/
   bootstrap.sh                     # turnkey new-project setup
-  check-caps.sh                    # mechanical cap enforcement (line/row counts)
+  check-caps.sh                    # mechanical cap enforcement (line/row counts + a stale-language
+                                    #   sweep — flags mechanism-state claims like "known gap"/"not
+                                    #   yet verified" outside historical-narrative files, so a doc
+                                    #   can't silently go stale about what's actually fixed)
   pre-commit-check-caps            # second-layer enforcement — see "Known gap"
 ```
+
+## The A–D self-diagnosis pattern (for any recurring subsystem)
+
+If the project has subsystems that need to "measure performance and improve themselves" (content
+generation, a recommendation engine, a pricing pipeline — anything), make them all follow the same
+4-stage shape instead of redesigning a feedback loop each time:
+
+- **A (collect)**: snapshot performance data periodically (e.g. weekly)
+- **B (detect)**: auto-flag trend anomalies (quality drop, a specific check repeatedly failing,
+  underperformance)
+- **C (analyze)**: compare high vs. low performers → summarize → write actionable guidance to
+  `wiki/subsystems/<name>-learnings.md` — use
+  [`templates/SUBSYSTEM-learnings.md.template`](templates/SUBSYSTEM-learnings.md.template) to
+  start one, it's the one concrete artifact this pattern produces. If data is insufficient, don't
+  force a conclusion — keep the previous guidance (implement as a state cache)
+- **D (apply)**: the next generation/run automatically reads C's output — a closed
+  explore→learn→apply loop that needs no human reconfiguration. If the choice space is small and
+  discrete, epsilon-greedy is a reasonable default (~85-90% current best guidance, ~10-15% next-
+  best, so the system keeps generating comparison data) — but a simple "always apply latest
+  guidance" D is fine if you don't need the exploration.
+
+**Worked example, outside the content domain** (a used-bookstore inventory system's buy-price
+pricing engine): A — weekly snapshot of buy price vs. actual resale price/days-in-inventory per
+category. B — auto-flag a category (e.g. textbooks) whose loss rate crosses a threshold. C —
+compare fast- vs. slow-turnover categories → write to `wiki/subsystems/pricing-learnings.md`:
+`Category "textbooks": lower buy price 12% — resale ratio below break-even for 3 snapshots.` D —
+the next pricing run automatically applies that adjustment factor.
+
+"Weekly" and the flagging threshold in B are **per-subsystem tunables, not fixed constants** —
+record cadence/threshold at the top of that subsystem's own `-learnings.md` file (not in
+`AGENTS.md`'s Fixed Rules, which is for project-wide invariants), so each subsystem's tuning is
+self-contained and can drift independently. This is a generic "measure → detect → analyze →
+auto-apply" skeleton — low domain-specificity, fits anywhere there's repeated execution with a
+measurable outcome.
 
 ## Bootstrapping a new project with this
 
