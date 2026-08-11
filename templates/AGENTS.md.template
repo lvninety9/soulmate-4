@@ -66,17 +66,12 @@ sub-tasks to finish under context length by construction; `build` checkpoints on
 
 ## Learned Rules
 
-- [L01-L03] Kilo is an opencode rebuild, not the Cline-fork docs describe (confirmed via the
-  binary); custom slash commands don't work (self-served prose instead); `AGENTS.md` alone
-  auto-loads unconditionally, not `CLAUDE.md`/`CONTEXT.md` `permanent` (evidence: rule-archive.md)
-- [L04] Local reasoning models can exhaust a whole turn's budget on invisible thinking — fix at
-  the inference server (`--reasoning off`), no per-request toggle exists `permanent` (rule-archive.md)
-- [L05-L11] `subtask-gate.ts` built on opencode's real `tool.execute.before/after`/`chat.message`
-  hooks (L05); hardened via live bugs: state lost across `kilo run` processes, elective trigger,
-  regex commit-detection (L06-L08); `refactor.md` never self-serves alone, fixed by blocking every
-  mutation until a protocol doc is read (L09); synthetic Part IDs must start with `prt` or the
-  request crashes (L10); primer gate's first block used to self-clear, letting an immediate retry
-  through — clear moved to `chat.message`/new-message-only (L11) `permanent` (rule-archive.md)
+- [L01-L04] Kilo is an opencode rebuild (confirmed via the binary, not the Cline-fork docs);
+  custom slash commands don't work yet; `AGENTS.md` alone auto-loads; local reasoning models need
+  `--reasoning off` at the inference server, no per-request toggle exists `permanent`
+- [L05-L11] `subtask-gate.ts`'s hooks + every live bug that hardened it (state loss across
+  processes, elective triggers, regex commit-detection, refactor.md's self-serve gap, a Part-ID
+  crash, a retry-bypass) — full evidence per rule: `rule-archive.md` `permanent`
 
 ## Fixed Rules
 | Rule | Why |
