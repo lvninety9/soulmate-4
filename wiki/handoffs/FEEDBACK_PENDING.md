@@ -18,7 +18,8 @@ Valid `priority` values: `p0` (blocking/urgent) | `p1` (normal) | `p2` (someday)
 <!-- rows move here the moment they're done -->
 
 Rows #1, #3, #5, #7-#11, #14-#18, and the session-4 "architecture realignment" row (rounds 1-8)
-moved to `wiki/feedback-archive.md` (round 28 PRUNE, Jay-requested cleanup) — each was either
+moved to `wiki/feedback-archive.md` (PRUNE pass between rounds 27 and 28, Jay-requested cleanup —
+not itself a numbered audit/fix round; round 28 is the next audit) — each was either
 fully re-documented with more raw evidence in `wiki/rule-archive-archive.md` (L01-L09) /
 `wiki/rule-archive.md` ("Round 5"-"Round 8" sections), or a one-time fix now just baked into
 `AGENTS.md`'s current structure/Fixed Rules directly. Nothing deleted, only relocated.

@@ -1,7 +1,8 @@
 # Feedback archive — rows moved out of FEEDBACK_PENDING.md's Completed history
 
 > Not auto-loaded, same role as `wiki/rule-archive-archive.md`/`wiki/handoffs/SESSION_MASTER-archive.md`
-> — read on explicit request only. Moved here (round 28 cleanup, Jay-requested prune of
+> — read on explicit request only. Moved here (PRUNE pass between rounds 27 and 28, not itself a
+> numbered audit/fix round — Jay-requested prune of
 > `FEEDBACK_PENDING.md`'s Completed-history section after it hit its 40/40 hard cap) because every
 > row below is either (a) fully re-documented with more detail in `wiki/rule-archive-archive.md`
 > (rounds 1-4, L01-L09) or `wiki/rule-archive.md` (rounds 5-8, the "Round N" sections), or (b) a
