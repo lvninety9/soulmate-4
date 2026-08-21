@@ -72,6 +72,9 @@ sub-tasks to finish under context length by construction; `build` checkpoints on
 - [L05-L11] `subtask-gate.ts`'s hooks + every live bug that hardened it (state loss across
   processes, elective triggers, regex commit-detection, refactor.md's self-serve gap, a Part-ID
   crash, a retry-bypass) — full evidence per rule: `rule-archive.md` `permanent`
+- [L12] A citation fix (correcting *which* package/API a claim cites) doesn't imply the claim's
+  *substance* was re-verified against the corrected source — re-check it explicitly, don't assume
+  `rule-archive.md` `permanent`
 
 ## Fixed Rules
 | Rule | Why |

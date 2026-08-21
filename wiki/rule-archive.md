@@ -320,3 +320,74 @@ declaring victory on #4/#12 because the *code* now does something different, wit
 tracking whether a human can actually *observe* it happening — would have been the same mistake
 round 5's audit caught in L09 (a mechanism existing on paper vs actually holding under live
 adversarial use).
+
+## Round 27 — L12: real `session.idle` hook found (a "permanent ceiling" claim was actually stale)
+
+Round 27 was a targeted fix cycle (not a full re-audit) on 2 candidate findings surfaced by a
+round-8-style audit that was mistakenly run against a frozen local clone stuck at round 7 —
+48 commits behind real origin/master. Both candidates had to be independently re-checked against
+a genuinely fresh clone before trusting either.
+
+**Finding B, landed**: round 5's `chat.message` hook comment stated opencode's plugin API "has no
+end-of-turn/end-of-session hook at all," citing `@kilocode/plugin`'s own type defs. Round 9 later
+fixed a *different* bug in the same area — the citation itself named the wrong package
+(`@opencode-ai/plugin` instead of the actually-shipped `@kilocode/plugin`) — but never re-checked
+the *substantive claim* against the *corrected* package. The claim sat unverified for 18 more
+rounds. Round 27 re-checked it directly against the installed `@kilocode/plugin@7.4.20`'s
+`dist/index.d.ts`: `Hooks.event?: (input: { event: Event }) => Promise<void>` exists, and the
+`Event` union (from `@kilocode/sdk`'s `types.gen.d.ts`) includes `EventSessionIdle` — `{ type:
+"session.idle", properties: { sessionID } }`. Confirmed firing exactly once per completed turn
+via a raw SSE capture (`curl -sN http://127.0.0.1:PORT/event`) against a real `kilo serve`
+instance — not assumed from the type defs alone. Separately confirmed `KiloClient.session.prompt()`
+accepts `noReply: boolean` in its body (also in the installed SDK's own `SessionPromptData` type):
+a `noReply: true` call to `POST /session/{id}/message` returned in ~20ms (vs ~3.5s for a real
+generated reply), created a genuine `role: "user"` message durably visible in session history,
+and did not itself trigger a further `session.idle` event in the same live capture.
+
+Added the `event` hook to `subtask-gate.ts`: on `session.idle` with a dirty working tree, appends
+a synthetic nudge via `client.session.prompt({noReply:true, messageID:"msg_idlenudge..."})`
+naming the real uncommitted files, deduped per session on the exact dirty-file-set signature
+(stored in `.subtask-gate-state.json`'s new `idleNudgeSignature` field) — re-fires if the dirty
+set changes, doesn't spam an identical nudge on a repeat idle for the same unresolved state. A
+defensive guard in `chat.message` skips its armed-clear/ambiguity-nudge logic for any messageID
+starting `msg_idlenudge`, so this plugin's own synthetic append can never be mistaken for a real
+user turn responding to a block (belt-and-suspenders: empirically `chat.message` did not fire at
+all for the `noReply` append in the live capture, but that's observed server behavior, not a
+documented contract to rely on alone).
+
+Live-verified end-to-end via `kilo serve` + raw HTTP (not just unit tests, per this repo's own
+standing discipline): gave the model a task that edits a file and stops without committing;
+confirmed exactly one `session.idle` fired and exactly one idle-nudge message landed, naming the
+real dirty files; sent a genuine follow-up message in the same session and confirmed the model
+correctly quoted those exact file paths back with zero fabrication; triggered a second
+`session.idle` for the same still-unresolved dirty state and confirmed zero duplicate nudges
+(dedup held). 24/24 unit tests (`tests/subtask-gate.test.mjs`, 7 new: T10a-e cover the event
+hook's dedup/clean-tree/changed-signature paths, T11a-b cover the chat.message guard) — T11b
+initially gave a **false pass**: it asserted only "did `tool.execute.before` throw," but a
+*different*, unrelated gate (L09's protocol-read check, always active in a fresh session
+regardless of arm state) also throws in that exact setup, so the test would have passed even if
+the arm-clearing guard were completely broken. Caught before commit by making the test assert on
+the *specific* thrown message text (`BLOCK_MESSAGE_COMMIT`'s wording) instead of just "threw
+something" — the same class of bug this repo's own audits have caught in `check_stale_language()`
+before (a mechanism that looks like it's checking the right thing, but isn't, because something
+else masks the gap). Committed through the real installed pre-commit hook (`193b16b`).
+
+**Finding A, investigated and rejected**: the same mis-run audit also claimed wrapping
+`BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER` in `<system-reminder>` tags fixes unreliable model
+attention to it (reported 2/2 fabrication/denial → 0/2 after the wrap, against the stale
+round-7 clone). Re-reproduced against **current** code first, independent of those numbers: 2/2
+denial/fabrication (confirmed via `kilo export` the warning genuinely lands in context both
+times — an attention failure, not a delivery failure). Applied the identical fix and re-tested:
+7 live trials across 3 phrasings, pre/post-fix. Post-fix still failed 4/5 — the one phrasing that
+passed post-fix had *also* passed pre-fix, suggesting phrasing dominates over delivery format
+here, contradicting the stale audit's own numbers. Reverted (no demonstrated benefit is not the
+same as "doesn't break anything" — unverified complexity still violates this repo's minimalism
+standard). Extends FEEDBACK #6's ceiling to this specific hypothesis explicitly (tried and
+failed, not left untested for a future round to redo from scratch).
+
+**L12 (new)**: a citation fix (correcting *which* package/API a claim cites) is not the same as
+re-verifying the claim's *substance* against the corrected source — round 5's "no end-of-turn
+hook" claim survived 18 rounds after round 9 fixed only its package-name citation, because
+nobody re-read the corrected package's actual type defs. When a round fixes a citation error,
+treat the claim's substance as unverified until someone actually re-checks it — a citation fix
+doesn't imply the claim was re-validated too. `permanent`
