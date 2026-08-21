@@ -172,7 +172,7 @@ coherence proves nothing about its freshness against origin. Always `git fetch`/
 
 Round 27 pushed `FEEDBACK_PENDING.md`'s Completed-history section to its 40/40 hard line cap. A
 fresh clone of round 27's tip (`309ec29`) confirmed the real established archive filename before
-assuming one (`wiki/feedback-archive.md`, sibling to `rule-archive-archive.md`/
+assuming one (`wiki/FEEDBACK_PENDING-archive.md`, sibling to `rule-archive-archive.md`/
 `SESSION_MASTER-archive.md`, per `SESSION_PRIMER.md`/`check-caps.sh`'s own naming pattern), moved
 rows #1/#3/#5/#7-#11/#14-#18 (rounds 1-8, the session-4 architecture-realignment row) there —
 every one of them already fully re-documented with more raw evidence in
@@ -202,7 +202,7 @@ run: 24/24 pass. `tests/stale-language.fuzz.test.mjs` actually run: 42/42 pass.
 directly: the `event`/`session.idle` hook (Finding B) is genuinely implemented, not just claimed
 in a commit message; no `<system-reminder>`-tag wrap (Finding A) exists anywhere in the code, only
 in prose describing it as tried-and-reverted. `FEEDBACK_PENDING.md`'s open/history row counts
-(3/25, 32/40) and `wiki/feedback-archive.md`'s 14 archived rows checked against the real file
+(3/25, 32/40) and `wiki/FEEDBACK_PENDING-archive.md`'s 14 archived rows checked against the real file
 content — counts matched, cross-references real, not thin or fabricated.
 
 **Result: no discrepancy found** between any claim in the round-27/PRUNE narrative and the actual

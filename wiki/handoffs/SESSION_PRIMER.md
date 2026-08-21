@@ -2,7 +2,7 @@
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative** (round-by-round detail: `FEEDBACK_PENDING.md`
-> rows #19-38 for rounds 9-27, `wiki/feedback-archive.md` for rounds 1-8, `SESSION_MASTER.md` for
+> rows #19-38 for rounds 9-27, `wiki/FEEDBACK_PENDING-archive.md` for rounds 1-8, `SESSION_MASTER.md` for
 > the round-27 stale-clone incident/PRUNE pass/this handoff's own re-verification — "why" lives
 > there, not here).
 > Rewritten 2026-08-22, a Jay-requested handoff-rigor pass (not a new audit/fix round): every claim
@@ -97,7 +97,7 @@ of this change remains in `subtask-gate.ts`. Extends row #6's ceiling; full evid
   `templates/AGENTS.md.template` must stay byte-identical to `AGENTS.md` from `## Language`
   onward — `check_template_drift()` catches this, only when run.
 - `FEEDBACK_PENDING.md` was PRUNE'd (not a numbered round) after round 27 hit its 40/40 cap: rows
-  #1/#3/#5/#7-#11/#14-#18 moved to `wiki/feedback-archive.md`, open rows #4/#12 merged. Now 32/40 /
+  #1/#3/#5/#7-#11/#14-#18 moved to `wiki/FEEDBACK_PENDING-archive.md`, open rows #4/#12 merged. Now 32/40 /
   3/25 — real headroom for round 28's findings.
 - **L13**: a local clone's own `git log` looking coherent proves nothing about its freshness vs.
   `origin/master` — round 27's audit ran 19 rounds stale with zero errors/warnings. Always `git
