@@ -72,6 +72,7 @@ type State = {
   commitsSincePrimer: Record<string, number>
   lastSeenHead: Record<string, string>
   protocolDocRead: Record<string, boolean>
+  idleNudgeSignature: Record<string, string>
 }
 
 function loadState(): State {
@@ -83,12 +84,19 @@ function loadState(): State {
         commitsSincePrimer: parsed.commitsSincePrimer ?? {},
         lastSeenHead: parsed.lastSeenHead ?? {},
         protocolDocRead: parsed.protocolDocRead ?? {},
+        idleNudgeSignature: parsed.idleNudgeSignature ?? {},
       }
     }
   } catch {
     // Corrupt/unreadable state file: fail open (unarmed) rather than crash the hook.
   }
-  return { armed: {}, commitsSincePrimer: {}, lastSeenHead: {}, protocolDocRead: {} }
+  return {
+    armed: {},
+    commitsSincePrimer: {},
+    lastSeenHead: {},
+    protocolDocRead: {},
+    idleNudgeSignature: {},
+  }
 }
 
 function saveState(state: State) {
@@ -225,7 +233,33 @@ const BLOCK_MESSAGE_NO_PROTOCOL_READ =
   "tool calls stay blocked until one is. Per AGENTS.md's Protocol table, read the doc matching " +
   "this task's shape first (discuss/design/build/verify/refactor/self-harness) — then retry."
 
-export const SubtaskGate = async () => ({
+// Round 27: FEEDBACK candidate — every mechanism above only ever fires from inside
+// tool.execute.before/after or chat.message, so none of them can catch a session that just
+// stops after an edit with no commit and no further tool call or message (the same gap
+// row #15/L11's own honest limitation names: "can't catch a session abandoned outright").
+// This was previously recorded as structurally impossible — the code comment above the
+// chat.message hook (round 5) states "opencode's plugin API... has no end-of-turn/end-of-
+// session hook at all," citing @kilocode/plugin's own type defs. Re-checked against the
+// actually-installed package (v7.4.20, same one loaded by the real `kilo` binary — not
+// assumed): `Hooks.event?: (input: { event: Event }) => Promise<void>` exists, and `Event`
+// includes `EventSessionIdle` (`{ type: "session.idle", properties: { sessionID } }`),
+// confirmed firing exactly once per turn via a raw HTTP SSE capture against a real `kilo
+// serve` instance. `KiloClient.session.prompt()`'s body also genuinely accepts `noReply:
+// boolean` (confirmed in the same installed SDK's `SessionPromptData` type) — live-verified
+// via raw HTTP: a `noReply: true` call returns in ~20ms (vs ~3.5s for a real generated
+// reply), creates a real `role: "user"` message visible in session history, and did NOT
+// trigger a further `session.idle` event in the same live capture (no observed idle-nudge-
+// idle loop) — though that's an empirical observation of current server behavior, not a
+// documented contract, so the signature-based dedup below stays as a real backstop, not
+// just defensive style.
+const IDLE_NUDGE_MESSAGE = (files: string[]) =>
+  "[subtask-gate] This session just went idle with uncommitted changes still in the working " +
+  `tree (${files.length} path(s): ${files.slice(0, 5).join(", ")}` +
+  `${files.length > 5 ? ", ..." : ""}). Per AGENTS.md's "commit per file, always" rule, this ` +
+  "should have been committed before the turn ended — commit these now, or explicitly decide " +
+  "what to do with them, before starting anything else."
+
+export const SubtaskGate = async ({ client }: any = {}) => ({
   "tool.execute.before": async (input: any, output: any) => {
     const tool = input?.tool
     const sessionID = input?.sessionID
@@ -324,17 +358,29 @@ export const SubtaskGate = async () => ({
   // opencode's plugin API (confirmed by reading @kilocode/plugin's own type definitions — the
   // package Kilo 7.4.20 actually loads, a separate published fork of the opencode plugin API,
   // not @opencode-ai/plugin itself; same L01-style "check the actual binary/types, not assumed
-  // docs" discipline) has no
-  // end-of-turn/end-of-session hook at all — `chat.message` (fires when a *new* message starts)
-  // is the closest available thing. This can't catch a session that's abandoned outright and
-  // never resumed (a real, honest limitation, not silently claimed as fixed) — but it does
-  // mechanically catch the documented common case this repo's own `build.md` recommends
-  // ("the next build — ideally in a fresh session"): the moment that next message arrives,
-  // prepend a synthetic warning naming the exact leftover files, before the model does
-  // anything else.
+  // docs" discipline) was believed at the time to have no end-of-turn/end-of-session hook at
+  // all — `chat.message` (fires when a *new* message starts) was the closest available thing,
+  // catching the documented common case this repo's own `build.md` recommends ("the next
+  // build — ideally in a fresh session"). Round 27 found this claim was never actually
+  // re-verified against the real package after round 9 fixed the wrong-package-name citation
+  // (`@opencode-ai/plugin` -> `@kilocode/plugin`) — it does expose a real `event` hook with a
+  // `session.idle` type, closing the "abandoned outright" gap this comment used to describe as
+  // structurally impossible. See that hook below; this one is left in place for the "next
+  // message in the same session" case, which the idle hook alone doesn't cover (a session that
+  // goes idle and is then resumed still benefits from both).
   "chat.message": async (input: any, output: any) => {
     const sessionID = input?.sessionID
     if (!sessionID || !Array.isArray(output?.parts)) return
+
+    // Round 27: don't treat this plugin's own synthetic idle-nudge append (see the `event`
+    // hook below) as a genuine new user turn — it would otherwise wrongly clear the
+    // primer/elective arm (FEEDBACK #3's fix) as if the user had actually responded to a
+    // block. Empirically a `noReply: true` append did not fire this hook at all in a live
+    // raw-HTTP test (see the `event` hook's comment) — this guard is kept anyway since that's
+    // observed server behavior, not a documented contract.
+    if (typeof input?.messageID === "string" && input.messageID.startsWith("msg_idlenudge")) {
+      return
+    }
 
     // FEEDBACK #3 (round 8): this is where the primer/elective gate actually clears now — see
     // the comment above tool.execute.before's armed check. A new message starting is the only
@@ -378,6 +424,59 @@ export const SubtaskGate = async () => ({
         synthetic: true,
         text: NUDGE_MESSAGE_POSSIBLY_AMBIGUOUS,
       })
+    }
+  },
+
+  // Round 27: the real end-of-turn signal the `chat.message` comment above used to say didn't
+  // exist — `session.idle` fires once per completed turn (live-verified via raw SSE capture
+  // against a real `kilo serve`: exactly 1 event, right after the assistant's step-finish).
+  // Catches the same gap `chat.message`'s carryover check can't: a turn that ends with
+  // uncommitted work and no next message in this session at all (build.md's "ideally a fresh
+  // session" case still relies on chat.message; this covers "session never continues").
+  // `client` comes from `PluginInput` (round 1-26 never destructured it — this is the first
+  // hook in this file that needs an outbound API call, not just tool-args/session-state
+  // inspection).
+  event: async (input: any) => {
+    const event = input?.event
+    if (event?.type !== "session.idle") return
+    const sessionID = event?.properties?.sessionID
+    if (!sessionID || !client?.session?.prompt) return
+
+    const dirty = gitPorcelainStatus()
+    const state = loadState()
+
+    if (dirty.length === 0) {
+      if (state.idleNudgeSignature[sessionID]) {
+        delete state.idleNudgeSignature[sessionID]
+        saveState(state)
+      }
+      return
+    }
+
+    // Dedup on the exact dirty-file-set signature, not just "already nudged this session" —
+    // an unresolved nudge should still be able to re-fire if the dirty set actually changes
+    // (e.g. a different file goes uncommitted), but a repeat `session.idle` for the identical
+    // unresolved state (observed not to happen for a noReply append itself, per the comment
+    // above `chat.message`, but this is a real backstop against any other cause of repeat
+    // idle events) should not spam an identical nudge every time.
+    const signature = [...dirty].sort().join("\n")
+    if (state.idleNudgeSignature[sessionID] === signature) return
+
+    state.idleNudgeSignature[sessionID] = signature
+    saveState(state)
+
+    try {
+      await client.session.prompt({
+        path: { id: sessionID },
+        body: {
+          messageID: `msg_idlenudge${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
+          noReply: true,
+          parts: [{ type: "text", synthetic: true, text: IDLE_NUDGE_MESSAGE(dirty) }],
+        },
+      })
+    } catch {
+      // Best-effort — a failed nudge append should never crash the event hook (same
+      // convention as saveState()'s own try/catch above).
     }
   },
 })

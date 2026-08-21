@@ -55,6 +55,25 @@ async function loadGate(dir) {
   return hooks
 }
 
+// Round 27: for the `event`/session.idle hook, which needs a `client.session.prompt` call —
+// a fake spy recording calls instead of a real Kilo server (same isolation-from-Kilo
+// discipline as the rest of this file; the real call is covered by the live `kilo run`
+// re-verification, not this unit test).
+async function loadGateWithClient(dir) {
+  const calls = []
+  const client = {
+    session: {
+      prompt: async (opts) => {
+        calls.push(opts)
+        return { info: { role: "user" }, parts: [] }
+      },
+    },
+  }
+  const mod = await import(`${join(dir, ".kilo", "plugins", "subtask-gate.ts")}?t=${Date.now()}`)
+  const hooks = await mod.SubtaskGate({ client })
+  return { hooks, calls }
+}
+
 async function main() {
   // Test 1: first mutating call, no protocol doc read yet -> BLOCKED
   {
@@ -331,6 +350,110 @@ async function main() {
         )
       }
     )
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 10 (round 27): the `event` hook's session.idle handler — the new mechanism closing
+  // the "session ends idle with uncommitted work, no next message, nothing catches it" gap.
+  {
+    const dir = freshRepo()
+    const { hooks, calls } = await loadGateWithClient(dir)
+    writeFileSync(join(dir, "leftover.py"), "print('uncommitted')\n")
+
+    await hooks["event"]({ event: { type: "some.other.event", properties: {} } })
+    if (calls.length === 0) {
+      console.log("ok: T10a non-idle event ignored")
+    } else {
+      console.log("FAIL: T10a non-idle event triggered a nudge:", JSON.stringify(calls))
+      failures++
+    }
+
+    await hooks["event"]({ event: { type: "session.idle", properties: { sessionID: "s10" } } })
+    if (calls.length === 1 && calls[0]?.body?.noReply === true && /leftover\.py/.test(calls[0]?.body?.parts?.[0]?.text ?? "") && /^msg_/.test(calls[0]?.body?.messageID ?? "")) {
+      console.log("ok: T10b session.idle with dirty tree sends one noReply nudge naming the file")
+    } else {
+      console.log("FAIL: T10b expected one noReply nudge naming leftover.py, got:", JSON.stringify(calls))
+      failures++
+    }
+
+    // repeat idle, same unresolved dirty set -> dedup, no second call
+    await hooks["event"]({ event: { type: "session.idle", properties: { sessionID: "s10" } } })
+    if (calls.length === 1) {
+      console.log("ok: T10c repeat session.idle, same dirty signature — deduped, no 2nd call")
+    } else {
+      console.log("FAIL: T10c dedup failed, calls:", JSON.stringify(calls))
+      failures++
+    }
+
+    // dirty set changes -> nudges again
+    writeFileSync(join(dir, "another.py"), "print('also uncommitted')\n")
+    await hooks["event"]({ event: { type: "session.idle", properties: { sessionID: "s10" } } })
+    if (calls.length === 2) {
+      console.log("ok: T10d dirty set changed — nudges again")
+    } else {
+      console.log("FAIL: T10d expected a 2nd nudge on a changed dirty set, calls:", JSON.stringify(calls))
+      failures++
+    }
+
+    // tree goes clean -> no nudge, and the stored signature clears
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m wip", { cwd: dir })
+    await hooks["event"]({ event: { type: "session.idle", properties: { sessionID: "s10" } } })
+    if (calls.length === 2) {
+      console.log("ok: T10e clean tree — no nudge")
+    } else {
+      console.log("FAIL: T10e clean tree unexpectedly nudged, calls:", JSON.stringify(calls))
+      failures++
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 11 (round 27): chat.message must not treat this plugin's own synthetic idle-nudge
+  // append as a genuine new user turn (would wrongly clear FEEDBACK #3's arm, or fire the
+  // ambiguity nudge on our own nudge text).
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    // arm the primer/elective gate first — tool.execute.after needs a baseline HEAD
+    // observation before the commit to actually detect the change (same 2-call pattern T6/T9
+    // already use; a single call here would silently just record HEAD and never arm, giving a
+    // false pass below regardless of whether the real guard works).
+    await hooks["tool.execute.after"]({ tool: "read", sessionID: "s11" })
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s11" })
+
+    const idleNudgeOutput = { message: { id: "msg_idlenudgeTEST" }, parts: [{ type: "text", text: "[subtask-gate] this feels slow when I use it a lot" }] }
+    await hooks["chat.message"]({ sessionID: "s11", messageID: "msg_idlenudgeTEST" }, idleNudgeOutput)
+    if (idleNudgeOutput.parts.length === 1) {
+      console.log("ok: T11a idle-nudge messageID skipped — no ambiguity nudge added to our own text")
+    } else {
+      console.log("FAIL: T11a idle-nudge message got extra parts:", JSON.stringify(idleNudgeOutput.parts))
+      failures++
+    }
+    // Read a protocol doc first so the OTHER, unrelated gate (L09's protocol-read check,
+    // which fires independently of `armed`) can't mask what this specific assertion needs to
+    // isolate: that the arm itself is still set (a bug here would surface as the block
+    // message changing from BLOCK_MESSAGE_COMMIT to "not blocked", not as "no throw at all").
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s11" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "write", sessionID: "s11" },
+        { args: { filePath: join(dir, "foo.py") } }
+      )
+      console.log("FAIL: T11b expected the primer arm to still be set (our synthetic message must not have cleared it), but the mutation went through unblocked")
+      failures++
+    } catch (e) {
+      if (/SESSION_PRIMER\.md was just committed/.test(String(e.message || e))) {
+        console.log("ok: T11b arm specifically not cleared by our own synthetic idle-nudge message")
+      } else {
+        console.log("FAIL: T11b blocked, but for the wrong reason (arm state unclear):", e.message)
+        failures++
+      }
+    }
     rmSync(dir, { recursive: true, force: true })
   }
 
