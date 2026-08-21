@@ -233,10 +233,21 @@ check_bootstrap_no_uncommitted() {
 # Catches: the raw clone's own root wiki/ (this repo's own dogfood content, describing
 # soulmate-4 itself) being used as the new project's starting point instead of
 # templates/*.template.
+#
+# Round 28 (external review, FEEDBACK_PENDING row #39, S2): the canary string this used to match
+# ("Soulmate 4 is a memory/harness template") was rewritten out of the real wiki/handoffs/
+# SESSION_PRIMER.md's own prose back in commit dba3a3e (session 5's cap-trim pass) — nobody
+# updated this check when that happened, so it has read "ok" unconditionally for 23 rounds
+# regardless of whether the wiki was actually adapted. Live-reproduced: bootstrapping a fresh
+# project and then copying THIS repo's own current wiki/handoffs/SESSION_PRIMER.md over the
+# template verbatim (the exact mistake this exists to catch) still printed "ok". Replaced the
+# dead phrase with the "Project overview" section's current self-description — still just a
+# string match (same class of fragility, not eliminated), but now true of the file this check
+# actually runs against.
 check_bootstrap_wiki_is_adapted() {
   local f="wiki/handoffs/SESSION_PRIMER.md"
-  if [ -f "$f" ] && norm "$f" | grep -qF "Soulmate 4 is a memory/harness template"; then
-    echo "BOOTSTRAP FAIL: $f still has this seed repo's own text (\"Soulmate 4 is a memory/harness template\") — looks like the raw clone is being used as the project instead of copying templates/SESSION_PRIMER.md.template and writing this project's own state into it"
+  if [ -f "$f" ] && norm "$f" | grep -qF "session-handoff harness template for coding agents"; then
+    echo "BOOTSTRAP FAIL: $f still has this seed repo's own self-description (\"session-handoff harness template for coding agents\") — looks like the raw clone's wiki/ is being used as the project instead of copying templates/SESSION_PRIMER.md.template and writing this project's own state into it"
     status=1
   else
     echo "ok: bootstrap — $f doesn't look like this seed repo's own untouched wiki"
