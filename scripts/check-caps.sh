@@ -323,6 +323,26 @@ check_primer_handoff_reminder() {
   fi
 }
 
+# Round 28 (external review, FEEDBACK_PENDING row #39, S1): a real fresh-cloned SESSION_PRIMER.md
+# was found missing this heading entirely, even though 5 other places assume it exists —
+# design.md step 4, build.md step 3, subtask-gate.ts's own block-message text,
+# check_primer_handoff_reminder() just above, and templates/SESSION_PRIMER.md.template. None of
+# those call sites notice its absence on their own; they just silently degrade. Hard-FAIL, not a
+# reminder, since this is a structural precondition for the reminder/gate mechanisms above to
+# mean anything, not an advisory nudge.
+check_primer_subtask_heading() {
+  local f="wiki/handoffs/SESSION_PRIMER.md"
+  if [ ! -f "$f" ]; then
+    return 0
+  fi
+  if ! grep -q '^## Current sub-task' "$f"; then
+    echo "FAIL: $f is missing a '## Current sub-task' heading — wiki/protocols/design.md step 4," \
+         "build.md step 3, and .kilo/plugins/subtask-gate.ts's block message all assume this" \
+         "section exists. Restore it (see templates/SESSION_PRIMER.md.template for the shape)."
+    status=1
+  fi
+}
+
 # 127차(round 6, Jay 지시): an objective audit found templates/AGENTS.md.template drifted from
 # the real AGENTS.md in the SAME session that had just fixed an earlier instance of this exact
 # drift (L06-L08 merged in the template, but L09/L10 — added one commit later to the live file —
@@ -677,6 +697,7 @@ check_section "AGENTS.md" "## Fixed Rules" "$FIXED_RULES_ROW_CAP" "Fixed Rules" 
 check_template_drift
 check_lines "wiki/PROJECT_BACKGROUND.md" "$PROJECT_BACKGROUND_CAP" "PROJECT_BACKGROUND.md"
 check_lines "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CAP" "SESSION_PRIMER.md"
+check_primer_subtask_heading
 check_primer_handoff_reminder
 check_watch_size "wiki/rule-archive.md" 400
 check_watch_size "wiki/session-log.md" 200

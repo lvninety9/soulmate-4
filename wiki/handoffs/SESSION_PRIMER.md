@@ -24,6 +24,20 @@ agent scores → fix highest-leverage issue with live verification → repeat. J
 consolidation checkpoint at round 26; round 27 is a targeted fix cycle within that pause, not a
 resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
+## Current sub-task
+
+시작: `wiki/handoffs/FEEDBACK_PENDING.md` row #39 (all 7 items S1-S7), `scripts/check-caps.sh`
+목표: round 28 fix cycle — an external code review (not a fresh audit) found 7 concrete,
+     already-broken mechanisms; land each as its own commit against this fresh clone with the
+     real pre-commit hook. This item (S1): restore this exact block — 5 files already assumed/
+     required it (`subtask-gate.ts:167`, `design.md:25`, `build.md:34`, `check-caps.sh:321`,
+     `templates/SESSION_PRIMER.md.template`) while the real file had none.
+작업 사이클: confirm the gap (`grep -n '## Current sub-task' wiki/handoffs/SESSION_PRIMER.md` →
+     no match before this commit) → restore this block → add a mechanical check-caps.sh guard so
+     the heading can't silently vanish again → commit → move to S2.
+참고: S2-S7 (dead bootstrap canary, PRUNE exempt-regex gap, char-based caps, hot/cold doc split,
+     template-drift redesign, harness-integration-test runnable) queued next, each its own commit.
+
 ## Current score: turnkey 82/100, structural 81/100 — from round 26, the last FULL audit
 
 **Important for round 28**: this score is round 26's, carried forward unchanged. Round 27 was a
@@ -101,48 +115,24 @@ of this change remains in `subtask-gate.ts`. Extends row #6's ceiling; full evid
 | — | `check_fence_parity()` odd/even blind spot — inherited from original, shared upstream | 🔴 p2, low urgency |
 | — | `bootstrap.sh` doesn't create/copy `README.md`, undocumented (round 26) | 🔴 p2, low severity |
 
-## Recommended next step — round 28's actual mission
+## Round 28 fix cycle (external review, 2026-08-22) — supersedes the audit plan below for now
 
-**Round 28 must be a full fresh blind audit, not another fix cycle.** Two concrete things only a
-real audit can answer:
+Jay routed this handoff-rigor primer to an external reviewer before round 28's planned fresh
+audit ran. The review read the code adversarially (not by re-running the score loop) and found 7
+concrete, already-broken mechanisms — full list `wiki/handoffs/FEEDBACK_PENDING.md` row #39
+(S1-S7). Each lands as its own commit against a fresh clone with the real pre-commit hook. The
+audit mission below resumes once row #39 is closed out, unchanged in substance:
 
-1. Does round 27's `session.idle` hook (`193b16b`) actually move the score — and does it hold
-   under fresh adversarial live testing, not just its own unit tests/live-verification?
-2. Is this the **3rd consecutive clean pass** (after rounds 24 and 26) confirming real convergence
-   near this project's own closing bar (90+ turnkey, or zero new findings) — or does a genuinely
-   fresh adversarial angle still find something, the way round 25 did after round 24's clean pass?
-
-Round 26's own leftover recommendation still applies as a secondary target if the primary audit
-has spare scope: `check_fence_parity()`, `check_template_drift()`, and bootstrap-placeholder/
-primer-handoff checks haven't been targeted by a fresh adversarial pass in many rounds.
-`FEEDBACK_PENDING.md`'s PRUNE pass is done (32/40 lines, 3/25 open rows) — real headroom exists
-for whatever round 28 finds.
+1. Does round 27's `session.idle` hook (`193b16b`) hold under fresh adversarial live testing?
+2. Is the next clean pass the 3rd consecutive one (after rounds 24, 26) confirming convergence
+   near this project's closing bar (turnkey 90+, or zero new findings) — or does a fresh angle
+   still find something, the way round 25 did after round 24's clean pass?
 
 ## Next session's starter prompt
 
 ```
-soulmate-4 round 28을 시작합니다. **반드시 `git clone`으로 완전히 새로 시작할 것** — 로컬
-클론(마지막 pull 시점 불명)은 git log가 멀쩡해 보여도 origin/master보다 뒤처져 있을 수 있음
-(round 27이 정확히 이 실수로 시작된 감사를 나중에 정정한 라운드, L13/rule-archive.md 참조).
-fresh clone 아니면 최소 `git fetch`+`origin/master` diff 후 시작할 것.
-
-wiki/handoffs/SESSION_PRIMER.md 전체를 읽고, 모든 주장(점수 턴키82/구조81, HEAD 커밋, 테스트
-통과 개수)을 git log/실제 테스트 실행/check-caps.sh로 직접 재검증할 것 — 문서만 믿지 말 것
-(직전 handoff-rigor 세션이 이미 한 차례 검증해 불일치 없음을 확인했지만, 그 결과도 그대로
-믿지 말고 직접 재현할 것).
-
-**round 28의 임무는 전면 재감사(fresh blind audit) — 좁은 fix cycle 아님.** round 27이 추가한
-session.idle 훅(`193b16b`, FEEDBACK #37)은 아직 미채점. 답해야 할 것 2가지: (1) 이 훅이 신선한
-적대적 라이브 테스트에서도 버티는가. (2) 이번이 (round 24, 26에 이어) **3번째 연속 clean
-pass**로 이 프로젝트의 종료 기준(턴키 90+, 또는 새 발견 0건)에 수렴하는 신호인가 — 아니면
-round 25처럼 새 각도에서 또 뭔가 나오는가.
-
-⚠️ 먼저 `kilo --version` 직접 확인(round 27 기준 PATH 밖, 바뀌었을 수 있음). GPU는 Hermes와
-공유 — `kilo run` 전 `ps aux | grep -E "longform|tts_runner|ComfyUI|music_pipeline"` +
-`nvidia-smi` 확인 필수. 여유 있으면 check_fence_parity·check_template_drift·부트스트랩
-placeholder/primer-handoff 체크도 감사 범위에(round 26 미완 권고).
-
-방식: fresh non-fork 에이전트 blind 채점(재클론, 실제 pre-commit hook+실커밋 검증) → 최고우선
-순위 fix → 재채점, 반복. clean이면 억지 finding 만들지 말고 그대로 clean 보고. push 후
-SESSION_PRIMER.md 갱신.
+soulmate-4 round 28 fix cycle 속행. FEEDBACK_PENDING.md 행 #39 확인 — S1-S7 중 미완료 항목부터
+fresh clone으로 이어서. 새 감사 시작 금지(이건 기존 감사 결과에 대한 외부 리뷰 fix cycle).
+전부 끝나면 "Round 28 fix cycle" 섹션을 결과로 갱신 — 그 다음에야 위 audit 재개 여부를 Jay에게
+물을 것(session.idle 라이브 검증 + 3연속 clean pass 여부).
 ```
