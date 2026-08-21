@@ -2,7 +2,8 @@
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative** (full round-by-round narrative lives in
-> `FEEDBACK_PENDING.md`'s Completed History rows #14-38 — read those for detail).
+> `FEEDBACK_PENDING.md`'s Completed History rows #19-38 for rounds 9-27; rounds 1-8 detail moved
+> to `wiki/feedback-archive.md` in round 28's PRUNE pass — read those for detail).
 > Rewritten 2026-08-21 for round 27, a fix cycle (not a full re-audit) on 2 candidate findings
 > from a round-8-style audit mistakenly run against the frozen round-7 clone. Every claim below
 > was independently re-checked against `git log`/real `kilo run` output at rewrite time.
@@ -93,9 +94,11 @@ last-pull time is unknown.
 - Before changing any cap number, check the original `soulmate` repo's real number fresh.
   `templates/AGENTS.md.template` must stay byte-identical to `AGENTS.md` from `## Language`
   onward — `check_template_drift()` catches this, only when run.
-- `FEEDBACK_PENDING.md`'s Completed-history section is now at 40/40 lines (hard cap) — the very
-  next round that adds a row must archive older rows into `wiki/feedback-archive.md` first (the
-  established `-archive.md` PRUNE pattern), or the cap blocks the commit.
+- `FEEDBACK_PENDING.md`'s Completed-history section hit its 40/40 hard cap after round 27 — round
+  28 (Jay-requested cleanup) archived rows #1/#3/#5/#7-#11/#14-#18 (rounds 1-8, each already fully
+  duplicated in `wiki/rule-archive-archive.md`/`wiki/rule-archive.md`) into the now-real
+  `wiki/feedback-archive.md`, restoring headroom to 32/40; also merged open-table rows #4 and #12
+  (same underlying ceiling) into one `#4/12` row. Same PRUNE pattern applies to future overflow.
 
 ## Known open issues (numbers match `FEEDBACK_PENDING.md`)
 
@@ -113,8 +116,8 @@ last-pull time is unknown.
 
 Round 26's own conclusion still stands (round 27 was a fix cycle, not a resumption): run a fresh
 adversarial pass on `check_fence_parity()`, `check_template_drift()`, and bootstrap-placeholder/
-primer-handoff checks — untested in many rounds. Separately: `FEEDBACK_PENDING.md` needs a PRUNE
-pass (40/40 lines) before its next row.
+primer-handoff checks — untested in many rounds. `FEEDBACK_PENDING.md`'s PRUNE pass is done
+(round 28, see Hard constraints above) — real headroom now exists for new rows.
 
 ## Next session's starter prompt
 
@@ -130,8 +133,7 @@ HEAD 커밋)을 직접 재검증할 것 — 문서만 믿지 말 것.
 체크포인트(턴키82/구조81)에서 미변경 — round 27은 전면 재감사가 아니었음.
 
 ⚠️ 가장 먼저: `kilo --version` 확인(round 27엔 `~/.cursor/extensions/kilocode.kilo-code-*/bin`에
-있었음, PATH에 없을 수 있음). FEEDBACK_PENDING.md가 40/40 줄 캡에 도달 — 다음 행 추가 전 PRUNE
-필요.
+있었음, PATH에 없을 수 있음). FEEDBACK_PENDING.md PRUNE은 round 28에 완료(32/40) — 헤드룸 확보됨.
 
 다음 우선순위: check_fence_parity·check_template_drift·부트스트랩 placeholder/primer-handoff
 체크처럼 오래 안 건드린 메커니즘에 새 적대적 감사를 돌릴 것.
