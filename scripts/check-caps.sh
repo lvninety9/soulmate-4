@@ -514,7 +514,17 @@ check_stale_language() {
   # to the 3 known stems this repo's PRUNE convention actually produces, each with an explicit
   # "-archive" sibling — closes the collision risk entirely (an unrelated file matches none of
   # these) while losing zero real coverage (no other stem has ever been archived here).
-  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log(-archive)?\.md|scripts/check-caps\.sh|tests/stale-language\.fuzz\.test\.mjs)$'
+  #
+  # Round 28 (external review, FEEDBACK_PENDING row #39, S3): round 27's own PRUNE of
+  # FEEDBACK_PENDING.md's "## Completed history" created wiki/feedback-archive.md — a 4th archive
+  # file this list never learned about, since it didn't follow the "${file%.md}-archive.md"
+  # convention self-harness.md:25-28 names (it should have been FEEDBACK_PENDING-archive.md, a
+  # sibling of FEEDBACK_PENDING.md the same way rule-archive-archive.md is a sibling of
+  # rule-archive.md). The next PRUNE touching that file would have hard-blocked on its own
+  # historical content. Fixed by renaming the file to match the convention (not by widening the
+  # regex back to a wildcard — round 16's own history above is exactly why that direction is
+  # rejected) and adding it as a 4th enumerated stem, same shape as the other 3.
+  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log(-archive)?\.md|wiki/FEEDBACK_PENDING-archive\.md|scripts/check-caps\.sh|tests/stale-language\.fuzz\.test\.mjs)$'
   # round 13: FEEDBACK_PENDING.md used to be exempt whole-file — its open table legitimately uses
   # this language for real current gaps, but its "## Completed history" section (below a clean
   # heading boundary the repo already relies on elsewhere) is exactly as historical as the other
@@ -762,7 +772,7 @@ else
       report_count "$f" "open table" "$FEEDBACK_OPEN_ROW_CAP" "rows" "$open_rows" \
         "triage overdue (close stale items, merge duplicates, or split by subsystem)"
       report_count "$f" "history section" "$FEEDBACK_HISTORY_LINE_CAP" "lines" "$history_lines" \
-        "archive into wiki/feedback-archive.md"
+        "archive into wiki/FEEDBACK_PENDING-archive.md"
     fi
   done
 fi
