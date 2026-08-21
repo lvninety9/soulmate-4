@@ -1,4 +1,4 @@
-# SESSION PRIMER — ready for round 28 (turnkey 82, structural 81 — last full audit round 26)
+# SESSION PRIMER — round 28 fix cycle done (S1-S7 landed); score still 82/81, unscored since round 26
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative** (round-by-round detail: `FEEDBACK_PENDING.md`'s
@@ -27,17 +27,15 @@ resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
 ## Current sub-task
 
-시작: `wiki/handoffs/FEEDBACK_PENDING.md` row #39 (all 7 items S1-S7), `scripts/check-caps.sh`
-목표: round 28 fix cycle — an external code review (not a fresh audit) found 7 concrete,
-     already-broken mechanisms; land each as its own commit against this fresh clone with the
-     real pre-commit hook. This item (S1): restore this exact block — 5 files already assumed/
-     required it (`subtask-gate.ts:167`, `design.md:25`, `build.md:34`, `check-caps.sh:321`,
-     `templates/SESSION_PRIMER.md.template`) while the real file had none.
-작업 사이클: confirm the gap (`grep -n '## Current sub-task' wiki/handoffs/SESSION_PRIMER.md` →
-     no match before this commit) → restore this block → add a mechanical check-caps.sh guard so
-     the heading can't silently vanish again → commit → move to S2.
-참고: S2-S7 (dead bootstrap canary, PRUNE exempt-regex gap, char-based caps, hot/cold doc split,
-     template-drift redesign, harness-integration-test runnable) queued next, each its own commit.
+시작: `wiki/handoffs/FEEDBACK_PENDING.md` row #40 (new), Jay's own live kilo verification (pending)
+목표: S1-S7 all landed this round — see row #39 in `wiki/FEEDBACK_PENDING-archive.md` for the full
+     summary + commit hashes, nothing left queued from it. Next: triage row #40 (a real new
+     gate-bypass gap S7's own smoke test found), and fold in Jay's live 5-trial
+     `scripts/harness-integration-test.sh` run once he reports it back.
+작업 사이클: wait for Jay's live-trial report (or run it here if asked) → decide row #40's fix vs.
+     defer → only then consider resuming the audit loop below.
+참고: intentionally near-empty — no committed-but-unhandled work to hand off right now, unlike a
+     mid-sub-task interruption.
 
 ## Current score: turnkey 82/100, structural 81/100 — from round 26, the last FULL audit
 
@@ -91,9 +89,11 @@ of this change remains in `subtask-gate.ts`. Extends row #6's ceiling; full evid
   `ps aux | grep -E "longform|tts_runner|ComfyUI|music_pipeline|playlist_compiler"` + `nvidia-smi`
   before `kilo run`, wait if busy. Generation latency varies 50ms-30s+ turn to turn — budget
   generous timeouts, not fixed ones.
-- `kilo` CLI **was confirmed installed and working** as of round 27 (`kilo --version` → 7.4.23,
-  at `~/.cursor/extensions/kilocode.kilo-code-7.4.23-linux-x64/bin/kilo`, not on default `PATH`) —
-  re-check fresh, don't assume this location still holds.
+- `kilo` CLI **confirmed installed and working** as of round 28 (`kilo --version` → 7.4.23, at
+  `~/.cursor/extensions/kilocode.kilo-code-7.4.23-linux-x64/bin/kilo`, not on default `PATH`) —
+  local model is `qwen-3-6/Qwen3.6-35B-A3B-UD-Q3_K_M.gguf` (`~/.config/kilo/kilo.jsonc`), a real
+  agentic turn on it took low single-digit minutes in round 28's own live testing — re-check both
+  fresh, don't assume either still holds.
 - Before changing any cap number, check the original `soulmate` repo's real number fresh.
   `templates/AGENTS.md.template` must stay byte-identical to `AGENTS.md` from `## Language`
   onward — `check_template_drift()` catches this, only when run.
@@ -115,14 +115,21 @@ of this change remains in `subtask-gate.ts`. Extends row #6's ceiling; full evid
 | — | Bare cross-paragraph token gap (incl. wrap-split-backtick) — fixing it breaks real content | 🔴 p2, accepted limitation |
 | — | `check_fence_parity()` odd/even blind spot — inherited from original, shared upstream | 🔴 p2, low urgency |
 | — | `bootstrap.sh` doesn't create/copy `README.md`, undocumented (round 26) | 🔴 p2, low severity |
+| 40 | New (round 28 S7 smoke test): `build.md` step 3's SESSION_PRIMER-handoff rule can be satisfied in words (`git add` command run) without substance (no real Edit/Write) — gate never arms, next turn's mutation goes unblocked | 🔴 p1, new, not yet triaged |
 
-## Round 28 fix cycle (external review, 2026-08-22) — supersedes the audit plan below for now
+## Round 28 fix cycle (external review, 2026-08-22) — done; audit plan below still deferred
 
 Jay routed this handoff-rigor primer to an external reviewer before round 28's planned fresh
-audit ran. The review read the code adversarially (not by re-running the score loop) and found 7
-concrete, already-broken mechanisms — full list `wiki/handoffs/FEEDBACK_PENDING.md` row #39
-(S1-S7). Each lands as its own commit against a fresh clone with the real pre-commit hook. The
-audit mission below resumes once row #39 is closed out, unchanged in substance:
+audit ran. The review found 7 concrete, already-broken mechanisms by reading the code
+adversarially — all 7 (S1-S7) landed, live-verified, one commit/small cluster each; full summary
++ hashes in `wiki/FEEDBACK_PENDING-archive.md` row #39. Headline results: required-read tokens
+15,128→6,978 (real local llama.cpp `/tokenize`, under the 8,000 target); `check_template_drift()`
+no longer forces this repo's own audit history onto fresh downstream projects; S7 turned the
+harness-integration-test doc into a real k/N-scored script (`scripts/harness-integration-test.sh`)
+and, while dogfooding it, surfaced one genuinely new gap (row #40, not fixed — out of this round's
+scope). Jay is separately live-testing this round's changes in real kilo sessions and will report
+back what to feed into the next round. The audit mission below is unchanged, still deferred until
+row #40 is triaged and Jay's live results are in:
 
 1. Does round 27's `session.idle` hook (`193b16b`) hold under fresh adversarial live testing?
 2. Is the next clean pass the 3rd consecutive one (after rounds 24, 26) confirming convergence
@@ -132,8 +139,9 @@ audit mission below resumes once row #39 is closed out, unchanged in substance:
 ## Next session's starter prompt
 
 ```
-soulmate-4 round 28 fix cycle 속행. FEEDBACK_PENDING.md 행 #39 확인 — S1-S7 중 미완료 항목부터
-fresh clone으로 이어서. 새 감사 시작 금지(이건 기존 감사 결과에 대한 외부 리뷰 fix cycle).
-전부 끝나면 "Round 28 fix cycle" 섹션을 결과로 갱신 — 그 다음에야 위 audit 재개 여부를 Jay에게
-물을 것(session.idle 라이브 검증 + 3연속 clean pass 여부).
+soulmate-4 round 29 시작. round 28의 S1-S7은 전부 완료(wiki/FEEDBACK_PENDING-archive.md 행 #39).
+먼저 Jay에게 물어볼 것: 라이브 kilo 검증(5회 harness-integration-test.sh) 결과를 갖고 계신지.
+있으면 그 결과부터 반영. FEEDBACK_PENDING.md 행 #40(게이트 우회 가능성, S7 스모크테스트 중 신규
+발견) 트리아지 — 고칠지, 감사 루프 재개 시 함께 볼지 결정. 그 다음에야 위 audit 재개 여부 판단
+(session.idle 라이브 검증 + 3연속 clean pass 여부). fresh clone 필수, git fetch로 격차 확인.
 ```
