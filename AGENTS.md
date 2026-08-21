@@ -66,6 +66,10 @@ sub-tasks to finish under context length by construction; `build` checkpoints on
 - [L12] A citation fix (correcting *which* package/API a claim cites) doesn't imply the claim's
   *substance* was re-verified against the corrected source — re-check it explicitly, don't assume
   `rule-archive.md` `permanent`
+- [L13] A local clone with an unknown last-pull time can silently re-litigate already-resolved
+  history as if it were current — always `git fetch`+compare against `origin/master` (or just
+  fresh-clone) before trusting any local checkout for an audit-shaped task `rule-archive.md`
+  `permanent`
 
 ## Fixed Rules
 | Rule | Why |

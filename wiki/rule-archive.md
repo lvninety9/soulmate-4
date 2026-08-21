@@ -391,3 +391,18 @@ hook" claim survived 18 rounds after round 9 fixed only its package-name citatio
 nobody re-read the corrected package's actual type defs. When a round fixes a citation error,
 treat the claim's substance as unverified until someone actually re-checks it — a citation fix
 doesn't imply the claim was re-validated too. `permanent`
+
+**L13 (new, root cause of this whole round)**: the round-8-style audit that kicked off round 27
+was run against `/home/jay/soulmate-4`, a local clone last synced at session 10 (round 7) — 48
+commits behind real `origin/master` by the time it ran (2026-08-21), including the entire round
+8-26 history (turnkey 78→82, structural 74→81, the round-26 consolidation checkpoint). The
+coordinating session had no signal it was stale — no error, no warning, `git log` inside that
+clone looked completely coherent on its own terms, it was just quietly 19 rounds old. Both of its
+2 candidate findings had to be independently re-derived from a genuinely fresh clone before either
+could be trusted (see Findings A/B above) — one held, one didn't, and the only way to tell was
+re-checking against real `origin/master`, not the local checkout's own internal consistency. A
+repo's own audit thread has no self-check for "is my clone even current" by construction — a
+local `git log` that reads clean proves internal consistency, not freshness against origin. Always
+`git fetch` + diff against `origin/master` (or just fresh-clone) before trusting any local
+checkout for an audit-shaped task; never assume a clone last touched N sessions ago is still
+current just because it isn't erroring. `permanent`
