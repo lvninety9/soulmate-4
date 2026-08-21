@@ -33,6 +33,23 @@ FILE_MAP_ROW_CAP=10
 FEEDBACK_OPEN_ROW_CAP=25
 FEEDBACK_HISTORY_LINE_CAP=40
 
+# Round 28 (external review, FEEDBACK_PENDING row #39, S4): every cap above is line/row-based,
+# and a line/row count says nothing about how much text is actually inside each line — a table
+# row can be one word or one paragraph and counts the same. Live-confirmed: wiki/handoffs/
+# FEEDBACK_PENDING.md sat at "33/40 ok" on the history-line cap while actually 38,931 characters
+# (one single row alone: 2,669 chars) — a local model reading this file pays for its real content
+# size, not the number check-caps.sh was reporting. These are companions, not replacements — the
+# existing line/row caps still catch "too many entries"; these catch "the entries themselves
+# bloated." Sized at roughly 2-3x each file's characters-per-line ratio observed elsewhere in
+# this repo (60-110 chars/line for normal prose) against that file's own line/row cap, generous
+# enough not to fire on normal writing, tight enough to fire on FEEDBACK_PENDING.md's actual
+# current content (see check-caps.sh's own live-verification notes in the S4 commit message).
+README_CHAR_CAP=70000
+AGENTS_MD_CHAR_CAP=13000
+PROJECT_BACKGROUND_CHAR_CAP=23000
+SESSION_PRIMER_CHAR_CAP=23000
+FEEDBACK_PENDING_CHAR_CAP=15000
+
 status=0
 
 norm() { sed 's/\r$//' "$1" 2>/dev/null || true; }
@@ -68,6 +85,23 @@ check_lines_warn() {
     echo "WARN: $label ($file) is $lines/$cap lines (soft target $warn) — consider a pruning pass soon"
   else
     echo "ok: $label ($file) $lines/$cap lines"
+  fi
+}
+
+check_chars() {
+  local file="$1" cap="$2" label="$3"
+  if [ ! -f "$file" ]; then
+    return 0
+  fi
+  local chars
+  chars=$(wc -m < "$file" | tr -d ' ')
+  if [ "$chars" -gt "$cap" ]; then
+    echo "OVER CAP: $label char count ($file) is $chars chars, cap $cap — a low line/row count" \
+         "can hide a runaway character total (a few bloated lines or table cells); prune the" \
+         "actual prose, not just whatever the line/row count reads"
+    status=1
+  else
+    echo "ok: $label char count ($file) $chars/$cap chars"
   fi
 }
 
@@ -372,15 +406,34 @@ check_template_drift() {
   # rule's body text (same tag kept) passed silently. Fixed by diffing everything from
   # "## Language" onward (the part both files must be byte-identical on — only the title/HTML-
   # comment-block above it is meant to differ) instead of just extracting IDs.
+  #
+  # Round 28 (external review, FEEDBACK_PENDING row #39, S6): "everything from '## Language'
+  # onward must be byte-identical" also forced templates/AGENTS.md.template to carry this repo's
+  # own "## Learned Rules" — soulmate-4's own Kilo-plugin-development history (L01-L13: opencode
+  # binary quirks, subtask-gate.ts bug history, this project's own audit-loop lessons), meaningless
+  # to a downstream project that will never run this repo's audit loop. That pollution was being
+  # actively enforced by this check, not just an oversight (S5(b)'s cleanup needed this fixed
+  # first). "## Fixed Rules" stayed in the diff on purpose — unlike Learned Rules, its 3 entries
+  # are genuinely general practices (commit discipline, disabling thinking at the inference
+  # server, verifying before claiming done), not incident narratives, so real drift there is still
+  # worth catching the same as any other mechanism section.
+  local strip_learned_rules='
+    /^## Language/{f=1}
+    f && /^## Learned Rules/{skip=1; next}
+    f && skip && /^## /{skip=0}
+    f && !skip
+  '
   local live_body tmpl_body
-  live_body=$(norm "$live" | awk '/^## Language/{f=1} f')
-  tmpl_body=$(norm "$tmpl" | awk '/^## Language/{f=1} f')
+  live_body=$(norm "$live" | awk "$strip_learned_rules")
+  tmpl_body=$(norm "$tmpl" | awk "$strip_learned_rules")
   if [ "$live_body" != "$tmpl_body" ]; then
     echo "OVER CAP: templates/AGENTS.md.template has drifted from AGENTS.md (content differs" \
-         "from '## Language' onward, not just Learned Rule IDs) — sync the template."
+         "from '## Language' onward, excluding '## Learned Rules' which is allowed to differ) —" \
+         "sync the template."
     status=1
   else
-    echo "ok: templates/AGENTS.md.template matches AGENTS.md content, '## Language' onward (no drift)"
+    echo "ok: templates/AGENTS.md.template matches AGENTS.md content, '## Language' onward" \
+         "excluding Learned Rules (no drift)"
   fi
 }
 
@@ -389,17 +442,21 @@ check_template_drift() {
 # purpose. But "no cap" can quietly become "nobody ever looks" — this just keeps them visible so
 # a stale/bloated one gets noticed during self-harness's PRUNE step instead of growing forever.
 check_watch_size() {
-  local file="$1" warn="$2"
+  local file="$1" warn="$2" hint="${3:-}"
   if [ ! -f "$file" ]; then
     return 0
   fi
   local lines archive_dest
   lines=$(norm "$file" | wc -l | tr -d ' ')
   if [ "$lines" -gt "$warn" ]; then
-    archive_dest="${file%.md}-archive.md"
-    echo "WATCH: $file is $lines lines (append-only, no hard cap) — move its oldest entries to" \
-         "$archive_dest (same pattern for all 3 of these files, wiki/protocols/self-harness.md" \
-         "PRUNE step) and leave a one-line pointer behind"
+    if [ -n "$hint" ]; then
+      echo "WATCH: $file is $lines lines (no hard cap) — $hint"
+    else
+      archive_dest="${file%.md}-archive.md"
+      echo "WATCH: $file is $lines lines (append-only, no hard cap) — move its oldest entries to" \
+           "$archive_dest (same pattern for all 3 of these files, wiki/protocols/self-harness.md" \
+           "PRUNE step) and leave a one-line pointer behind"
+    fi
   fi
 }
 
@@ -709,20 +766,34 @@ if [ "${1:-}" = "--bootstrap-check" ]; then
 fi
 
 check_lines "README.md" "$README_CAP" "README.md"
+check_chars "README.md" "$README_CHAR_CAP" "README.md"
 check_prompts_present
 check_fence_parity "AGENTS.md"
 check_lines_warn "AGENTS.md" "$AGENTS_MD_WARN" "$AGENTS_MD_CAP" "AGENTS.md total"
+check_chars "AGENTS.md" "$AGENTS_MD_CHAR_CAP" "AGENTS.md total"
 check_section "AGENTS.md" "## File map" "$FILE_MAP_ROW_CAP" "File Map" "rows"
 check_section "AGENTS.md" "## Learned Rules" "$LEARNED_RULES_CAP" "Learned Rules" "entries"
 check_section "AGENTS.md" "## Fixed Rules" "$FIXED_RULES_ROW_CAP" "Fixed Rules" "rows"
 check_template_drift
 check_lines "wiki/PROJECT_BACKGROUND.md" "$PROJECT_BACKGROUND_CAP" "PROJECT_BACKGROUND.md"
+check_chars "wiki/PROJECT_BACKGROUND.md" "$PROJECT_BACKGROUND_CHAR_CAP" "PROJECT_BACKGROUND.md"
 check_lines "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CAP" "SESSION_PRIMER.md"
+check_chars "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CHAR_CAP" "SESSION_PRIMER.md"
 check_primer_subtask_heading
 check_primer_handoff_reminder
 check_watch_size "wiki/rule-archive.md" 400
 check_watch_size "wiki/session-log.md" 200
 check_watch_size "wiki/handoffs/SESSION_MASTER.md" 150
+# Round 28 (external review, FEEDBACK_PENDING row #39, S4): code files had zero size monitoring
+# at all — .kilo/plugins/subtask-gate.ts grew 230->482 lines (+110%) and scripts/check-caps.sh
+# itself grew 455->738+ lines (+62%+) across this project's own 28 rounds, unwatched the whole
+# way. Reusing check_watch_size's "-archive.md" advice would be nonsense for code (you split/
+# refactor a plugin, you don't move its oldest lines to a same-named archive file) — the new
+# optional hint param lets these two get advice that actually fits.
+check_watch_size ".kilo/plugins/subtask-gate.ts" 400 \
+"this is mechanical enforcement code, not append-only narrative — review for a genuinely splittable concern (e.g. one hook's worth of logic into its own module) during self-harness's PRUNE step, don't just let it accumulate"
+check_watch_size "scripts/check-caps.sh" 600 \
+"this script itself has never been pruned in 28 rounds of additions — during self-harness's PRUNE step, check whether any closed-out finding's fix (e.g. a narrowly-scoped one-round check) can be merged into a more general one instead of living forever as its own function"
 check_stale_language
 
 shopt -s nullglob
@@ -734,6 +805,7 @@ if [ ${#feedback_files[@]} -eq 0 ]; then
 else
   for f in "${feedback_files[@]}"; do
     check_fence_parity "$f"
+    check_chars "$f" "$FEEDBACK_PENDING_CHAR_CAP" "$f total"
 
     fp_result=$(norm "$f" | awk '
       {
