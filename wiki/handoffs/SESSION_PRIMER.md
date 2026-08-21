@@ -1,10 +1,11 @@
 # SESSION PRIMER — ready for round 28 (turnkey 82, structural 81 — last full audit round 26)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
-> **Role: current-state only — no "why" narrative** (round-by-round detail: `FEEDBACK_PENDING.md`
-> rows #19-38 for rounds 9-27, `wiki/FEEDBACK_PENDING-archive.md` for rounds 1-8, `SESSION_MASTER.md` for
-> the round-27 stale-clone incident/PRUNE pass/this handoff's own re-verification — "why" lives
-> there, not here).
+> **Role: current-state only — no "why" narrative** (round-by-round detail: `FEEDBACK_PENDING.md`'s
+> open table for what's still live, `wiki/FEEDBACK_PENDING-archive.md` for every resolved row
+> #1-#38 (rounds 1-27, moved out of FEEDBACK_PENDING.md itself in round 28's S5 — see row #39),
+> `SESSION_MASTER.md` for the round-27 stale-clone incident/PRUNE pass/this handoff's own
+> re-verification — "why" lives there, not here).
 > Rewritten 2026-08-22, a Jay-requested handoff-rigor pass (not a new audit/fix round): every claim
 > below independently re-checked against fresh-cloned `origin/master` — real `git log`, real
 > `node --experimental-strip-types tests/*.test.mjs`/`check-caps.sh` output, a direct read of
@@ -96,9 +97,9 @@ of this change remains in `subtask-gate.ts`. Extends row #6's ceiling; full evid
 - Before changing any cap number, check the original `soulmate` repo's real number fresh.
   `templates/AGENTS.md.template` must stay byte-identical to `AGENTS.md` from `## Language`
   onward — `check_template_drift()` catches this, only when run.
-- `FEEDBACK_PENDING.md` was PRUNE'd (not a numbered round) after round 27 hit its 40/40 cap: rows
-  #1/#3/#5/#7-#11/#14-#18 moved to `wiki/FEEDBACK_PENDING-archive.md`, open rows #4/#12 merged. Now 32/40 /
-  3/25 — real headroom for round 28's findings.
+- `FEEDBACK_PENDING.md`'s "Completed history" is now a pointer only, never a table (round 28 S5)
+  — all resolved rows #1-#38 live in `wiki/FEEDBACK_PENDING-archive.md`, not auto-loaded. New
+  resolved rows belong there, not back in this file's own table.
 - **L13**: a local clone's own `git log` looking coherent proves nothing about its freshness vs.
   `origin/master` — round 27's audit ran 19 rounds stale with zero errors/warnings. Always `git
   fetch`+diff origin, or fresh-clone, before trusting a local checkout for an audit-shaped task.
