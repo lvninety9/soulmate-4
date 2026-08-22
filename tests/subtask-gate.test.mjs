@@ -203,14 +203,11 @@ async function main() {
       { tool: "read", sessionID: "s6" },
       { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
     )
-    // establish baseline HEAD (the real hook fires after every tool call, so a baseline always
-    // exists by the time a commit happens — this "read" above already triggers it too, but be
-    // explicit here since that's incidental to what this test is checking)
-    await hooks["tool.execute.after"]({ tool: "read", sessionID: "s6" })
-    // commit touching SESSION_PRIMER.md
+    // commit touching SESSION_PRIMER.md — round 28: the boundary is derived straight from git
+    // on demand (computeBoundary()), so no "after" hook call is needed to record a baseline
+    // HEAD first; the next tool.execute.before call below sees this commit directly.
     writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
     execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
-    await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s6" })
     await assertThrows(
       "T6 post-commit primer gate still fires (regression check)",
       async () => {
@@ -306,11 +303,10 @@ async function main() {
       { tool: "read", sessionID: "s9" },
       { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
     )
-    await hooks["tool.execute.after"]({ tool: "read", sessionID: "s9" })
-    // commit touching SESSION_PRIMER.md -> arms the gate
+    // commit touching SESSION_PRIMER.md -> boundary now derived straight from git (round 28),
+    // no "after" hook call needed to record it
     writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
     execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
-    await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s9" })
 
     await assertThrows(
       "T9a first mutation after arming — blocked",
@@ -414,14 +410,10 @@ async function main() {
     const dir = freshRepo()
     const hooks = await loadGate(dir)
     process.chdir(dir)
-    // arm the primer/elective gate first — tool.execute.after needs a baseline HEAD
-    // observation before the commit to actually detect the change (same 2-call pattern T6/T9
-    // already use; a single call here would silently just record HEAD and never arm, giving a
-    // false pass below regardless of whether the real guard works).
-    await hooks["tool.execute.after"]({ tool: "read", sessionID: "s11" })
+    // commit touching SESSION_PRIMER.md -> boundary now derived straight from git (round 28),
+    // no "after" hook call needed to arm it
     writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
     execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
-    await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s11" })
 
     const idleNudgeOutput = { message: { id: "msg_idlenudgeTEST" }, parts: [{ type: "text", text: "[subtask-gate] this feels slow when I use it a lot" }] }
     await hooks["chat.message"]({ sessionID: "s11", messageID: "msg_idlenudgeTEST" }, idleNudgeOutput)
@@ -454,6 +446,90 @@ async function main() {
         failures++
       }
     }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 12 (round 28, FEEDBACK #41 regression): reproduces the exact live bypass, not just
+  // "did it throw" — round 8's clearing logic deleted the arm on ANY next message, with no
+  // check that a block had ever actually fired for it. The live trial that found this had the
+  // model correctly follow design.md's "commit, then stop — no further tool call" instruction:
+  // a primer commit lands, but the model never makes another tool call this turn, so no block
+  // ever fires. The next message ("continue") used to disarm the gate for free, and the
+  // following mutating call sailed through unblocked. Against the pre-round-28 design this
+  // scenario FAILS (that unblocked call is the actual bug); against the SHA-derived redesign it
+  // must stay blocked, since neither exemption applies: the boundary was never acknowledged (no
+  // block fired to earn it) and it isn't the session's pre-existing boundary either (the
+  // session was already in progress, via the "start" message below, before the primer commit
+  // landed — so rule (b)'s fresh-session courtesy doesn't apply here).
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s12" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    // this session is already in progress BEFORE the primer commit lands — its first message
+    // pre-approves whatever boundary exists at that point (none yet), not the one that shows
+    // up later
+    await hooks["chat.message"]({ sessionID: "s12" }, { message: { id: "m0" }, parts: [{ type: "text", text: "start the sub-task" }] })
+    // design.md step: commit SESSION_PRIMER.md, closing out the sub-task
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    // ...and then, per design.md, make NO further tool call this turn — the model just replies
+    // with text. No block ever fires here, unlike T9's setup.
+    await hooks["chat.message"]({ sessionID: "s12" }, { message: { id: "m1" }, parts: [{ type: "text", text: "continue" }] })
+    // primer meta-lesson 4: assert the specific effect, not just "did it throw" — an unrelated
+    // gate (e.g. L09's protocol-read check) throwing first would pass a bare assertThrows too
+    // and mask a real regression here.
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "write", sessionID: "s12" },
+        { args: { filePath: join(dir, "foo.py") } }
+      )
+      console.log("FAIL: T12 FEEDBACK #41 exact bypass — expected the primer boundary to still block, but the mutation went through unblocked")
+      failures++
+    } catch (e) {
+      if (/SESSION_PRIMER\.md was just committed/.test(String(e.message || e))) {
+        console.log("ok: T12 FEEDBACK #41 exact bypass: primer commit armed, no block ever fired, new message arrives — next mutation still blocked, specifically by the primer gate")
+      } else {
+        console.log("FAIL: T12 blocked, but for the wrong reason:", e.message)
+        failures++
+      }
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 13 (round 28, FEEDBACK #41 fix's own fresh-session exemption, rule b): without this
+  // exemption, the SHA-derived redesign above would block the exact fresh-session workflow
+  // build.md recommends ("the next build — ideally in a fresh session") on a boundary that
+  // brand-new session never had a chance to see or respond to — trading #41's false negative
+  // for a new false positive. A session's first message must pre-approve whatever boundary
+  // already exists at that moment.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    // a primer commit already landed before this session ever started (e.g. the previous,
+    // now-ended session closed out its sub-task correctly)
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    // brand-new session's first message
+    await hooks["chat.message"]({ sessionID: "s13" }, { message: { id: "m1" }, parts: [{ type: "text", text: "start the next sub-task" }] })
+    // satisfy L09 so only the boundary exemption is under test
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s13" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    await assertNoThrow(
+      "T13 fresh-session courtesy: a brand-new session's first mutation is not blocked by a pre-existing boundary",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s13" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
     rmSync(dir, { recursive: true, force: true })
   }
 

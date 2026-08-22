@@ -17,7 +17,8 @@
 `soulmate-4` is a session-handoff harness template for coding agents behind **Kilo Code**, talking
 to a local LLM with a hard context ceiling (RTX 3080 10GB, physically **shared with an unrelated
 production system "Hermes"** — see Hard constraints). `.kilo/plugins/subtask-gate.ts` is the
-payoff: a real `tool.execute.before/after` mechanical brake (Kilo genuinely exposes this hook).
+payoff: a real `tool.execute.before` mechanical brake (Kilo genuinely exposes this hook). Round 28
+dropped `tool.execute.after` — the boundary is now derived fresh from git per call, not a flag.
 
 **Goal**: earn a score comparable to the *original* `soulmate` repo's own real result (87/100
 turnkey, 98.75/100 structural, over 13 rounds). **Method**: repeating loop — fresh non-fork blind
@@ -27,15 +28,17 @@ resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
 ## Current sub-task
 
-시작: `wiki/handoffs/FEEDBACK_PENDING.md` row #40 (new), Jay's own live kilo verification (pending)
-목표: S1-S7 all landed this round — see row #39 in `wiki/FEEDBACK_PENDING-archive.md` for the full
-     summary + commit hashes, nothing left queued from it. Next: triage row #40 (a real new
-     gate-bypass gap S7's own smoke test found), and fold in Jay's live 5-trial
-     `scripts/harness-integration-test.sh` run once he reports it back.
-작업 사이클: wait for Jay's live-trial report (or run it here if asked) → decide row #40's fix vs.
-     defer → only then consider resuming the audit loop below.
-참고: intentionally near-empty — no committed-but-unhandled work to hand off right now, unlike a
-     mid-sub-task interruption.
+시작: round 28 fix cycle, item 1 of 7 — row #41's gate bypass (`wiki/handoffs/FEEDBACK_PENDING.md`)
+완료: `armed` flag removed; boundary now derived from git (`computeBoundary()`), acknowledged only
+     via a real block-then-new-message (rule a) or a session's first message pre-approving a
+     pre-existing boundary (rule b, prevents blocking build.md's fresh-session workflow).
+     Evidence: unit 26/26 (24 orig + 2 new regression tests for #41's exact bypass + the
+     fresh-session exemption), fuzz 42/42, `check-caps.sh` EXIT=0.
+다음: item 2 — prepare `/tmp/tap.py` (MITM capture proxy) so Jay can run baseURL swap + one CLI
+     + one Cursor-plugin trial to diff their payloads (row #42). Prep only; the actual runs are
+     Jay's.
+참고: full 7-item sequence + acceptance conditions live outside this repo (Opus's round-28 fix
+     plan, kept out of soulmate-4 per its own "don't commit the meta-plan" rule).
 
 ## Current score: turnkey 82/100, structural 81/100 — from round 26, the last FULL audit
 
