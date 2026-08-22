@@ -28,13 +28,15 @@ resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
 ## Current sub-task
 
-시작: round 28 fix cycle, item 4 of 7 (flow rule) — DONE. Item 5 (row #40 elective-arm check) next
-완료: item 1 (#41 redesign, live 5/5) + item 2 (#42/#43 root cause) archived to `rule-archive.md`
-     "Round 28". Item 4: hot rows compressed to symptom+status+pointer (all ≤300 chars, was up to
-     3,342); `check-caps.sh` now hard-blocks rows over that. Required-read tokens: 9,371 → 6,635.
-다음: item 5 — row #40 (primer-touch claimed via `git add` w/o a real diff). Check whether the
-     existing elective-arm threshold (`COMMITS_WITHOUT_PRIMER_THRESHOLD=4`) already catches this
-     in practice before writing any new mechanism (Opus's own instruction: measure first).
+시작: round 28 fix cycle, item 5 (row #40) — DONE. Item 6 (bench scoring redesign) next
+완료: item 5: measured directly (no live model) that the elective-arm already can't be fooled by
+     a fake `git add`-without-diff primer claim — arms correctly at exactly the hardcoded
+     threshold (4). Decided against lowering it (would trip on legitimate multi-file sub-tasks
+     more often than row #40's narrow pattern). No code change; row #40 archived. Full reasoning:
+     `rule-archive.md` "Round 28".
+다음: item 6 — redesign `harness-integration-test.sh`'s Step 4/6 scoring: path-based → result-based
+     ("premise unmet" = N/A, not FAIL). Also 6-B: `--temp 0.0` means identical-prompt trials are
+     n=1 — need 5 distinct fixed inputs per step. Trials already run sequentially (`-np 1`).
 참고: full 7-item sequence lives outside this repo (Opus's plan). Item-3 script + captures:
      `/home/jay/sm4-tap-capture/` (durable disk, not `/tmp`).
 
