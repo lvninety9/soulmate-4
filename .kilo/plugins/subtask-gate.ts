@@ -31,14 +31,36 @@
 // this can't be a hard, unretriable lock either) — it forces a pause and a nudge, not a
 // guarantee. wiki/rule-archive.md L09.
 //
-// Round 8 (FEEDBACK #3): the primer/elective gate (the one armed by tool.execute.after below,
-// not L09's protocol-read gate) cleared itself the instant its first post-arm mutating call was
-// blocked — so an immediate retry, verbatim or not, of a mutating call sailed through completely
-// unchecked right after. Fixed by moving the clear out of tool.execute.before entirely and into
-// chat.message, keyed on a genuinely new user message arriving (the only mechanical proxy
-// available for "the user was actually asked and responded" to the block message's own "ask the
-// user whether to continue" instruction). wiki/rule-archive.md L11 (see there for the live
-// kilo run re-verification this needed, same as every prior round's fixes).
+// Round 8 (FEEDBACK #3): the primer/elective gate (armed on a real commit landing, see round 2)
+// cleared itself the instant its first post-arm mutating call was blocked — so an immediate
+// retry, verbatim or not, of a mutating call sailed through completely unchecked right after.
+// Fixed by moving the clear out of tool.execute.before entirely and into chat.message, keyed on
+// a genuinely new user message arriving. wiki/rule-archive.md L11.
+//
+// Round 28 (FEEDBACK #41): round 8's fix cleared the arm on ANY next chat.message, without
+// checking a block had ever actually fired for it — so following design.md's own "commit, then
+// stop, make no further tool call" instruction produced a session that ends its turn with the
+// gate armed but never triggered; the next message ("continue") cleared it for free, and the
+// very next mutating call sailed through. The more faithfully the model followed the protocol,
+// the more reliably the gate was bypassed. Root cause: a single `armed[sessionID]` boolean was
+// overloading two facts with different lifetimes — "a sub-task boundary was crossed" (a
+// repository fact, should persist until the *next* boundary) and "the user was asked and
+// responded" (a conversation fact, should clear on the next real message) — so any new message
+// cleared both, whether or not the first fact had ever actually been surfaced as a block.
+//
+// Fixed by deriving the boundary instead of storing it: `computeBoundary()` below recomputes
+// straight from `git log`/`git rev-list` on every mutating call, so there is no `armed` flag to
+// go stale or get cleared by the wrong event in the first place. What persists is a record of
+// which boundary SHAs have actually been dealt with (`acknowledged`) — added only when (a) a
+// block genuinely fired for that exact SHA this session and a real new message arrived after
+// it, the same "new message = proxy for a human seeing the block" reasoning round 8 used, just
+// anchored to the SHA that earned it instead of firing unconditionally. A second exemption,
+// `boundaryAtSessionStart`, pre-clears whatever boundary already exists the moment a session's
+// first message arrives — without it, this fix would block the very fresh-session workflow
+// build.md recommends, trading one false-negative class for a false-positive one. Escape hatch
+// for a boundary neither (a) nor (b) ever resolves: same one this file has always had for a
+// corrupt/unreadable state — delete `.subtask-gate-state.json`, the load falls back to fully
+// unarmed (see loadState()'s catch below).
 //
 // State is persisted to .subtask-gate-state.json, next to this file. Bun/Node's sync fs/exec
 // calls are fine here: state is a few bytes, one user, no meaningful concurrency to race
@@ -66,11 +88,16 @@ const PROJECT_ROOT = dirname(dirname(PLUGIN_DIR)) // .kilo/plugins -> .kilo -> p
 // how large your project's real sub-tasks tend to run.
 const COMMITS_WITHOUT_PRIMER_THRESHOLD = 4
 
+// Round 28: bound on how many acknowledged boundary SHAs to keep — this is a history of
+// resolved checkpoints, not live state, so it only needs to cover "was this SHA already dealt
+// with recently," never the full project lifetime.
+const ACKNOWLEDGED_HISTORY_LIMIT = 20
+
 type ArmReason = "primer" | "elective"
 type State = {
-  armed: Record<string, ArmReason>
-  commitsSincePrimer: Record<string, number>
-  lastSeenHead: Record<string, string>
+  acknowledged: string[]
+  lastBlockedSha: Record<string, string>
+  boundaryAtSessionStart: Record<string, string>
   protocolDocRead: Record<string, boolean>
   idleNudgeSignature: Record<string, string>
 }
@@ -80,20 +107,22 @@ function loadState(): State {
     if (existsSync(STATE_FILE)) {
       const parsed = JSON.parse(readFileSync(STATE_FILE, "utf8"))
       return {
-        armed: parsed.armed ?? {},
-        commitsSincePrimer: parsed.commitsSincePrimer ?? {},
-        lastSeenHead: parsed.lastSeenHead ?? {},
+        acknowledged: parsed.acknowledged ?? [],
+        lastBlockedSha: parsed.lastBlockedSha ?? {},
+        boundaryAtSessionStart: parsed.boundaryAtSessionStart ?? {},
         protocolDocRead: parsed.protocolDocRead ?? {},
         idleNudgeSignature: parsed.idleNudgeSignature ?? {},
       }
     }
   } catch {
-    // Corrupt/unreadable state file: fail open (unarmed) rather than crash the hook.
+    // Corrupt/unreadable state file: fail open (unarmed) rather than crash the hook. This also
+    // doubles as this file's manual escape hatch (round 28) — deleting the state file resets
+    // every session's acknowledgment/pre-approval history to empty.
   }
   return {
-    armed: {},
-    commitsSincePrimer: {},
-    lastSeenHead: {},
+    acknowledged: [],
+    lastBlockedSha: {},
+    boundaryAtSessionStart: {},
     protocolDocRead: {},
     idleNudgeSignature: {},
   }
@@ -132,17 +161,60 @@ function gitPorcelainStatus(): string[] {
   }
 }
 
-function filesInCommit(sha: string): string[] {
+// Round 28: SHA of the most recent commit that touched SESSION_PRIMER.md, straight from git —
+// replaces the old incremental "did the last-seen commit touch it" bookkeeping (round 2/8's
+// `tool.execute.after`) with a value that's always correct on demand, never stale, and needs no
+// clearing logic of its own.
+function lastPrimerTouchSha(): string | null {
   try {
-    const out = execSync(`git diff-tree --no-commit-id --name-only -r ${sha}`, {
+    const out = execSync("git log -1 --format=%H -- wiki/handoffs/SESSION_PRIMER.md", {
       cwd: PROJECT_ROOT,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
-    })
-    return out.split("\n").filter(Boolean)
+    }).trim()
+    return out || null
   } catch {
-    return []
+    return null
   }
+}
+
+// Round 28: count of commits reachable from `head` but not from `fromSha` — i.e. how many
+// commits have landed since (and not including) the last primer touch. `fromSha` null means
+// "primer has never been touched in this repo's history," so every commit up to `head` counts.
+function commitCountSince(fromSha: string | null, head: string): number {
+  try {
+    const range = fromSha ? `${fromSha}..${head}` : head
+    const out = execSync(`git rev-list --count ${range}`, {
+      cwd: PROJECT_ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim()
+    return parseInt(out, 10) || 0
+  } catch {
+    return 0
+  }
+}
+
+type Boundary = { sha: string; reason: ArmReason; commitsSincePrimer: number }
+
+// Round 28 (#41 redesign): the single source of truth for "is a sub-task boundary currently
+// open," derived fresh from git on every call instead of read from a persisted flag. HEAD
+// itself touching SESSION_PRIMER.md is a "primer" boundary; failing that, COMMITS_WITHOUT_
+// PRIMER_THRESHOLD-or-more commits since the last primer touch (round 2/L07's elective gate) is
+// an "elective" one. Either way the boundary's identity IS the current HEAD SHA — as more
+// commits land past a threshold, HEAD moves and so does the boundary, so worsening debt keeps
+// requiring fresh acknowledgment rather than resting on a stale approval.
+function computeBoundary(): Boundary | null {
+  const head = currentHead()
+  if (!head) return null // not a git repo (yet)
+
+  const primerSha = lastPrimerTouchSha()
+  if (primerSha === head) return { sha: head, reason: "primer", commitsSincePrimer: 0 }
+
+  const n = commitCountSince(primerSha, head)
+  if (n >= COMMITS_WITHOUT_PRIMER_THRESHOLD) return { sha: head, reason: "elective", commitsSincePrimer: n }
+
+  return null
 }
 
 const MUTATING_TOOLS = new Set(["write", "edit", "bash", "patch", "multiedit", "task"])
@@ -167,22 +239,6 @@ const BLOCK_MESSAGE_ELECTIVE = (n: number) =>
   "update wiki/handoffs/SESSION_PRIMER.md's Current sub-task block, commit it, then ask the " +
   "user whether to continue."
 
-// Round 8 (audit, FEEDBACK #3): the primer/elective gate just below used to clear
-// `state.armed[sessionID]` the moment the *first* post-arm mutating call was blocked — so an
-// immediate retry (verbatim or not) of that same blocked call sailed through completely
-// unchecked, because by the time it arrived `reason` was already gone. This is a different bug
-// from L09's (round 5) "different mutation after block" gap, which is already closed — this one
-// is "any mutating call at all, right after the one that got blocked." The block message itself
-// says to stop and ask the user whether to continue — the only mechanical proxy available for
-// "the user was actually asked and responded" is a genuinely new user message arriving, which is
-// exactly what `chat.message` fires on (see that hook below). So the arm now only clears there,
-// never inside `tool.execute.before` — every mutating call stays blocked for the rest of this
-// turn (and any further turns) until a new message starts. Honest limitation, same class as the
-// carryover-warning hook's own stated one: a new message is evidence a turn ended and control
-// returned to a human, not literal proof the human read the stop-and-ask text — round 8's own
-// audit didn't independently re-test FEEDBACK #3 live (code-read only), so this needs a live
-// `kilo run` re-verification, same as every other round's fixes have required.
-//
 // Round 7(audit, FEEDBACK #4/#12): live-tested that L09's gate guarantees *some*
 // wiki/protocols/*.md gets read before any mutation, but has zero mechanism routing an
 // ambiguous ask specifically to discuss.md — a real live trial ("this feels slow when I use it
@@ -278,15 +334,27 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
       }
     }
 
-    // FEEDBACK #3 (round 8): deliberately does NOT clear state.armed[sessionID] here anymore —
-    // see the comment above the "chat.message" hook's clearing logic for why. Every mutating
-    // call while armed gets blocked, retry or not, same call or different, until a new user
-    // message actually arrives.
-    const reason = state.armed[sessionID]
-    if (reason && MUTATING_TOOLS.has(tool)) {
-      if (dirty) saveState(state)
-      const n = state.commitsSincePrimer[sessionID] ?? 0
-      throw new Error(reason === "primer" ? BLOCK_MESSAGE_COMMIT : BLOCK_MESSAGE_ELECTIVE(n))
+    // Round 28 (#41 redesign): boundary is derived fresh from git, not read off a persisted
+    // `armed` flag — see computeBoundary()'s own comment for why. A boundary blocks unless its
+    // exact SHA has already been dealt with: either genuinely acknowledged this session (a
+    // block fired for it and a real new message followed — set in chat.message below), or it's
+    // the boundary that already existed when this session's first message arrived (the
+    // fresh-session courtesy, also set in chat.message below).
+    if (MUTATING_TOOLS.has(tool)) {
+      const boundary = computeBoundary()
+      if (boundary) {
+        const preapprovedSha = state.boundaryAtSessionStart[sessionID]
+        const cleared = state.acknowledged.includes(boundary.sha) || preapprovedSha === boundary.sha
+        if (!cleared) {
+          state.lastBlockedSha[sessionID] = boundary.sha
+          saveState(state)
+          throw new Error(
+            boundary.reason === "primer"
+              ? BLOCK_MESSAGE_COMMIT
+              : BLOCK_MESSAGE_ELECTIVE(boundary.commitsSincePrimer)
+          )
+        }
+      }
     }
 
     // L09 (round 4), strengthened (round 5, after an independent objective audit reproduced a
@@ -309,46 +377,6 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     }
 
     if (dirty) saveState(state)
-    // Arming (the two checks above) happens in tool.execute.after below, once a commit has
-    // actually landed.
-  },
-
-  // Runs after every tool call, not just ones that look like a commit — round 3's blind
-  // validation found the old regex (matching the literal string "git commit" in the bash
-  // command) both a false positive (an `echo` merely mentioning "git commit" was misread as a
-  // real commit) and a false negative (a commit made via an alias/wrapper, not that literal
-  // text, was invisible to the counter). Comparing the actual git HEAD before/after is the same
-  // amount of code and immune to both — it doesn't care what command produced the commit.
-  "tool.execute.after": async (input: any) => {
-    const sessionID = input?.sessionID
-    if (!sessionID) return
-
-    const head = currentHead()
-    if (!head) return // not a git repo (yet) — nothing to compare
-
-    const state = loadState()
-    const previousHead = state.lastSeenHead[sessionID]
-    state.lastSeenHead[sessionID] = head
-
-    if (!previousHead || previousHead === head) {
-      saveState(state) // first observation this session, or no new commit — just record HEAD
-      return
-    }
-
-    const files = filesInCommit(head)
-    const touchedPrimer = files.some((f) => f === "wiki/handoffs/SESSION_PRIMER.md")
-
-    if (touchedPrimer) {
-      state.armed[sessionID] = "primer"
-      state.commitsSincePrimer[sessionID] = 0
-    } else {
-      const n = (state.commitsSincePrimer[sessionID] ?? 0) + 1
-      state.commitsSincePrimer[sessionID] = n
-      if (n >= COMMITS_WITHOUT_PRIMER_THRESHOLD) {
-        state.armed[sessionID] = "elective"
-      }
-    }
-    saveState(state)
   },
 
   // Round 5, after an independent objective audit's highest-priority finding: a live session
@@ -373,24 +401,47 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     if (!sessionID || !Array.isArray(output?.parts)) return
 
     // Round 27: don't treat this plugin's own synthetic idle-nudge append (see the `event`
-    // hook below) as a genuine new user turn — it would otherwise wrongly clear the
-    // primer/elective arm (FEEDBACK #3's fix) as if the user had actually responded to a
-    // block. Empirically a `noReply: true` append did not fire this hook at all in a live
-    // raw-HTTP test (see the `event` hook's comment) — this guard is kept anyway since that's
-    // observed server behavior, not a documented contract.
+    // hook below) as a genuine new user turn — it would otherwise wrongly acknowledge/pre-
+    // approve a boundary as if the user had actually responded to a block. Empirically a
+    // `noReply: true` append did not fire this hook at all in a live raw-HTTP test (see the
+    // `event` hook's comment) — this guard is kept anyway since that's observed server
+    // behavior, not a documented contract.
     if (typeof input?.messageID === "string" && input.messageID.startsWith("msg_idlenudge")) {
       return
     }
 
-    // FEEDBACK #3 (round 8): this is where the primer/elective gate actually clears now — see
-    // the comment above tool.execute.before's armed check. A new message starting is the only
-    // available proxy for "the user got a chance to respond to the stop-and-ask block message."
     const state = loadState()
-    if (state.armed[sessionID]) {
-      delete state.armed[sessionID]
-      state.commitsSincePrimer[sessionID] = 0
-      saveState(state)
+
+    // Round 28 (#41 redesign, rule b): a session's very first genuine message pre-approves
+    // whatever boundary already exists at that moment, for this session only — without this,
+    // the fix below (rule a) would block the exact fresh-session workflow build.md recommends
+    // ("the next build — ideally in a fresh session"), trading FEEDBACK #41's bypass for a new
+    // false-positive class on every ordinary session start. A session counts as new here iff it
+    // has no entry yet in boundaryAtSessionStart specifically (not any of the other per-session
+    // maps below) — checked once, permanently recorded, never overwritten after.
+    if (!(sessionID in state.boundaryAtSessionStart)) {
+      const boundary = computeBoundary()
+      state.boundaryAtSessionStart[sessionID] = boundary?.sha ?? ""
     }
+
+    // Round 28 (#41 redesign, rule a): this replaces FEEDBACK #3's (round 8) unconditional
+    // clear-on-any-message with one anchored to a fact: a block only gets acknowledged if it
+    // actually fired (recorded in tool.execute.before, at the exact `throw` site) for this
+    // exact boundary SHA, and only once a genuinely new message follows it — the same "new
+    // message = proxy for the user having been asked and responded" reasoning round 8 used,
+    // just no longer applied to boundaries that were never surfaced as a block in the first
+    // place (that gap is what let "continue" disarm an unfired arm and slip the very next
+    // mutating call through).
+    const blockedSha = state.lastBlockedSha[sessionID]
+    if (blockedSha) {
+      if (!state.acknowledged.includes(blockedSha)) {
+        state.acknowledged.unshift(blockedSha)
+        state.acknowledged = state.acknowledged.slice(0, ACKNOWLEDGED_HISTORY_LIMIT)
+      }
+      delete state.lastBlockedSha[sessionID]
+    }
+
+    saveState(state)
 
     const dirty = gitPorcelainStatus()
     if (dirty.length > 0) {
