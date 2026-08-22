@@ -28,16 +28,17 @@ resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
 ## Current sub-task
 
-시작: round 28 fix cycle, item 2 of 7 — row #42's CLI-vs-plugin payload diff (prep step only)
-완료: item 1 (row #41 gate redesign) landed, see row #41. `/tmp/tap.py` (MITM proxy, :8081->:8080)
-     written + smoke-tested against real llama-server — GET and streaming SSE POST both intact.
-⚠️ Jay action needed: run `python3 /tmp/tap.py`, point CLI (`~/.config/kilo/kilo.jsonc`
-     provider.qwen-3-6.options.baseURL) AND Cursor's plugin (separate setting, likely NOT
-     kilo.jsonc) at `http://127.0.0.1:8081`, run one discuss-shaped trial each, `ls /tmp/tap/`
-     to confirm both landed, then restore baseURL to :8080.
-다음: diff the capture for row #42's B/C/D (system msg, mode, sampling, "don't ask" instruction)
-     → item 3 (#41 live n=5 re-measure using the diff's findings).
-참고: full 7-item sequence lives outside this repo (Opus's round-28 plan, not committed here).
+시작: round 28 fix cycle, item 2 of 7 — row #42's CLI-vs-plugin payload diff — DONE, root cause found
+완료: item 1 (row #41) landed. item 2: tap capture done (2 CLI + 2 plugin requests, `kilo export`
+     on both sessions) — root cause identified, not guessed: CLI's default "code" agent has NO
+     `question`/`suggest` tool at all (12 tools vs plugin's 17); `bin/kilo` binary confirms a
+     hardcoded baseline denies `question`/`interactive_terminal`/`plan_enter`/`plan_exit`, and
+     "code" never overrides it. Plugin's agent does, and used it — 2/2 fresh live trials got a
+     real structured question UI, contradicting row #42's old "5/5 FAIL". Full writeup: row #43.
+다음: before more #42-driven fixing, re-check #42's original 5 trials for a `question`-type tool
+     call (not just literal `?` in text) — may already be passing. Then item 3 (#41 live n=5).
+참고: full 7-item sequence lives outside this repo (Opus's plan, not committed). Captures:
+     `/home/jay/sm4-tap-capture/` (durable — 1st attempt in `/tmp` was lost to a mid-session reboot).
 
 ## Current score: turnkey 82/100, structural 81/100 — from round 26, the last FULL audit
 
