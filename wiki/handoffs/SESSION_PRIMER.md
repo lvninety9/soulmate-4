@@ -28,17 +28,16 @@ resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
 ## Current sub-task
 
-시작: round 28 fix cycle, item 1 of 7 — row #41's gate bypass (`wiki/handoffs/FEEDBACK_PENDING.md`)
-완료: `armed` flag removed; boundary now derived from git (`computeBoundary()`), acknowledged only
-     via a real block-then-new-message (rule a) or a session's first message pre-approving a
-     pre-existing boundary (rule b, prevents blocking build.md's fresh-session workflow).
-     Evidence: unit 26/26 (24 orig + 2 new regression tests for #41's exact bypass + the
-     fresh-session exemption), fuzz 42/42, `check-caps.sh` EXIT=0.
-다음: item 2 — prepare `/tmp/tap.py` (MITM capture proxy) so Jay can run baseURL swap + one CLI
-     + one Cursor-plugin trial to diff their payloads (row #42). Prep only; the actual runs are
-     Jay's.
-참고: full 7-item sequence + acceptance conditions live outside this repo (Opus's round-28 fix
-     plan, kept out of soulmate-4 per its own "don't commit the meta-plan" rule).
+시작: round 28 fix cycle, item 2 of 7 — row #42's CLI-vs-plugin payload diff (prep step only)
+완료: item 1 (row #41 gate redesign) landed, see row #41. `/tmp/tap.py` (MITM proxy, :8081->:8080)
+     written + smoke-tested against real llama-server — GET and streaming SSE POST both intact.
+⚠️ Jay action needed: run `python3 /tmp/tap.py`, point CLI (`~/.config/kilo/kilo.jsonc`
+     provider.qwen-3-6.options.baseURL) AND Cursor's plugin (separate setting, likely NOT
+     kilo.jsonc) at `http://127.0.0.1:8081`, run one discuss-shaped trial each, `ls /tmp/tap/`
+     to confirm both landed, then restore baseURL to :8080.
+다음: diff the capture for row #42's B/C/D (system msg, mode, sampling, "don't ask" instruction)
+     → item 3 (#41 live n=5 re-measure using the diff's findings).
+참고: full 7-item sequence lives outside this repo (Opus's round-28 plan, not committed here).
 
 ## Current score: turnkey 82/100, structural 81/100 — from round 26, the last FULL audit
 
