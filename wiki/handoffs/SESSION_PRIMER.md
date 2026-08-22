@@ -28,17 +28,15 @@ resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
 ## Current sub-task
 
-시작: round 28 fix cycle, item 2 of 7 — row #42's CLI-vs-plugin payload diff — DONE, root cause found
-완료: item 1 (row #41) landed. item 2: tap capture done (2 CLI + 2 plugin requests, `kilo export`
-     on both sessions) — root cause identified, not guessed: CLI's default "code" agent has NO
-     `question`/`suggest` tool at all (12 tools vs plugin's 17); `bin/kilo` binary confirms a
-     hardcoded baseline denies `question`/`interactive_terminal`/`plan_enter`/`plan_exit`, and
-     "code" never overrides it. Plugin's agent does, and used it — 2/2 fresh live trials got a
-     real structured question UI, contradicting row #42's old "5/5 FAIL". Full writeup: row #43.
-다음: before more #42-driven fixing, re-check #42's original 5 trials for a `question`-type tool
-     call (not just literal `?` in text) — may already be passing. Then item 3 (#41 live n=5).
-참고: full 7-item sequence lives outside this repo (Opus's plan, not committed). Captures:
-     `/home/jay/sm4-tap-capture/` (durable — 1st attempt in `/tmp` was lost to a mid-session reboot).
+시작: round 28 fix cycle, item 4 of 7 (flow rule) — DONE. Item 5 (row #40 elective-arm check) next
+완료: item 1 (#41 redesign, live 5/5) + item 2 (#42/#43 root cause) archived to `rule-archive.md`
+     "Round 28". Item 4: hot rows compressed to symptom+status+pointer (all ≤300 chars, was up to
+     3,342); `check-caps.sh` now hard-blocks rows over that. Required-read tokens: 9,371 → 6,635.
+다음: item 5 — row #40 (primer-touch claimed via `git add` w/o a real diff). Check whether the
+     existing elective-arm threshold (`COMMITS_WITHOUT_PRIMER_THRESHOLD=4`) already catches this
+     in practice before writing any new mechanism (Opus's own instruction: measure first).
+참고: full 7-item sequence lives outside this repo (Opus's plan). Item-3 script + captures:
+     `/home/jay/sm4-tap-capture/` (durable disk, not `/tmp`).
 
 ## Current score: turnkey 82/100, structural 81/100 — from round 26, the last FULL audit
 
