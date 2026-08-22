@@ -431,3 +431,36 @@ Diff findings, most to least significant:
 **Open question, not yet resolved**: #42's original 5/5-FAIL-via-plugin finding directly conflicts with round 28's fresh 2/2-PASS-via-plugin. Two untested hypotheses: (a) #42's own detection method (grepping raw transcript text for a literal `?`) may be structurally blind to a `question`-type tool call, whose actual prompt/options live in a structured `state.input` field, not plain text — so #42 may have measured "no `?` character" correctly while the model still asked a real question via the proper tool; (b) something changed since #42 was measured (Kilo Code version, Cursor's own provider/agent settings, or which built-in agent was active at the time). Recommended before any further #42-driven fix work: re-check #42's original 5 trials (if the raw sessions/transcripts still exist) for a `question`-type tool-call part specifically, not just literal `?` in text.
 
 Raw captures + `kilo export` dumps kept at `/home/jay/sm4-tap-capture/` (not committed — durable-disk scratch data, same convention as `/tmp/sm4-hit-full` from earlier rounds, just relocated off `/tmp` after this round's own capture loss).
+
+**Row #40 — resolved: elective-arm already covers this, at a real 4-commit cost, no new mechanism** (round 28 item 5):
+
+Measured directly (no live model call needed — pure git mechanics against `computeBoundary()`,
+the SHA-derived redesign from item 1): built a scratch repo, made commits that reproduce row
+#40's exact reported pattern (`git add <file> wiki/handoffs/SESSION_PRIMER.md` where
+SESSION_PRIMER.md's content never actually changes — the model's own claimed command shape from
+the original finding). The elective-arm mechanism is unaffected by what a commit's own `git add`
+argument list claims: `lastPrimerTouchSha()` runs `git log -1 -- wiki/handoffs/SESSION_PRIMER.md`,
+which git itself only returns commits with a real diff to that path — a "fake" claim is
+structurally invisible to it, exactly like a real one would be counted. Confirmed: commits 1-3
+after the last real primer touch left the gate unarmed; commit 4 armed it correctly
+(`[subtask-gate] 4 commits have landed without any of them touching...`). This exactly matches
+`COMMITS_WITHOUT_PRIMER_THRESHOLD=4`, so there is no hidden bug in the elective-arm itself.
+
+**Decision**: the real question was never "is this detected" (yes, mechanically, was already
+correct) but "is 4 commits too late for the specific sub-task size row #40 was based on" — a
+1-2-file sub-task, per Opus's own framing. It is too late for that specific case: a sub-task
+that closes in 1-2 commits will finish and hand back control before the elective-arm ever
+arms, so a fake primer-claim inside it goes unstopped for the rest of that exchange. But
+lowering the threshold to cover it (e.g. to 2) would create a new, more common false-positive
+class: `build.md` itself defines normal multi-file sub-task work as one commit per file
+BEFORE the closing primer-touch commit — a completely legitimate, in-progress 2-3-file
+sub-task would trip a threshold=2 gate before it ever reaches its own real closing commit,
+interrupting normal work more often than the narrow row #40 pattern actually occurs (a fake
+claim inside a *tiny* sub-task specifically). Given `subtask-gate.ts`'s own long-standing
+design comment already states the threshold is "not a universal constant, tune to how large
+your project's real sub-tasks tend to run" — not touching it is the conservative default, and
+a narrower fix (mechanically comparing a mutating tool call's own file arguments against its
+resulting commit's `git diff-tree`, the same "check the tool-call argument, not prose" pattern
+this file already uses elsewhere) would be the right next move IF this specific pattern
+recurs live again, not preemptively. **No code change made this round** — row #40 closed as a
+documented, accepted, narrow gap, reversible if Jay/Opus wants the narrower fix instead.
