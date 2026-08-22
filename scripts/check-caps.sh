@@ -32,6 +32,14 @@ FIXED_RULES_ROW_CAP=10
 FILE_MAP_ROW_CAP=10
 FEEDBACK_OPEN_ROW_CAP=25
 FEEDBACK_HISTORY_LINE_CAP=40
+# Round 28 item 4 (flow rule, external review): a per-row char cap isn't a size limit on the
+# FILE (FEEDBACK_PENDING_CHAR_CAP already does that) — it's a limit on how much a single hot row
+# is ALLOWED to carry before the narrative belongs in wiki/rule-archive.md instead. Without this,
+# the file-level char cap alone still lets one round's discovery narrative accumulate hot-table
+# bloat right up to the ceiling, the exact pattern that pushed required-read tokens from 6,978
+# (round 28 S5) back up past 8,000 within the same round (rows #40-#42, ~1,500 chars/row) — this
+# catches that at the row level, at write time, not after the file cap trips.
+FEEDBACK_ROW_CHAR_CAP=300
 
 # Round 28 (external review, FEEDBACK_PENDING row #39, S4): every cap above is line/row-based,
 # and a line/row count says nothing about how much text is actually inside each line — a table
@@ -806,6 +814,21 @@ else
   for f in "${feedback_files[@]}"; do
     check_fence_parity "$f"
     check_chars "$f" "$FEEDBACK_PENDING_CHAR_CAP" "$f total"
+
+    # Flow rule (round 28 item 4): each open-table data row (starts "| <number or N/M> |") over
+    # FEEDBACK_ROW_CHAR_CAP chars means real narrative belongs in wiki/rule-archive.md, not here
+    # — a real block, "기계적으로 강제" per item 4's own spec, same as every other char cap in
+    # this file. Move the row's evidence/reproduction/root-cause text to a "Round N" section in
+    # wiki/rule-archive.md and leave only symptom + status + a pointer here.
+    while IFS= read -r row_line; do
+      [ -z "$row_line" ] && continue
+      row_len=${#row_line}
+      if [ "$row_len" -gt "$FEEDBACK_ROW_CHAR_CAP" ]; then
+        row_num=$(printf '%s' "$row_line" | sed -E 's/^\| *([0-9]+(\/[0-9]+)?) *\|.*/\1/')
+        echo "OVER CAP: $f row #$row_num is $row_len chars, cap $FEEDBACK_ROW_CHAR_CAP — move its full narrative to wiki/rule-archive.md (\"Round N\" section) and leave a pointer, per the flow rule (item 4)"
+        status=1
+      fi
+    done < <(norm "$f" | grep -E '^\| *[0-9]+(/[0-9]+)? *\|')
 
     fp_result=$(norm "$f" | awk '
       {
