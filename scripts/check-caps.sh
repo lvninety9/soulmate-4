@@ -62,23 +62,12 @@ status=0
 
 norm() { sed 's/\r$//' "$1" 2>/dev/null || true; }
 
-check_lines() {
-  local file="$1" cap="$2" label="$3"
-  if [ ! -f "$file" ]; then
-    echo "skip: $file not found"
-    return 0
-  fi
-  local lines
-  lines=$(norm "$file" | wc -l | tr -d ' ')
-  if [ "$lines" -gt "$cap" ]; then
-    echo "OVER CAP: $label ($file) is $lines lines, cap $cap — prune before committing"
-    status=1
-  else
-    echo "ok: $label ($file) $lines/$cap lines"
-  fi
-}
-
 check_lines_warn() {
+  # Round 29 item 5 (check-caps.sh consolidation, work order): the old check_lines(file, cap,
+  # label) was this function with warn==cap — when warn equals cap, the WARN branch below can
+  # never fire (its "lines>warn but not already caught by lines>cap" window is empty), so a
+  # 3-arg call collapses to exactly check_lines's old behavior with byte-identical messages.
+  # Regression-proven in tests/check-caps.regression.test.mjs (both branches, same wording).
   local file="$1" warn="$2" cap="$3" label="$4"
   if [ ! -f "$file" ]; then
     echo "skip: $file not found"
@@ -183,12 +172,10 @@ check_section() {
     return
   fi
   value=$(printf '%s' "$row" | awk -F'\t' -v c="$value_col" '{ print $c }')
-  if [ "$value" -gt "$cap" ]; then
-    echo "OVER CAP: $label in $file has $value $unit, cap $cap — $hint"
-    status=1
-  else
-    echo "ok: $label ($file) $value/$cap $unit"
-  fi
+  # Round 29 item 5: this used to duplicate report_count()'s exact if/else inline (same OVER
+  # CAP / ok message format, byte for byte) — call it instead now that it's already defined
+  # below in the file (bash resolves the function name at call time, not definition order).
+  report_count "$file" "$label" "$cap" "$unit" "$value" "$hint"
 }
 
 report_count() {
@@ -286,13 +273,19 @@ check_bootstrap_no_uncommitted() {
 # dead phrase with the "Project overview" section's current self-description — still just a
 # string match (same class of fragility, not eliminated), but now true of the file this check
 # actually runs against.
-check_bootstrap_wiki_is_adapted() {
-  local f="wiki/handoffs/SESSION_PRIMER.md"
-  if [ -f "$f" ] && norm "$f" | grep -qF "session-handoff harness template for coding agents"; then
-    echo "BOOTSTRAP FAIL: $f still has this seed repo's own self-description (\"session-handoff harness template for coding agents\") — looks like the raw clone's wiki/ is being used as the project instead of copying templates/SESSION_PRIMER.md.template and writing this project's own state into it"
+# Round 29 item 5 (check-caps.sh consolidation, work order): generic "file F still contains
+# forbidden literal string S" check — check_bootstrap_wiki_is_adapted and
+# check_bootstrap_placeholders_filled were this exact shape (find-a-literal-string-and-FAIL) with
+# only the file/needle/messages differing; both are now single calls to this below
+# (run_bootstrap_checks). Regression-proven in tests/check-caps.regression.test.mjs against both
+# original scenarios (SESSION_PRIMER.md untouched, AGENTS.md placeholder left in).
+check_bootstrap_forbidden_string() {
+  local file="$1" needle="$2" fail_msg="$3" ok_msg="$4"
+  if [ -f "$file" ] && norm "$file" | grep -qF "$needle"; then
+    echo "BOOTSTRAP FAIL: $fail_msg"
     status=1
   else
-    echo "ok: bootstrap — $f doesn't look like this seed repo's own untouched wiki"
+    echo "ok: $ok_msg"
   fi
 }
 
@@ -726,16 +719,6 @@ check_stale_language() {
   fi
 }
 
-check_bootstrap_placeholders_filled() {
-  local bad=0
-  if [ -f "AGENTS.md" ] && grep -qF "[project name]" "AGENTS.md"; then
-    echo "BOOTSTRAP FAIL: AGENTS.md still has the literal placeholder \"[project name]\" -- fill in the real project name"
-    status=1
-    bad=1
-  fi
-  [ "$bad" = 0 ] && echo "ok: bootstrap — AGENTS.md placeholders filled in"
-}
-
 run_bootstrap_checks() {
   check_bootstrap_is_repo_root
   check_bootstrap_not_in_tmp
@@ -746,8 +729,14 @@ run_bootstrap_checks() {
   check_prompts_present
   check_feedback_template_header
   check_bootstrap_no_uncommitted
-  check_bootstrap_wiki_is_adapted
-  check_bootstrap_placeholders_filled
+  check_bootstrap_forbidden_string "wiki/handoffs/SESSION_PRIMER.md" \
+    "session-handoff harness template for coding agents" \
+    "wiki/handoffs/SESSION_PRIMER.md still has this seed repo's own self-description (\"session-handoff harness template for coding agents\") — looks like the raw clone's wiki/ is being used as the project instead of copying templates/SESSION_PRIMER.md.template and writing this project's own state into it" \
+    "bootstrap — wiki/handoffs/SESSION_PRIMER.md doesn't look like this seed repo's own untouched wiki"
+  check_bootstrap_forbidden_string "AGENTS.md" \
+    "[project name]" \
+    "AGENTS.md still has the literal placeholder \"[project name]\" -- fill in the real project name" \
+    "bootstrap — AGENTS.md placeholders filled in"
   local f
   for f in AGENTS.md wiki/PROJECT_BACKGROUND.md wiki/handoffs/SESSION_PRIMER.md; do
     if [ -f "$f" ]; then
@@ -773,7 +762,7 @@ if [ "${1:-}" = "--bootstrap-check" ]; then
   exit $status
 fi
 
-check_lines "README.md" "$README_CAP" "README.md"
+check_lines_warn "README.md" "$README_CAP" "$README_CAP" "README.md"
 check_chars "README.md" "$README_CHAR_CAP" "README.md"
 check_prompts_present
 check_fence_parity "AGENTS.md"
@@ -783,9 +772,9 @@ check_section "AGENTS.md" "## File map" "$FILE_MAP_ROW_CAP" "File Map" "rows"
 check_section "AGENTS.md" "## Learned Rules" "$LEARNED_RULES_CAP" "Learned Rules" "entries"
 check_section "AGENTS.md" "## Fixed Rules" "$FIXED_RULES_ROW_CAP" "Fixed Rules" "rows"
 check_template_drift
-check_lines "wiki/PROJECT_BACKGROUND.md" "$PROJECT_BACKGROUND_CAP" "PROJECT_BACKGROUND.md"
+check_lines_warn "wiki/PROJECT_BACKGROUND.md" "$PROJECT_BACKGROUND_CAP" "$PROJECT_BACKGROUND_CAP" "PROJECT_BACKGROUND.md"
 check_chars "wiki/PROJECT_BACKGROUND.md" "$PROJECT_BACKGROUND_CHAR_CAP" "PROJECT_BACKGROUND.md"
-check_lines "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CAP" "SESSION_PRIMER.md"
+check_lines_warn "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CAP" "$SESSION_PRIMER_CAP" "SESSION_PRIMER.md"
 check_chars "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CHAR_CAP" "SESSION_PRIMER.md"
 check_primer_subtask_heading
 check_primer_handoff_reminder
