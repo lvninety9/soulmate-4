@@ -637,6 +637,40 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 17 (round 29, FEEDBACK #46, axis-C-discovered gate bypass): `background_process` used
+  // to be entirely absent from MUTATING_TOOLS — a real complexity-ladder trial found this live,
+  // read subtask-gate.ts's own source (via the never-blocked `read` tool), and used
+  // `background_process` to write files and `git commit`, bypassing an armed gate completely.
+  // Regression check: it must now be blocked exactly like `write`/`bash`/etc once a boundary is
+  // open, with the same specific block message (not just "did it throw").
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s17" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "background_process", sessionID: "s17" },
+        { args: { command: "echo pwned > foo.txt && git add -A && git commit -m pwned" } }
+      )
+      console.log("FAIL: T17 expected background_process to be blocked by the armed primer gate, but it went through unblocked")
+      failures++
+    } catch (e) {
+      if (/SESSION_PRIMER\.md was just committed/.test(String(e.message || e))) {
+        console.log("ok: T17 background_process is now a MUTATING_TOOL — blocked by the armed gate, same as write/bash")
+      } else {
+        console.log("FAIL: T17 blocked, but for the wrong reason:", e.message)
+        failures++
+      }
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
