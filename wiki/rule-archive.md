@@ -464,3 +464,76 @@ resulting commit's `git diff-tree`, the same "check the tool-call argument, not 
 this file already uses elsewhere) would be the right next move IF this specific pattern
 recurs live again, not preemptively. **No code change made this round** — row #40 closed as a
 documented, accepted, narrow gap, reversible if Jay/Opus wants the narrower fix instead.
+
+## Round 28 item 6 — bench scoring redesign (`scripts/harness-integration-test.sh`), result-based not path-based
+
+Rewrote Steps 5/6's pass conditions per the external review's own H1 standard ("score what the
+model actually did, not whether it walked this script's exact path") and applied 6-B
+(`--temp 0.0` confirmed via `systemctl cat llama.service` — greedy decoding means N identical-
+prompt trials are n=1, not n=N).
+
+**Changes**:
+- Step 5 (gate blocks live): now N/A, not scored as pass/fail, unless Step 4 actually landed a
+  commit that really touched `wiki/handoffs/SESSION_PRIMER.md` (checked via `git diff-tree`, the
+  same mechanism `subtask-gate.ts` itself uses — not the model's own claim). Testing "does the
+  gate block" is meaningless without a real armed boundary; scoring it as a bare FAIL when the
+  premise was never met is exactly the flaw row #41's original 5-trial run had (mixed "gate
+  didn't block" with "there was nothing to block" into one number).
+- Step 6 (build: per-file commits): N/A if zero new commits landed this turn (nothing to grade —
+  correct model behavior if a prior turn already finished the work). If commits did land, the
+  pass condition is now "every new commit touches exactly one file" (`git diff-tree --name-only`
+  count == 1 for each), not the old "2+ commits total" (which could pass a lucky 2-commit split
+  that still bundled multiple files per commit — the old check verified quantity, not the actual
+  "commit per file" property build.md requires).
+- 6-B: Steps 3-6 now cycle through 5 fixed, distinct 3-file CLI-tool scenarios (`SCENARIOS` array
+  in the script itself — wordcount/tempconvert/pwgen/csvcount/slugify), rather than the same
+  word-counter prompt every trial. Steps 1-2 stay fixed (they check deterministic facts about
+  this repo's own bootstrapped template — there's no meaningful alternate "input" to vary there,
+  unlike Steps 3-6's open-ended judgment calls).
+- Confirmed, not changed: the trial loop (`for i in $(seq 1 "$N")`) was already sequential;
+  `llama.service`'s `-np 1` (one inference slot) would serialize concurrent trials anyway even
+  if it weren't.
+
+**Live-verified the redesign actually changes outcomes, not just its own code path** (1 fresh
+trial, `wordcount` scenario, real `kilo run` + local Qwen): the model answered Step 3's
+clarifying-question turn by immediately implementing and committing all 3 files (correct
+per-file commits: 4 real commits for 3 files, one file got a fix-and-recommit) during the
+*human's scope-answer* turn, before ever hearing the word "design" — then, when asked "design",
+correctly noted the ordering was backwards and asked how to proceed (Step 4: genuinely 0/1, no
+primer commit landed — a real, pre-existing self-serve-design-doesn't-fire-reliably instance,
+not a scoring bug). Because Step 4 never armed a real boundary, Step 5 correctly scored N/A
+(0/0) instead of what the **old** logic would have done: send "continue" regardless, find
+nothing blocked (nothing was armed), and count that as a bare FAIL implying the gate itself is
+broken. Step 6 similarly correctly scored N/A (0/0) instead of what the **old** logic would have
+done: see 0 new commits, fail the `>=2` check, count as FAIL implying the model didn't build
+properly — when it had already built everything, correctly, one turn earlier. Same live trial,
+same transcript: old scoring reads as 2 gate/build "bugs," new scoring correctly reads as 2 N/A
+(nothing to grade) plus 1 real, already-known self-serve-design finding.
+
+No unit test exists for this script (it drives live `kilo run` + a real local model by design,
+same as `harness-integration-test.sh`'s own header states) — correctness here is demonstrated
+by the live trial's before/after re-scoring above, not a mocked test.
+
+## Round 28 item 7 (prep only) — Q3 vs Q4 quantization, baseline recorded, swap awaits Jay
+
+Pre-swap checklist per the plan: `ps aux`/GPU schedule clear (no longform/tts_runner/ComfyUI/
+music_pipeline running, checked 2026-08-23 ~09:00-09:30 KST window), Q4 file present and
+complete (`/media/jay/D/models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`, 22,134,528,992 bytes ≈ 22.13GB,
+no `.part` suffix).
+
+**Q3 baseline (before any swap)**:
+- VRAM: 3,604 MiB (`nvidia-smi --query-compute-apps`)
+- RSS: 18,887,532 KB (≈ 18.4 GB), confirmed `--mlock` in the real running command line
+- Full command line confirmed matching `PROJECT_BACKGROUND.md`'s documented invocation exactly:
+  `-c 65536 -n -1 --temp 0.0 --repeat-penalty 1.0 -np 1 --flash-attn on -b 4096
+  --cache-type-k q8_0 --cache-type-v q8_0 -ngl 99 -ncmoe 64 --mlock --cache-ram 2048`
+- tok/s (real completion, 110 output tokens): 40.12 tok/s generation, 60.19 tok/s prompt
+  processing
+
+**Not done this round, deliberately**: the actual `llama.env` edit + `systemctl restart llama`
+swap. The plan explicitly requires this step happen with Jay present (`llama.service` is
+Hermes's shared production backend, not a throwaway test service) — everything up to that line
+is done and verified; the swap itself, the Q4 measurement, and the accept/reject decision
+(VRAM ≤~3,700 → adopt; ≥~4,100 → needs (A) llama joins the GPU lock rotation or (B) raise
+`-ncmoe`) all wait for that session. Rollback is a one-line `llama.env` revert + restart, same
+as the plan's own note on why this experiment is low-risk to attempt.
