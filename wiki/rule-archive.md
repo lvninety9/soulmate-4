@@ -590,3 +590,150 @@ Raw prompt sets, full model outputs, and the extracted+executed game/webpage fil
 `quality-{Q3,Q4,Q3-complex,Q4-complex}.json`, `tictactoe_{Q3,Q4}.py`, `portfolio_{Q3,Q4}.html`) —
 not committed to this repo (durable-disk scratch evidence, same convention as this round's other
 capture data).
+
+## Round 29 — item 1 (#45 gate git-failure fail-closed), item 6 axis B (first ON/OFF delta) + axis C (complexity ladder, live-caught #46 gate bypass + own script bugs)
+
+**Row #45 — subtask-gate fail-open on git command failure, closed**: `currentHead()`,
+`lastPrimerTouchSha()`, and `commitCountSince()` each independently caught any git failure
+(corrupt repo, mid-rebase, permissions, timeout — not just "not a repo yet") into `null`/`0`,
+indistinguishable from "no boundary." All three now route through one `gitExec()` that throws
+`GitCommandError` on real failure; a new `isInsideWorkTree()` is the only place allowed to say
+"not a repo" (pass silently — the one legitimate case). `computeBoundary()` returns a third
+outcome (`GitFailure`) distinct from `null`; both call sites (the block in
+`tool.execute.before`, the pre-approval bookkeeping in `chat.message`) fail CLOSED on it, naming
+the specific failing command in the block message instead of silently passing. Three new tests
+against **real** git failures, not mocks: (1) a directory with no `.git` at all → not blocked
+(the one legitimate pass-through). (2) `git init` with zero commits (unborn HEAD) → `git
+rev-parse HEAD` genuinely fails → blocked, message names `rev-parse HEAD`. (3)
+`commitCountSince()` isolated via a new `__internal` test export and a syntactically-valid but
+nonexistent `fromSha` (`git rev-list --count <bogus>..<head>` → real "Invalid revision range"
+error) — object corruption couldn't isolate this helper alone, live-confirmed: deleting HEAD's
+own commit object breaks `lastPrimerTouchSha()`'s `git log` call first every time, since
+`rev-list`'s object needs are a strict subset of `git log`'s (log needs tree objects to diff
+paths per-commit; rev-list only needs commit objects to walk parents) — `lastPrimerTouchSha()`
+runs first inside `computeBoundary()`, so a corrupted object always trips it before
+`commitCountSince()` gets a chance to fail on its own. 29/29 unit, 42/42 fuzz. Live-verified via
+a real bootstrapped `kilo run` multi-file task under the real Bun runtime (not just Node's
+`--experimental-strip-types`): 3 correct per-file commits landed, fresh-session boundary
+pre-approval worked correctly — the underlying daemon (`kilo serve`) kept completing the task
+server-side even after the driving CLI client was killed by a shell timeout, which is itself
+worth remembering for future live-verification budgeting (a killed client ≠ a stopped task).
+
+**Item 4 — SESSION_PRIMER.md's own flow rule**: `SESSION_PRIMER.md` had drifted from its own
+stated role ("current-state only, no why-narrative") — round 27/28's code-state paragraph, 4
+meta-lessons, and the round 28 fix-cycle summary had all accumulated there, hitting 150/150
+lines (the hard cap) and 49% of required-read token budget. Moved verbatim-in-substance
+(condensed, not summarized away) to `SESSION_MASTER.md`'s "Round 27/28 narrative" section — same
+flow-rule round 28 already applied to `FEEDBACK_PENDING.md` (row #39 S5). Meta-lesson 4 ("assert
+the specific effect, not just did it throw") promoted to `AGENTS.md`'s new L14, since
+`tests/subtask-gate.test.mjs` cites it directly (was "primer meta-lesson 4" in test comments,
+now "AGENTS.md L14"). Required-read tokens (real local `/tokenize`): 6,535 → 5,563 (-15%);
+`SESSION_PRIMER.md` alone 3,232 → 2,192 tokens (-32%), line count 150/150 → 101/150 (67% of cap,
+under item 4's own 80% target).
+
+**Item 5 — `check-caps.sh` consolidation, 3 provably-safe merges**: 875 lines, never shrunk in
+28 rounds. (1) `check_lines()` deleted — it was `check_lines_warn()` with `warn==cap`, where the
+WARN branch can structurally never fire (its "over warn but not over cap" window is empty when
+the two are equal); its 3 call sites now pass `check_lines_warn(file, cap, cap, label)` directly.
+(2) `check_section()`'s inline OVER CAP/ok if-else was byte-identical duplicated logic to
+`report_count()` (same exact message format both branches) — now just calls it. (3)
+`check_bootstrap_wiki_is_adapted()` + `check_bootstrap_placeholders_filled()` merged into one
+generic `check_bootstrap_forbidden_string(file, needle, fail_msg, ok_msg)` — both were "does file
+F contain literal string S," differing only in file/needle/messages. Verified byte-identical
+stdout on the real repo's normal-mode run before/after (only the script's own self-reported line
+count differs, 875→864, as expected) + a new 12-assertion regression test
+(`tests/check-caps.regression.test.mjs`) covering both branches of all three merges with their
+exact original messages.
+
+**Item 6 axis B — first-ever harness ON vs OFF delta, `scripts/harness-integration-test.sh`
+`HARNESS_OFF=1`**: added an env-var toggle that, after the normal bootstrap, removes
+`AGENTS.md`+`.kilo/plugins/subtask-gate.ts` and commits that state with `--no-verify` (the
+installed pre-commit hook is `check-caps.sh`'s own bootstrap-completeness check — correct for
+normal use, but this commit's entire point is deliberately producing that "incomplete" state, so
+it must bypass rather than satisfy it; caught live — the first version without `--no-verify`
+left the deletion silently uncommitted, `set -uo pipefail` not `-e`). Same 5 `SCENARIOS`, same
+scoring both runs. First real numbers (N=5 each, ~24m ON + ~1h02m OFF, real GPU contention with
+a live Hermes `shorts-economics` job observed and tolerated mid-ON-run since it was brief, unlike
+the earlier hour-long longform job this run explicitly waited out first):
+
+| Step | ON | OFF |
+|---|---|---|
+| 1 (AGENTS.md auto-load) | 5/5 | 0/5 |
+| 2 (rule-zero grep, not whole-read) | 5/5 | 3/5 |
+| 3 (discuss asks, doesn't build) | 5/5 | 5/5 |
+| 4 (design writes+commits sub-task) | 0/5 | 0/5 |
+| 6 (build: per-file commits) | 1/1 (4 N/A) | 0/0 (5 N/A) |
+
+Clearest real delta: Step 1 (structural — AGENTS.md existing at all) and Step 2 (+2/5, rule-zero
+grep habit). Step 3 shows **zero** delta (5/5 both) — a real methodological limitation, not a
+harness-adds-nothing finding: the script's own Step 3 always prepends a literal `"discuss: "`
+prefix to the prompt in both modes, so the model doesn't need to have read AGENTS.md's protocol
+table to know to ask questions — it's following the literal instruction either way, meaning this
+step doesn't actually isolate the harness's own discuss-routing value. **Step 4 is 0/5 in BOTH
+modes** — harness-independent, meaning "design" landing a real primer-touching commit isn't
+reliably working right now regardless of AGENTS.md's presence; flagged as a real gap for a future
+round to dig into (separate from axis B's own comparative question). This ON/OFF delta table is
+what row #39/item 6's own framing said should finally replace the stale 82/81 turnkey/structural
+score — re-run identically in later rounds for trend, same reproducibility reasoning as
+`SCENARIOS` itself.
+
+**Item 6 axis C — complexity ladder, first run + 2 real findings, `scripts/complexity-ladder-
+test.sh` (new script)**: 5 fixed levels inside one bootstrapped project per trial (1 file → 3
+files → 3 files+refactor → +tests → multi-sub-task chain), stopping each trial's ladder at its
+first real failure (the "knee"). N=5, ~41 minutes total.
+
+Raw first-run numbers (**Level 4/5 invalidated by 2 script bugs found and fixed the same
+session, see below — do not cite these as real**): L1 5/5, L2 5/5, L3 3/5, L4 0/3 (bug-corrupted),
+L5 N/A (0 reached). Knee distribution: 2 trials stuck at L2→L3 (the gate deadlock below), 3
+trials read as stuck at L3→L4 (actually a script bug, not a model failure — see below).
+
+**Finding 1 (row #46, fixed) — real gate bypass via `background_process`**: in one of the 2
+trials that failed to progress past Level 2, the elective gate armed mid-turn (exactly 4 commits
+— Level 1 + Level 2's 3-file split — landed without ever touching `SESSION_PRIMER.md`, tripping
+`COMMITS_WITHOUT_PRIMER_THRESHOLD=4`). The model then got stuck: every mutating call (`write`,
+`edit`, `bash` — including read-only-*intent* bash like `git status`/`pytest`, since the gate
+can't distinguish those from a real mutation and blocks all of `bash` uniformly once armed) threw
+the same block message, for 16 tool-call attempts in that one trial's log. It explicitly read
+`subtask-gate.ts`'s own source via the never-blocked `read` tool, correctly reasoned
+`background_process` (a tool that runs an arbitrary shell command asynchronously) was **not** in
+`MUTATING_TOOLS`, and used it to write the docstring change and `git commit` — a complete,
+successful bypass of the gate, in the same round item 1 had just hardened this exact mechanism
+against a different fail-open vector (git command failures). Fixed: `background_process` added
+to `MUTATING_TOOLS`, treated as fully mutating like `bash` regardless of the specific command.
+New unit test T17 (30/30 unit, 42/42 fuzz). Full row: `FEEDBACK_PENDING-archive.md` #46.
+
+**Finding 2 (row #47, open, p2) — mid-turn retry storm, not a bypass but wasteful**: the *other*
+knee=2 trial (and both L3-log trials before the fix) hit the identical armed-gate deadlock but
+did **not** discover `background_process` — instead retried 4-20 different blocked tool-call
+variants (write, multiple bash phrasings, git status, git diff, pytest) within the same turn,
+none succeeding, before the turn simply ended without landing the requested change. The block
+message's own instruction ("STOP now... ask the user whether to continue") is not reliably
+followed — the model treats a persistent block as a puzzle to route around rather than a signal
+to stop, similar in spirit to row #6's "model self-report unreliability" ceiling but distinct
+(this is retry *behavior*, not self-report *accuracy*). Not a security-relevant bypass now that
+`background_process` is closed — worst case is now "wastes the rest of a turn's budget," not
+"silently mutates unchecked." Left open, p2: a future round could try hardening the block
+message's wording (same "tried and failed" honesty standard as row #6/#38's tag-wrap experiment
+before claiming any fix), or accept this as an inherent characteristic like #6.
+
+**Two real script bugs in `complexity-ladder-test.sh` itself, found by its own first live run,
+both fixed same session**: (1) `grep -c PATTERN file || echo 0` — `grep -c` still exits 1 ("no
+match") even after successfully printing "0", so the `||` fallback ALSO fired, producing "0\n0"
+(collapsed to "0 0" by command substitution), crashing the later `-gt` integer comparison —
+reproduced live in 3/5 trial logs ("integer expression expected"). Fixed with `${var:-0}` instead
+of a chained `|| echo`. (2) The original `^def test_` regex is blind to class-based test
+organization (`class Foo:` with indented `def test_...` methods) — a real trial's test file used
+exactly that style throughout (16 tests via `class TestCountWords/TestCountLines/TestCountChars`),
+so both before/after counts silently read 0 regardless of real test count, making a genuine Level
+4 pass (16→17 tests, confirmed via real git history) look like a failure. Replaced the regex
+entirely with `count_tests()`, which counts real `pytest --collect-only` items — correct
+regardless of function/class/parametrized style, verified against the same trial's real git
+history (16 before Level 4's commit, 17 after, matching what actually happened). **A corrected
+re-run with the fixed script is needed for real Level 3/4/5 numbers** — not done this session
+(GPU time already extensive: axis B ~1h30m wall (incl. its own initial GPU-clear wait) + this
+axis C run ~1h19m wall (incl. a 38-minute wait for a live Hermes Balm longform job)); left for
+whenever GPU time is next available.
+
+Raw transcripts and both benches' full logs kept at `/tmp/sm4-axisB-on/`, `/tmp/sm4-axisB-off/`,
+`/tmp/sm4-ladder/` (not committed — throwaway `/tmp` scratch, same convention as every other
+live-trial capture this project uses; will be lost on reboot, re-run to reproduce).
