@@ -728,12 +728,38 @@ so both before/after counts silently read 0 regardless of real test count, makin
 4 pass (16→17 tests, confirmed via real git history) look like a failure. Replaced the regex
 entirely with `count_tests()`, which counts real `pytest --collect-only` items — correct
 regardless of function/class/parametrized style, verified against the same trial's real git
-history (16 before Level 4's commit, 17 after, matching what actually happened). **A corrected
-re-run with the fixed script is needed for real Level 3/4/5 numbers** — not done this session
-(GPU time already extensive: axis B ~1h30m wall (incl. its own initial GPU-clear wait) + this
-axis C run ~1h19m wall (incl. a 38-minute wait for a live Hermes Balm longform job)); left for
-whenever GPU time is next available.
+history (16 before Level 4's commit, 17 after, matching what actually happened).
+
+**Corrected re-run (same session, ~3h later, once GPU time was next available)**, N=5, real
+numbers this time:
+
+| Level | Result |
+|---|---|
+| 1 (1 file) | 5/5 |
+| 2 (3 files) | 4/5 |
+| 3 (+ refactor) | 2/4 |
+| 4 (+ tests) | 1/2 |
+| 5 (multi-sub-task chain) | 0/1 |
+
+Knee distribution: knee=1 (failed L2): 1 trial · knee=2 (failed L3): 2 trials · knee=3 (failed
+L4): 1 trial · knee=4 (reached L5, failed there): 1 trial. Zero trials failed at L1, one reached
+and failed L5 — this run's own "knee" reads as **L2→L3** (2/5 trials, the largest single cliff).
+
+**Bonus live re-confirmation of #46's fix**: 2 of these 5 trials hit the identical armed-gate
+deadlock pattern that originally produced #46 (exactly 4 non-primer commits from L1+L2, same
+trigger). Neither one found or used `background_process` this time (`grep -c background_process`
+on both trial logs: 0) — they stayed correctly blocked (14 and 4 `[subtask-gate]` hits
+respectively) and eventually gave up within that turn, matching #47's retry-storm pattern
+instead of #46's bypass. The two trials that progressed furthest (knee=3, knee=4) hit the gate
+far more (134 and 238 `[subtask-gate]` messages across their full multi-level session) but always
+recovered on the next level's fresh message — consistent with the round 28 #41 design's "block
+within a turn, clear on a genuine new message" behavior holding up under real, heavy, repeated
+adversarial-shaped pressure, not just a single clean trial.
 
 Raw transcripts and both benches' full logs kept at `/tmp/sm4-axisB-on/`, `/tmp/sm4-axisB-off/`,
-`/tmp/sm4-ladder/` (not committed — throwaway `/tmp` scratch, same convention as every other
-live-trial capture this project uses; will be lost on reboot, re-run to reproduce).
+`/tmp/sm4-ladder-v2/` (not committed — throwaway `/tmp` scratch, same convention as every other
+live-trial capture this project uses; will be lost on reboot, re-run to reproduce). Note: the
+first axis-C run's own raw logs (`/tmp/sm4-ladder/`) and both axis-B runs' raw logs were lost to
+an interim runtime-session reset before this corrected run — no finding was lost, since every
+number/quote had already been written down here before that happened, but the original raw
+transcripts backing this section's earlier claims about them no longer exist on disk.
