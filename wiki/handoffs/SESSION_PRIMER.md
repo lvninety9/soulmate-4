@@ -26,16 +26,22 @@ checkpoint at round 26; rounds 27-29 are targeted fix cycles within that pause.
      failure instead of silently treating it as "no boundary" (see rule-archive.md "Round 29").
      item 4 — this file's own flow-rule pass. item 5 — check-caps.sh 875→864 lines, 3 provably-
      safe merges, 12-assertion regression test. item 6 axis B — first-ever harness ON/OFF delta
-     bench (table below). item 6 axis C — complexity-ladder bench, first run + 2 real findings
-     (#46 fixed, #47 open — see below) + 2 script bugs found and fixed in the bench itself.
-다음: axis C needs a CORRECTED re-run (its own Level 4/5 numbers from the first run are
-     invalidated by the script bugs, now fixed — see below) once GPU time is next available.
-     After that: item 2/3/6-axis-A remain Jay-direct-execution (work order flags them
-     explicitly) — stop and report on reaching them.
+     bench (table below). item 6 axis C — complexity-ladder bench, run TWICE (first run's L4/5
+     invalidated by 2 script bugs, both fixed same session; corrected re-run has real numbers,
+     table below) — #46 fixed + live-reconfirmed under the corrected re-run (2 trials hit the
+     same deadlock, neither found the bypass this time), #47 still open.
+     opus_round29_execution_report.md + opus_round29_review_prompt.md written to ~/.hermes/
+     (not this repo) for Jay to hand to Opus.
+다음: round 29's Claude-executable scope is done. item 2/3/6-axis-A remain Jay-direct-
+     execution (work order flags them explicitly) — stop and report on reaching them. Open
+     items for whoever picks this up next: #47 (fix or accept?), axis B Step 3/4's measurement
+     reliability, axis C Level 5 has only 1 data point so far.
 참고: item 1's live regression check + axis B/C's live benches all ran in throwaway /tmp
-     bootstraps, not this repo, not durable — logs at /tmp/sm4-r29-live, /tmp/sm4-axisB-{on,off},
-     /tmp/sm4-ladder (lost on reboot). Numbering note: #43 was folded into row #42's own entry
-     (CLI-vs-plugin root cause, both cover the same investigation) — not a gap.
+     bootstraps, not this repo, not durable. A runtime-session reset mid-round wiped the first
+     axis-C run's + both axis-B runs' raw logs — no finding was lost (everything was already
+     written down here/rule-archive.md first), but don't expect those specific /tmp paths to
+     still exist. Corrected axis C's logs: /tmp/sm4-ladder-v2/. Numbering note: #43 was folded
+     into row #42's own entry (CLI-vs-plugin root cause, both cover the same investigation).
 ```
 
 ## Item 6 axis B — harness ON vs OFF delta (first-ever measurement, replaces stale 82/81)
@@ -55,23 +61,40 @@ Step 3's zero delta is a bench limitation (script hardcodes a `"discuss: "` pref
 not a real "harness adds nothing" finding. **Step 4 = 0/5 in BOTH modes** — a real, harness-
 independent gap worth a future round's attention. Full analysis: `rule-archive.md` "Round 29".
 
-## Item 6 axis C — complexity ladder (first run; Level 4/5 numbers need a re-run)
+## Item 6 axis C — complexity ladder (corrected numbers, N=5)
 
 New `scripts/complexity-ladder-test.sh`: 5 escalating levels (1 file → 3 files → +refactor →
-+tests → multi-sub-task chain) in one project per trial, stops at the first real failure. N=5:
-L1 5/5, L2 5/5, L3 3/5, **L4/L5 numbers from this run are invalid** (2 script bugs, both fixed
-same session — see `rule-archive.md`). This run's real value was 2 harness findings, not the
-numbers:
++tests → multi-sub-task chain) in one project per trial, stops at the first real failure. First
+run's L4/5 numbers were invalidated by 2 script bugs (bash arithmetic crash on a zero-match
+`grep -c`; a test-counting regex blind to class-based test files) — both fixed same session, then
+re-run:
 
-- **#46 (fixed)**: the elective gate armed mid-turn (4 non-primer commits) and one trial's model
-  read `subtask-gate.ts`'s own source, noticed `background_process` was missing from
-  `MUTATING_TOOLS`, and used it to write + commit — a complete gate bypass. Fixed: added to
-  `MUTATING_TOOLS`, new unit test T17. 30/30 unit, 42/42 fuzz.
-- **#47 (open, p2)**: a *different* trial hit the same armed-gate deadlock but didn't find the
-  bypass — instead retried 4-20 blocked tool-call variants within one turn before giving up,
-  rather than cleanly stopping to ask per the block message's own instruction. Not a security
-  issue now that #46 is closed (worst case is wasted turn budget), but a real, un-fixed model-
-  behavior gap.
+| Level | Result |
+|---|---|
+| 1 (1 file) | 5/5 |
+| 2 (3 files) | 4/5 |
+| 3 (+ refactor) | 2/4 |
+| 4 (+ tests) | 1/2 |
+| 5 (multi-sub-task chain) | 0/1 |
+
+Knee distribution: 1 trial failed L2, 2 failed L3 (the largest single cliff), 1 failed L4, 1
+reached L5 and failed there. Full data + the corrected re-run's own confirmation below:
+`rule-archive.md` "Round 29".
+
+- **#46 (fixed, live-reconfirmed)**: the elective gate armed mid-turn (4 non-primer commits) and
+  a first-run trial's model read `subtask-gate.ts`'s own source, noticed `background_process` was
+  missing from `MUTATING_TOOLS`, and used it to write + commit — a complete gate bypass. Fixed:
+  added to `MUTATING_TOOLS`, new unit test T17 (30/30 unit, 42/42 fuzz). **The corrected re-run
+  hit the identical trigger in 2/5 trials and neither found the bypass this time** (0
+  `background_process` calls in either log) — live confirmation the fix holds, not just a unit
+  test claim.
+- **#47 (open, p2)**: trials that hit the armed-gate deadlock without finding a bypass instead
+  retry many blocked tool-call variants within one turn (4-238 `[subtask-gate]` hits observed
+  across different trials) before giving up or recovering on the next message, rather than
+  cleanly stopping to ask per the block message's own instruction. Not a security issue now that
+  #46 is closed (worst case is wasted turn budget) — the higher-count trials (134, 238 hits) DID
+  eventually recover and progress further up the ladder once a fresh message arrived, consistent
+  with round 28 #41's "block within a turn, clear on genuine new message" design holding up.
 
 ## Current score: turnkey 82/100, structural 81/100 — round 26, unscored since
 
@@ -106,18 +129,19 @@ framing ("this number finally replaces 82/81"). This project's closing bar (mirr
 | 4/12 | `discuss.md` nudge wording fix works; CLI-invisibility half structurally unfixable | 🔴 p1, permanent ceiling (CLI half only) |
 | 6/38 | Model self-report fabrication after a gate block — inherent LLM unreliability | 🔴 p1, permanent ceiling |
 | 15/37 | Session-abandoned-outright gap partially closed (round 27's `session.idle` hook) | 🔶 p1, partial |
-| 47 | Mid-turn retry storm on an armed gate (4-20 blocked attempts, doesn't stop to ask) | 🔴 p2, open |
-| — | Item 6 axis C's Level 3/4/5 numbers need a corrected re-run (script bugs now fixed) | ⚠️ p1, needs GPU time |
+| 47 | Mid-turn retry storm on an armed gate (4-238 blocked attempts observed, doesn't stop to ask) | 🔴 p2, open |
 | — | Item 6 axis B Step 4 (design→primer commit) = 0/5 in BOTH ON/OFF modes | 🔴 p1, needs investigation |
+| — | Item 6 axis B Step 3 always hardcodes a "discuss: " prefix — doesn't isolate real discuss-routing value | 🔴 p2, bench limitation |
 | — | Bare cross-paragraph token gap — fixing it breaks real content | 🔴 p2, accepted limitation |
 | — | `check_fence_parity()` odd/even blind spot — inherited from original | 🔴 p2, low urgency |
 
 ## Next session's starter prompt
 
 ```
-round 29 속행 (or round 30). wiki/handoffs/SESSION_PRIMER.md 전체 읽기 → FEEDBACK_PENDING.md 표
-확인. 완료: item 1/4/5, item 6 축B(ON/OFF 델타), 축C 1차실행(#46 게이트 우회 수정+#47 기록,
-단 L4/5 수치는 스크립트 버그로 무효 — 이미 고침). 최우선: GPU 여유 있으면 축C 재실행으로
-실제 L3/4/5 수치 확보. 그 다음 item 2/3/6축A는 Jay 직접 실행 항목 — 도달하면 멈추고 보고.
-opus_round29_workorder.md는 ~/.hermes/에 있고 이 저장소에 커밋 금지.
+round 30 시작. wiki/handoffs/SESSION_PRIMER.md 전체 읽기 → FEEDBACK_PENDING.md 표 확인 →
+~/.hermes/opus_round29_execution_report.md + Opus 피드백(있다면) 확인. round 29는 완료: item
+1/4/5, item 6 축B(ON/OFF 델타 표 확보), 축C(#46 게이트 우회 발견+수정+재실행으로 라이브
+재확인, #47 기록, 정확한 L1-5 수치 확보). 남은 것: item 2/3/6축A(Jay 직접 실행), #47 처리
+방향, 축B Step3/4 신뢰도 문제 — Opus 피드백 받으면 그걸 우선 반영. opus_round29_workorder.md/
+opus_round29_execution_report.md는 ~/.hermes/에 있고 이 저장소에 커밋 금지.
 ```
