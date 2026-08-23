@@ -32,16 +32,22 @@ Jay next asks for a fresh audit).
      now share one gitExec() that throws GitCommandError on a real git failure instead of each
      silently returning null/0; computeBoundary() distinguishes "not a repo" (pass) from "repo,
      command failed" (fail CLOSED with the specific command named). 3 new tests (not-a-repo,
-     unborn-HEAD, invalid rev-list range via a new __internal test export) — 29/29 unit, 42/42
-     fuzz, check-caps clean. Item 4 (this file's own flow-rule pass, see banner above) — done.
-다음: item 5 (check-caps.sh consolidation, must prove zero coverage loss via regression test),
-     item 6 axis B (harness ON vs OFF delta bench — do this before axis A, it's just running
-     the existing bench twice). Items 2/3/6-axis-A are Jay-direct-execution (work order flags
-     them explicitly) — stop and report on reaching them, don't attempt.
-참고: item 1's live `kilo run` regression check is in flight in a throwaway bootstrap
-     (/tmp/sm4-r29-live, not this repo) — a real multi-file task, killed client-side by a shell
-     timeout but still completing server-side via the pre-existing `kilo serve` daemon; 3 correct
-     per-file commits + fresh-session boundary pre-approval observed so far, final settle pending.
+     unborn-HEAD, invalid rev-list range via a new __internal test export). Item 4 (this file's
+     own flow-rule pass, see banner above). Item 5 (check-caps.sh consolidation) — 3 provably-safe
+     merges (check_lines absorbed into check_lines_warn; check_section now calls report_count
+     instead of duplicating it; the 2 structurally-identical bootstrap grep checks merged into one
+     generic check_bootstrap_forbidden_string), 875→864 lines, byte-identical stdout confirmed via
+     before/after diff on the real repo + a new 12-assertion regression test
+     (tests/check-caps.regression.test.mjs). unit 29/29, fuzz 42/42, check-caps clean throughout.
+다음: item 6 axis B (harness ON vs OFF delta bench — do this before axis A, it's just running
+     the existing bench twice, scripts/harness-integration-test.sh). Items 2/3/6-axis-A are
+     Jay-direct-execution (work order flags them explicitly) — stop and report on reaching them.
+참고: item 1's live `kilo run` regression check ran in a throwaway bootstrap
+     (/tmp/sm4-r29-live, not this repo, not durable) — a real multi-file task, killed client-side
+     by a shell timeout but kept completing server-side via the pre-existing `kilo serve` daemon;
+     3 correct per-file commits + fresh-session boundary pre-approval observed before the daemon
+     itself went idle (no client left to drive a further turn) — confirms the refactored plugin
+     still works normally end-to-end under the real Bun runtime, not just Node's unit tests.
 ```
 
 ## Current score: turnkey 82/100, structural 81/100 — round 26, unscored since
