@@ -136,16 +136,51 @@ function saveState(state: State) {
   }
 }
 
-function currentHead(): string | null {
+// Round 29 (FEEDBACK #46, fail-open gate): "genuinely not a git repo" and "is a repo but this
+// git command failed" used to collapse into the same catch -> null/0, which is indistinguishable
+// from "no boundary" — a repo with a broken/timed-out git, a permissions error, or mid-rebase
+// state silently disarmed the entire gate with no log. These now fail in opposite directions on
+// purpose: not-a-repo is the one legitimate case where there's nothing to enforce (pass
+// silently); a repo where a git command errors fails *closed* (block, with the reason named) —
+// see GitCommandError/computeBoundary below.
+class GitCommandError extends Error {
+  command: string
+  constructor(command: string) {
+    super(`git ${command} failed`)
+    this.command = command
+  }
+}
+
+// Every git call below runs through here so "the repo exists but this command broke" always
+// throws the same tagged error instead of each helper inventing its own silent fallback value.
+function gitExec(args: string): string {
   try {
-    return execSync("git rev-parse HEAD", {
+    return execSync(`git ${args}`, {
       cwd: PROJECT_ROOT,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim()
   } catch {
-    return null // not a git repo (yet) — don't guess
+    throw new GitCommandError(args)
   }
+}
+
+// The one place allowed to swallow a git failure into "false" — this is the actual "not a repo
+// (yet)" check (round 28's old comment on currentHead() claimed this but never verified it；
+// a repo with a broken HEAD looks identical to no-repo-at-all through that catch). If this
+// itself fails, we can't tell repo from no-repo, so treat it as no-repo: there is no boundary to
+// protect if we can't even confirm one exists, and computeBoundary's real fail-closed path only
+// engages once we're sure a repo is there.
+function isInsideWorkTree(): boolean {
+  try {
+    return gitExec("rev-parse --is-inside-work-tree") === "true"
+  } catch {
+    return false
+  }
+}
+
+function currentHead(): string {
+  return gitExec("rev-parse HEAD") // caller already confirmed a repo exists; a failure here is real breakage, not "no repo"
 }
 
 function gitPorcelainStatus(): string[] {
@@ -166,36 +201,26 @@ function gitPorcelainStatus(): string[] {
 // `tool.execute.after`) with a value that's always correct on demand, never stale, and needs no
 // clearing logic of its own.
 function lastPrimerTouchSha(): string | null {
-  try {
-    const out = execSync("git log -1 --format=%H -- wiki/handoffs/SESSION_PRIMER.md", {
-      cwd: PROJECT_ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim()
-    return out || null
-  } catch {
-    return null
-  }
+  const out = gitExec("log -1 --format=%H -- wiki/handoffs/SESSION_PRIMER.md")
+  return out || null // empty output is a legitimate answer (primer never touched) — distinct from gitExec throwing on real failure
 }
 
 // Round 28: count of commits reachable from `head` but not from `fromSha` — i.e. how many
 // commits have landed since (and not including) the last primer touch. `fromSha` null means
 // "primer has never been touched in this repo's history," so every commit up to `head` counts.
 function commitCountSince(fromSha: string | null, head: string): number {
-  try {
-    const range = fromSha ? `${fromSha}..${head}` : head
-    const out = execSync(`git rev-list --count ${range}`, {
-      cwd: PROJECT_ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim()
-    return parseInt(out, 10) || 0
-  } catch {
-    return 0
-  }
+  const range = fromSha ? `${fromSha}..${head}` : head
+  const out = gitExec(`rev-list --count ${range}`)
+  const n = parseInt(out, 10)
+  if (Number.isNaN(n)) throw new GitCommandError(`rev-list --count ${range} (unparseable output ${JSON.stringify(out)})`)
+  return n
 }
 
 type Boundary = { sha: string; reason: ArmReason; commitsSincePrimer: number }
+// Round 29: computeBoundary's third outcome — a repo is confirmed present but a git command
+// inside it failed. Kept distinct from `null` ("confirmed no boundary") so both call sites can
+// fail closed instead of treating this the same as "nothing to enforce."
+type GitFailure = { gitError: string }
 
 // Round 28 (#41 redesign): the single source of truth for "is a sub-task boundary currently
 // open," derived fresh from git on every call instead of read from a persisted flag. HEAD
@@ -204,17 +229,26 @@ type Boundary = { sha: string; reason: ArmReason; commitsSincePrimer: number }
 // an "elective" one. Either way the boundary's identity IS the current HEAD SHA — as more
 // commits land past a threshold, HEAD moves and so does the boundary, so worsening debt keeps
 // requiring fresh acknowledgment rather than resting on a stale approval.
-function computeBoundary(): Boundary | null {
-  const head = currentHead()
-  if (!head) return null // not a git repo (yet)
+//
+// Round 29 (FEEDBACK #46): `null` now means only "confirmed no boundary" (not a repo, or a repo
+// with nothing pending) — a git command failing partway through returns `GitFailure` instead of
+// falling through to `null`, so a broken repo can't impersonate "all clear."
+function computeBoundary(): Boundary | GitFailure | null {
+  if (!isInsideWorkTree()) return null // genuinely not a git repo (yet) — nothing to enforce
 
-  const primerSha = lastPrimerTouchSha()
-  if (primerSha === head) return { sha: head, reason: "primer", commitsSincePrimer: 0 }
+  try {
+    const head = currentHead()
+    const primerSha = lastPrimerTouchSha()
+    if (primerSha === head) return { sha: head, reason: "primer", commitsSincePrimer: 0 }
 
-  const n = commitCountSince(primerSha, head)
-  if (n >= COMMITS_WITHOUT_PRIMER_THRESHOLD) return { sha: head, reason: "elective", commitsSincePrimer: n }
+    const n = commitCountSince(primerSha, head)
+    if (n >= COMMITS_WITHOUT_PRIMER_THRESHOLD) return { sha: head, reason: "elective", commitsSincePrimer: n }
 
-  return null
+    return null
+  } catch (e) {
+    const command = e instanceof GitCommandError ? e.command : String(e)
+    return { gitError: command }
+  }
 }
 
 const MUTATING_TOOLS = new Set(["write", "edit", "bash", "patch", "multiedit", "task"])
@@ -238,6 +272,17 @@ const BLOCK_MESSAGE_ELECTIVE = (n: number) =>
   "commits in a row almost certainly means one was crossed anyway. Per AGENTS.md, STOP now: " +
   "update wiki/handoffs/SESSION_PRIMER.md's Current sub-task block, commit it, then ask the " +
   "user whether to continue."
+
+// Round 29 (FEEDBACK #46): fires when a repo is confirmed present but computeBoundary couldn't
+// safely determine whether a boundary is open (git command failure — corrupt repo, mid-rebase,
+// permissions, timeout, etc). Fails closed on purpose: a broken git is not evidence of "no
+// sub-task boundary," and the old code treated it as exactly that with no message at all.
+const BLOCK_MESSAGE_GIT_ERROR = (command: string) =>
+  `[subtask-gate] Could not determine whether a sub-task boundary is open — \`git ${command}\` ` +
+  "failed in what is otherwise a real git repository. Failing closed rather than assuming no " +
+  "boundary is pending: investigate the repo state (rebase/bisect in progress? permissions? " +
+  "git missing?) before any further mutating tool call, or delete .subtask-gate-state.json " +
+  "next to this plugin as a last-resort reset if the repo itself is fine."
 
 // Round 7(audit, FEEDBACK #4/#12): live-tested that L09's gate guarantees *some*
 // wiki/protocols/*.md gets read before any mutation, but has zero mechanism routing an
@@ -315,6 +360,16 @@ const IDLE_NUDGE_MESSAGE = (files: string[]) =>
   "should have been committed before the turn ended — commit these now, or explicitly decide " +
   "what to do with them, before starting anything else."
 
+// Round 29 (FEEDBACK #46): test-only escape hatch into the three git helpers. commitCountSince's
+// own fail-closed path can't be reached in isolation through the public hooks with a realistic
+// repo — git rev-list's object requirements are a strict subset of git log's (log needs trees to
+// diff paths, rev-list only needs commit objects), so any object corruption that breaks rev-list
+// breaks lastPrimerTouchSha()'s `git log` first, every time. Exporting these lets the test suite
+// verify commitCountSince fails closed directly (a syntactically-valid but nonexistent `fromSha`
+// reproduces a real `git rev-list` error with no corruption needed) instead of leaving that one
+// helper's fail-closed path unverified.
+export const __internal = { currentHead, lastPrimerTouchSha, commitCountSince, isInsideWorkTree, computeBoundary, GitCommandError }
+
 export const SubtaskGate = async ({ client }: any = {}) => ({
   "tool.execute.before": async (input: any, output: any) => {
     const tool = input?.tool
@@ -342,6 +397,14 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     // fresh-session courtesy, also set in chat.message below).
     if (MUTATING_TOOLS.has(tool)) {
       const boundary = computeBoundary()
+      // Round 29 (FEEDBACK #46): a GitFailure always blocks — it has no SHA to check against
+      // acknowledged/pre-approved state, and unlike a real boundary it can't be cleared by any
+      // amount of chat.message traffic (there's nothing to acknowledge). It clears only once
+      // computeBoundary succeeds again on a later call.
+      if (boundary && "gitError" in boundary) {
+        saveState(state)
+        throw new Error(BLOCK_MESSAGE_GIT_ERROR(boundary.gitError))
+      }
       if (boundary) {
         const preapprovedSha = state.boundaryAtSessionStart[sessionID]
         const cleared = state.acknowledged.includes(boundary.sha) || preapprovedSha === boundary.sha
@@ -421,7 +484,12 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     // maps below) — checked once, permanently recorded, never overwritten after.
     if (!(sessionID in state.boundaryAtSessionStart)) {
       const boundary = computeBoundary()
-      state.boundaryAtSessionStart[sessionID] = boundary?.sha ?? ""
+      // Round 29 (FEEDBACK #46): a GitFailure has no `.sha` to pre-approve — recording "" here
+      // (same as "no boundary at start") is deliberately conservative, not a fallback to the old
+      // silent behavior: it does not pre-approve anything, so tool.execute.before's fail-closed
+      // GitFailure block (which re-runs computeBoundary independently on the next mutating call)
+      // is what actually surfaces the problem, not this bookkeeping step.
+      state.boundaryAtSessionStart[sessionID] = boundary && "sha" in boundary ? boundary.sha : ""
     }
 
     // Round 28 (#41 redesign, rule a): this replaces FEEDBACK #3's (round 8) unconditional
