@@ -479,7 +479,7 @@ async function main() {
     // ...and then, per design.md, make NO further tool call this turn — the model just replies
     // with text. No block ever fires here, unlike T9's setup.
     await hooks["chat.message"]({ sessionID: "s12" }, { message: { id: "m1" }, parts: [{ type: "text", text: "continue" }] })
-    // primer meta-lesson 4: assert the specific effect, not just "did it throw" — an unrelated
+    // AGENTS.md L14: assert the specific effect, not just "did it throw" — an unrelated
     // gate (e.g. L09's protocol-read check) throwing first would pass a bare assertThrows too
     // and mask a real regression here.
     try {
@@ -530,6 +530,110 @@ async function main() {
         )
       }
     )
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 14 (round 29, FEEDBACK #46): genuinely not a git repo — the one case that must stay
+  // silent (nothing to enforce). Same file layout as freshRepo() but skip `git init` entirely,
+  // so isInsideWorkTree() sees a real "not a repo" and computeBoundary returns null, not a
+  // GitFailure.
+  {
+    const dir = mkdtempSync(join(tmpdir(), "sgate-l09-"))
+    mkdirSync(join(dir, ".kilo", "plugins"), { recursive: true })
+    mkdirSync(join(dir, "wiki", "protocols"), { recursive: true })
+    mkdirSync(join(dir, "wiki", "handoffs"), { recursive: true })
+    cpSync(SRC_PLUGIN, join(dir, ".kilo", "plugins", "subtask-gate.ts"))
+    writeFileSync(join(dir, "wiki", "protocols", "refactor.md"), "# refactor\n")
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer\n")
+    // deliberately no `git init` here
+    const hooks = await loadGate(dir)
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s14" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    await assertNoThrow(
+      "T14 not a git repo at all — not blocked",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s14" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 15 (round 29, FEEDBACK #46): a real repo where `git rev-parse HEAD` itself fails — an
+  // unborn-HEAD repo (`git init`, zero commits) reproduces this without any mocking:
+  // `--is-inside-work-tree` succeeds (it's a real repo) but `rev-parse HEAD` has nothing to
+  // resolve. Before this fix, currentHead()'s catch returned null here, computeBoundary treated
+  // that identically to "not a repo," and the gate silently passed with no message at all — the
+  // exact fail-open this item exists to close. Must now fail CLOSED, and must name the actual
+  // failing command, not just throw something.
+  {
+    const dir = mkdtempSync(join(tmpdir(), "sgate-l09-"))
+    mkdirSync(join(dir, ".kilo", "plugins"), { recursive: true })
+    mkdirSync(join(dir, "wiki", "protocols"), { recursive: true })
+    mkdirSync(join(dir, "wiki", "handoffs"), { recursive: true })
+    cpSync(SRC_PLUGIN, join(dir, ".kilo", "plugins", "subtask-gate.ts"))
+    writeFileSync(join(dir, "wiki", "protocols", "refactor.md"), "# refactor\n")
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer\n")
+    execSync("git init -q", { cwd: dir }) // repo exists, but no commit -> HEAD is unborn
+    const hooks = await loadGate(dir)
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s15" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "write", sessionID: "s15" },
+        { args: { filePath: join(dir, "foo.py") } }
+      )
+      console.log("FAIL: T15 expected fail-closed block on an unborn-HEAD repo, but the mutation went through unblocked")
+      failures++
+    } catch (e) {
+      const msg = String(e.message || e)
+      if (/rev-parse HEAD/.test(msg) && /Failing closed/.test(msg)) {
+        console.log("ok: T15 real repo, `git rev-parse HEAD` fails (unborn HEAD) — blocked, specific command named")
+      } else {
+        console.log("FAIL: T15 blocked, but message doesn't name the failing command:", msg)
+        failures++
+      }
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 16 (round 29, FEEDBACK #46): commitCountSince's own fail-closed path, isolated. Cannot
+  // be reproduced end-to-end through the public hooks with a realistic corrupted repo — verified
+  // live (see T16's sibling investigation, not repeated here): git rev-list's object needs are a
+  // strict subset of git log's (log needs tree objects to diff paths per-commit; rev-list only
+  // needs commit objects for parent-walking), so any corruption that breaks `git rev-list` also
+  // breaks lastPrimerTouchSha()'s `git log` call first — that helper runs first inside
+  // computeBoundary(), every time, before commitCountSince ever gets a chance to fail on its own.
+  // Instead: a real repo, real HEAD, and a syntactically-valid-but-nonexistent `fromSha` (a real
+  // git error, "Invalid revision range", not a mock) exercises commitCountSince directly via the
+  // __internal test export. computeBoundary()'s own fail-closed wiring (the shared try/catch
+  // around all three helpers) is already proven by T15 using currentHead's natural failure —
+  // since all three throw the same GitCommandError into the same catch, T15 + this test together
+  // cover "commitCountSince fails -> blocked" without needing an artificial full-stack mock.
+  {
+    const dir = freshRepo()
+    const mod = await import(`${join(dir, ".kilo", "plugins", "subtask-gate.ts")}?t=${Date.now()}`)
+    const { commitCountSince, GitCommandError } = mod.__internal
+    const head = execSync("git rev-parse HEAD", { cwd: dir, encoding: "utf8" }).trim()
+    const bogusFromSha = "0000000000000000000000000000000000000000" // well-formed, but no such object
+    try {
+      commitCountSince(bogusFromSha, head)
+      console.log("FAIL: T16 expected commitCountSince to throw on an invalid revision range, it returned normally")
+      failures++
+    } catch (e) {
+      if (e instanceof GitCommandError && /rev-list/.test(e.command)) {
+        console.log(`ok: T16 commitCountSince fails closed on a bad rev-list range — GitCommandError(${e.command})`)
+      } else {
+        console.log("FAIL: T16 threw, but not the expected GitCommandError naming rev-list:", e)
+        failures++
+      }
+    }
     rmSync(dir, { recursive: true, force: true })
   }
 
