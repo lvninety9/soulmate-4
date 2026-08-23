@@ -68,6 +68,9 @@ sub-tasks to finish under context length by construction; `build` checkpoints on
   history as if it were current — always `git fetch`+compare against `origin/master` (or just
   fresh-clone) before trusting any local checkout for an audit-shaped task `rule-archive.md`
   `permanent`
+- [L14] A test asserting only "did it throw" can pass even when the specific mechanism it targets
+  is broken, if an unrelated check throws first — assert the specific error/effect, not just
+  presence `rule-archive.md` (round 27, T11b) `permanent`
 
 ## Fixed Rules
 | Rule | Why |
