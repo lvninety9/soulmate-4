@@ -248,6 +248,15 @@ for i in $(seq 1 "$N"); do
   run_step "$target" cont "$build_scope" >/dev/null
 
   # --- Step 4: "design" — plan + sub-task block written + committed, then it should stop ---
+  # Round 30 closing pass: this step is structurally 0/5 in both harness ON and OFF, confirmed
+  # via real kilo.db transcripts, not a design.md/build.md defect — build_scope above (line 248)
+  # is specified fully enough (exact files, language, per-file responsibility) that the model
+  # correctly treats it as "clearly-scoped" (AGENTS.md's own routing rule) and finishes the whole
+  # sub-task via build BEFORE this "design" message is even sent; design.md is then genuinely
+  # redundant and the model's refusal to force a plan retroactively is correct behavior, not a
+  # bug. Full evidence: wiki/rule-archive.md "Round 30 closing pass". Fixing this would mean
+  # deliberately under-specifying build_scope so design must decide the file split itself — a
+  # bench redesign, intentionally not done here (out of scope for a closing pass).
   before4=$( (cd "$target" && git rev-parse HEAD) )
   out4=$(run_step "$target" cont "design")
   echo "--- step4 ---" >>"$log"; echo "$out4" >>"$log"
