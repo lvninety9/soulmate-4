@@ -52,8 +52,11 @@ UI stub, see L02).
 - **"Round" labels are NOT one counter — two unrelated things share the word.** `SESSION_MASTER.md`
   `## Round N` headers are chronological narrative sections, one per notable same-day event
   (blind-validation or not — "Round 4 — architecture realignment" was Jay-directed doc/config
-  work, no blind agent). FEEDBACK_PENDING.md / SESSION_PRIMER.md's "round" usage means
-  specifically the *blind-validation round count* (rounds 1-4 so far, one per fresh-agent test).
+  work, no blind agent). FEEDBACK_PENDING.md / SESSION_PRIMER.md's "round" usage started as the
+  *blind-validation round count* (rounds 1-4, one per fresh-agent test) but shifted meaning around
+  round 5 to "objective audit/fix cycle" and, from round 27 on, to "Opus work-order cycle" — 30+
+  rounds in as of the round-30 closing pass, no longer 1:1 with a fresh blind agent. The counter
+  itself never resets or renumbers; only what one "round" means has evolved.
   These two sequences can and do drift — session 5 hit exactly this collision (two different
   "Round 4"s) and had to disambiguate after the fact with "Round 4 (blind)". When adding a new
   `SESSION_MASTER.md` section for a blind round, name it unambiguously up front (e.g. "Round N
