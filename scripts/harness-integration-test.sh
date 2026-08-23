@@ -57,6 +57,13 @@ if ! command -v "$KILO" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Round 30 item 5 (work order): Step 3's scoring now parses `kilo run --format json`'s NDJSON
+# tool-call events instead of grepping the model's rendered text — needs jq.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq not found on PATH — required for Step 3's structured-event scoring (item 5)." >&2
+  exit 1
+fi
+
 mkdir -p "$WORK_DIR"
 declare -A pass fail na
 for step in 1 2 3 4 5 6; do pass[$step]=0; fail[$step]=0; na[$step]=0; done
@@ -88,6 +95,46 @@ run_step() {
   fi
 }
 
+# Round 30 item 5 (work order): same shape as run_step(), plus `--format json` (NDJSON tool-call
+# events instead of Kilo's rendered default text) — used only where a step needs to know exactly
+# which tool was called, not just what the model said. Round 30 item 7 measured this flag itself
+# adds no latency/behavior change beyond the output format (a live discuss trial completed in
+# ~30s either way) — this is a pure scoring-input swap, not a different code path for the model.
+run_step_json() {
+  local target="$1" flag="$2"; shift 2
+  if [ "$flag" = "new" ]; then
+    timeout "$STEP_TIMEOUT_S" "$KILO" run --dir "$target" -m "$MODEL" --format json "$@" 2>&1
+  else
+    timeout "$STEP_TIMEOUT_S" "$KILO" run --dir "$target" -m "$MODEL" --format json -c "$@" 2>&1
+  fi
+}
+
+# Round 30 item 5 (work order, acceptance A): Step 3's real pass condition is "did the model
+# converge the ambiguous ask through genuine Q&A instead of silently picking an interpretation"
+# (discuss.md's own wording) -- NOT "did it specifically call Kilo's `question` tool". Round 30
+# item 7 measured (real captured API request payloads, `/home/jay/sm4-tap-capture/captures/*.json`
+# + a live reproduction) that `kilo run` CLI's default "code" agent tool schema has NO `question`
+# tool at all (12 tools, Cursor's plugin has 17 including it) -- a bench that only accepts a
+# `question` tool-call event would score every CLI trial 0/N regardless of model behavior, since
+# the tool is never even offered. This checks BOTH, from the same NDJSON stream, precisely (not a
+# grep against rendered text): (a) a real `question` tool-call event (covers the plugin, and any
+# future CLI version that adds it), OR (b) real assistant text containing a literal "?" that
+# appears BEFORE the first write/edit tool call this turn, if any (the CLI's only actual channel,
+# and the exact original heuristic's intent -- reimplemented on structured event order instead of
+# a fragile multi-clause regex against Kilo's rendered default-format text, which is what the
+# old "tool_use.*(write|edit)|Wrote to|Edited " grep was really guessing at).
+score_step3_question() {
+  jq -s '
+    to_entries
+    | (map(select(.value.type=="tool_use" and .value.part.tool=="question")) | length > 0) as $question_fired
+    | ([.[] | select(.value.type=="text" and ((.value.part.text // "") | test("\\?"))) | .key]) as $q_idxs
+    | ([.[] | select(.value.type=="tool_use" and (.value.part.tool=="write" or .value.part.tool=="edit")) | .key]) as $mut_idxs
+    | ($q_idxs | min) as $first_q
+    | ($mut_idxs | min) as $first_mut
+    | $question_fired or (($first_q != null) and (($first_mut == null) or ($first_q < $first_mut)))
+  '
+}
+
 for i in $(seq 1 "$N"); do
   target="$WORK_DIR/trial-$i"
   log="$WORK_DIR/trial-$i.log"
@@ -107,9 +154,15 @@ for i in $(seq 1 "$N"); do
   # bare git-init — wiki/protocols/*.md etc. stay on disk, since AGENTS.md's Protocol table is
   # what tells the model those files matter in the first place; removing just that pointer, not
   # every file it points to, isolates what the harness itself adds rather than conflating it with
-  # "any project files exist at all"). Steps 1/2 below intentionally still run their harness-
-  # specific prompts unmodified in OFF mode too — a structural fail on Step 1 (no AGENTS.md to
-  # read) is itself the data point axis B exists to produce, not a broken test.
+  # "any project files exist at all"). Step 2 below intentionally still runs its harness-specific
+  # prompt unmodified in OFF mode too — a structural fail there is itself a data point.
+  #
+  # Round 30 item 5 (acceptance C): Step 1 used to run the same way — but Step 1's own question
+  # IS "does AGENTS.md say X", so axis B's OFF mode (which deletes AGENTS.md first) reduces it to
+  # "if I delete the file, does reading the file fail" — a tautology, not a harness-value
+  # measurement (round 29's own report flagged the resulting 5/5-vs-0/5 as not measuring anything
+  # real). Excluded from axis B below (N/A, not scored) rather than redesigned into a different
+  # question — Step 1 stays meaningful and unchanged for a normal (non-axis-B) single-mode run.
   if [ "${HARNESS_OFF:-0}" = "1" ]; then
     # --no-verify: bootstrap.sh's installed pre-commit hook is exactly check-caps.sh's own
     # bootstrap-completeness check (missing plugin/AGENTS.md -> OVER CAP, commit refused) --
@@ -130,13 +183,22 @@ for i in $(seq 1 "$N"); do
   # --- Step 1: does AGENTS.md actually auto-load? --- (fixed prompt: this checks a deterministic
   # fact about this repo's own bootstrapped template, not open-ended judgment — no meaningful
   # "different input" exists to vary here, see the item-6 header comment above)
-  out1=$(run_step "$target" new \
-    "Without me telling you anything about this project, what does your AGENTS.md say your Language rule is, and what's the exact cap number on this file itself?")
-  echo "--- step1 ---" >>"$log"; echo "$out1" >>"$log"
-  if echo "$out1" | grep -qi "korean" && [ -n "$real_cap" ] && echo "$out1" | grep -q "$real_cap"; then
-    pass[1]=$((pass[1]+1))
+  #
+  # Round 30 item 5 (acceptance C): N/A under axis B's OFF mode — see the HARNESS_OFF block above
+  # for why asking "does AGENTS.md say X" right after deleting AGENTS.md is a tautology, not a
+  # measurement. Runs and scores normally otherwise (ON mode, or a plain non-axis-B invocation).
+  if [ "${HARNESS_OFF:-0}" = "1" ]; then
+    echo "--- step1: N/A (excluded from axis B OFF mode — see item 5's own comment above) ---" >>"$log"
+    na[1]=$((na[1]+1))
   else
-    fail[1]=$((fail[1]+1))
+    out1=$(run_step "$target" new \
+      "Without me telling you anything about this project, what does your AGENTS.md say your Language rule is, and what's the exact cap number on this file itself?")
+    echo "--- step1 ---" >>"$log"; echo "$out1" >>"$log"
+    if echo "$out1" | grep -qi "korean" && [ -n "$real_cap" ] && echo "$out1" | grep -q "$real_cap"; then
+      pass[1]=$((pass[1]+1))
+    else
+      fail[1]=$((fail[1]+1))
+    fi
   fi
 
   # --- Step 2: rule-zero (grep vs whole-file read, JUDGED against AGENTS.md's own ~50-line
@@ -163,10 +225,15 @@ for i in $(seq 1 "$N"); do
   fi
 
   # --- Step 3: "discuss" on an ambiguous ask — clarifying questions, not straight to code ---
-  out3=$(run_step "$target" cont "discuss: $discuss_prompt")
-  echo "--- step3 ---" >>"$log"; echo "$out3" >>"$log"
-  # Heuristic: a real question mark present, and no sign it already wrote/edited a file this turn.
-  if echo "$out3" | grep -q '?' && ! echo "$out3" | grep -qiE "tool_use.*(write|edit)|Wrote to|Edited "; then
+  # Round 30 item 5 (acceptance B): the old "discuss: " literal prefix made both ON and OFF axis-B
+  # modes ask the model something an explicit protocol-keyword, not a genuinely ambiguous message
+  # — that's why axis B's Step 3 read 5/5 vs 5/5 (the report itself flagged this as not measuring
+  # the harness's own routing). Dropped here: subtask-gate.ts's own chat.message ambiguity nudge
+  # (looksAmbiguous(), no "discuss" keyword needed) is what should self-fire routing now, if it's
+  # going to fire at all — this is what "does routing self-fire" actually means to test.
+  out3=$(run_step_json "$target" cont "$discuss_prompt")
+  echo "--- step3 (--format json) ---" >>"$log"; echo "$out3" >>"$log"
+  if printf '%s' "$out3" | score_step3_question | grep -q true; then
     pass[3]=$((pass[3]+1))
   else
     fail[3]=$((fail[3]+1))
@@ -274,6 +341,7 @@ report_step "Step 4 (design writes+commits sub-task)" 4
 report_step "Step 5 (subtask-gate blocks live)" 5
 report_step "Step 6 (build: per-file commits)" 6
 echo
-echo "Raw transcripts: $WORK_DIR/trial-*.log (re-grade steps 1-3 by hand if a k/N looks off —"
+echo "Raw transcripts: $WORK_DIR/trial-*.log (re-grade steps 1-2 by hand if a k/N looks off —"
 echo "their pass conditions are text heuristics on the model's own wording, not pure repo state,"
-echo "same limitation this whole benchmark's Steps 1/2/3/7/8 have always had)."
+echo "same limitation this whole benchmark's Steps 1/2/7/8 have always had; Step 3 moved to"
+echo "structured --format json event scoring in round 30 item 5 and is no longer in this group)."
