@@ -69,6 +69,24 @@ pytest_green() {
   (cd "$target" && python3 -m pytest tests/ -q) >/dev/null 2>&1
 }
 
+# Round 29 live run found two real bugs here, both from the original grep-based version:
+# (1) `grep -c PATTERN file || echo 0` double-prints when grep finds zero matches — grep still
+#     exits 1 ("no match") even though it already printed "0", so the `||` fallback ALSO fires,
+#     producing "0\n0" (collapsed to "0 0" by the command substitution), which crashes the later
+#     `-gt` integer comparison. Fixed below with `${var:-0}` instead of a chained `|| echo`.
+# (2) `grep -c '^def test_'` is blind to class-based test organization (`class Foo:` with indented
+#     `def test_...` methods) — a real trial's test file used exactly that style throughout, so
+#     both before/after counts silently read 0 regardless of how many tests actually existed,
+#     making every such trial's Level 4 look like a failure it wasn't. `pytest --collect-only`
+#     counts real collected test items regardless of function/class/parametrized style, so this
+#     replaces the regex entirely instead of trying to widen it further.
+count_tests() {
+  local target="$1" file="$2"
+  local n
+  n=$( (cd "$target" && python3 -m pytest "$file" --collect-only -q 2>/dev/null) | grep -c '::' )
+  echo "${n:-0}"
+}
+
 declare -A level_pass level_fail
 for lvl in 1 2 3 4 5; do level_pass[$lvl]=0; level_fail[$lvl]=0; done
 declare -A knee_hist
@@ -135,11 +153,11 @@ for i in $(seq 1 "$N"); do
   fi
 
   # --- Level 4: add a genuinely new edge-case test, must pass ---
-  before_test_count=$(grep -c '^def test_' "$target/tests/test_${scenario_name}.py" 2>/dev/null || echo 0)
+  before_test_count=$(count_tests "$target" "tests/test_${scenario_name}.py")
   out4=$(run_step "$target" cont \
     "add at least one new test case to tests/test_${scenario_name}.py covering an edge case (e.g. empty input, invalid input, or a boundary value) not already covered. Make sure it passes.")
   echo "--- level4 ---" >>"$log"; echo "$out4" >>"$log"
-  after_test_count=$(grep -c '^def test_' "$target/tests/test_${scenario_name}.py" 2>/dev/null || echo 0)
+  after_test_count=$(count_tests "$target" "tests/test_${scenario_name}.py")
   if [ "$after_test_count" -gt "$before_test_count" ] && pytest_green "$target"; then
     level_pass[4]=$((level_pass[4]+1)); knee=4
   else
