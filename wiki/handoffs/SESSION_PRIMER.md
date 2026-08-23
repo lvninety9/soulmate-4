@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 28 fix cycle done (S1-S7 landed); score still 82/81, unscored since round 26
+# SESSION PRIMER — round 28 fix cycle fully done (items 1-7); score still 82/81, unscored since round 26
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative** (round-by-round detail: `FEEDBACK_PENDING.md`'s
@@ -28,16 +28,16 @@ resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
 ## Current sub-task
 
-시작: round 28 fix cycle — items 1-6 of 7 DONE. Item 7 (Q3 vs Q4) prepped, waiting on Jay
-완료: item 6: harness Steps 5/6 now N/A (not FAIL) on unmet premise, Step 6 result-based
-     (per-file commits), 5 fixed scenarios (6-B); live-verified old logic would've scored 2 false
-     FAILs. Item 7 prep: Q4 file complete (22.13GB), Q3 baseline (VRAM 3,604MiB, 40.12 tok/s).
-     Full detail: `rule-archive.md` "Round 28".
-⚠️ Jay action needed: item 7's actual swap (`llama.env` → Q4, `systemctl restart llama`,
-     re-measure VRAM, decide adopt/(A)/(B), rollback if needed) must happen with Jay present —
-     `llama.service` is Hermes's shared production backend, not a throwaway test service.
-다음: after the swap+decision, round 28's fix cycle (all 7 items) is complete.
-참고: full 7-item sequence lives outside this repo. Item-3/6 scripts + captures:
+시작: round 28 fix cycle — ALL 7 ITEMS DONE (2026-08-23)
+완료: #41 gate redesigned+live-verified (5/5); #42/#43 CLI-vs-plugin root cause (missing
+     `question` tool); flow rule enforced (300-char row cap, tokens 9,371→6,635); #40
+     measured+accepted (no code change); bench scoring redesigned+live-verified (N/A not FAIL);
+     Q3→Q4 swap decided via 6-task live comparison (Q4: lower VRAM, equal correctness, mild
+     polish edge), applied to `llama.env`+`kilo.jsonc`. Full evidence: `rule-archive.md` "Round 28".
+다음: no committed-but-unhandled work. Future-round candidates: row #42's remaining open
+     question (re-check original 5 trials for a `question` call), a fresh full audit (score
+     still round 26's 82/81, unscored since).
+참고: full plan lived outside this repo. Item-3/6/7 scripts + captures:
      `/home/jay/sm4-tap-capture/` (durable disk).
 
 ## Current score: turnkey 82/100, structural 81/100 — from round 26, the last FULL audit
@@ -94,9 +94,9 @@ of this change remains in `subtask-gate.ts`. Extends row #6's ceiling; full evid
   generous timeouts, not fixed ones.
 - `kilo` CLI **confirmed installed and working** as of round 28 (`kilo --version` → 7.4.23, at
   `~/.cursor/extensions/kilocode.kilo-code-7.4.23-linux-x64/bin/kilo`, not on default `PATH`) —
-  local model is `qwen-3-6/Qwen3.6-35B-A3B-UD-Q3_K_M.gguf` (`~/.config/kilo/kilo.jsonc`), a real
-  agentic turn on it took low single-digit minutes in round 28's own live testing — re-check both
-  fresh, don't assume either still holds.
+  local model is `qwen-3-6/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` as of round 28 item 7 (was Q3_K_M;
+  `~/.config/kilo/kilo.jsonc` names the alias, `/media/jay/D/llama.cpp/llama.env` the real file
+  path) — re-check both fresh, don't assume either still holds.
 - Before changing any cap number, check the original `soulmate` repo's real number fresh.
   `templates/AGENTS.md.template` must stay byte-identical to `AGENTS.md` from `## Language`
   onward — `check_template_drift()` catches this, only when run.
