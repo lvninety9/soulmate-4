@@ -671,6 +671,43 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 18 (round 30 item 2, work order): MUTATING_TOOLS was a denylist of 7 known names against
+  // a real tool surface of 17 (round 28's own MITM capture) — round 29's T17 fix only patched the
+  // one name (`background_process`) a live trial happened to find; the other 10 unlisted names
+  // were still free to bypass the gate the same way. Round 30 inverted this to a small allowlist
+  // of proven-read-only names (read/grep/glob/question) with everything else fail-closed by
+  // construction. This is the acceptance test for that inversion: a tool name that does not exist
+  // yet — not in the old denylist, not in the new allowlist, not in any captured tool schema —
+  // must still be blocked by an armed gate. If this passes, a *future* Kilo tool this project has
+  // never seen is safe by default; the old denylist could never have made that guarantee.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s18" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "some_future_tool_kilo_has_not_shipped_yet", sessionID: "s18" },
+        { args: {} }
+      )
+      console.log("FAIL: T18 expected an unrecognized tool name to be blocked by the armed primer gate (fail-closed), but it went through unblocked")
+      failures++
+    } catch (e) {
+      if (/SESSION_PRIMER\.md was just committed/.test(String(e.message || e))) {
+        console.log("ok: T18 an unrecognized/future tool name is fail-closed by default — blocked by the armed gate, same as write/bash")
+      } else {
+        console.log("FAIL: T18 blocked, but for the wrong reason:", e.message)
+        failures++
+      }
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }

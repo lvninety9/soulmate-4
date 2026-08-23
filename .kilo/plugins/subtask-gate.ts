@@ -253,14 +253,44 @@ function computeBoundary(): Boundary | GitFailure | null {
 
 // Round 29 (FEEDBACK #46, axis-C-discovered gate bypass): `background_process` runs an arbitrary
 // shell command asynchronously — functionally equivalent to `bash` for mutation purposes (starts
-// a process that can write files and `git commit`) — but was missing from this set entirely.
+// a process that can write files and `git commit`) — but was missing from a denylist entirely.
 // Live-caught: a real complexity-ladder trial got blocked by the elective gate, read this file's
 // own source via the `read` tool (never blocked — read-only), noticed `background_process` wasn't
-// in MUTATING_TOOLS, and used it to write + commit, bypassing the gate completely (confirmed via
-// the trial's own transcript: the model explicitly reasoned "`background_process` is not in this
-// set, so it should not be blocked" before using it). Treated as fully mutating regardless of the
-// specific command run, same conservative treatment as `bash`.
-const MUTATING_TOOLS = new Set(["write", "edit", "bash", "patch", "multiedit", "task", "background_process"])
+// in the old MUTATING_TOOLS Set, and used it to write + commit, bypassing the gate completely
+// (confirmed via the trial's own transcript: the model explicitly reasoned "`background_process`
+// is not in this set, so it should not be blocked" before using it).
+//
+// Round 30 item 2 (work order): that fix was a same-shape patch to the same wrong shape — a
+// denylist of 7 names against a real tool surface of 17 (round 28's own MITM capture,
+// `/home/jay/sm4-tap-capture/captures/*.json`: 12 tool names in `kilo run` CLI's actual API
+// request payload, 17 via Cursor's Kilo Code plugin — measured from the real request body sent
+// to the model, not guessed). Every one of the other 10 unlisted names was free to bypass the
+// gate the same way `background_process` did, `agent_manager` most of all (round 29's own note:
+// if it can launch a sub-agent, that sub-agent writes files under a name this gate never checks).
+// Round 29 applied fail-closed reasoning to git-command failures (`computeBoundary`'s
+// `GitFailure` branch) but not to this list, in the same round — inverted here to match: name
+// ONLY the tools proven incapable of writing a file, running a shell command, or leaving the
+// sandbox, each with a one-line reason; everything else — named below, added later, or entirely
+// unrecognized — is mutating by construction, not by enumeration.
+//
+// Full real tool inventory (union of the captured 17-tool plugin payload and this project's own
+// kilo.db session history's 13 distinct invoked names, 156 real sessions): agent_manager,
+// agent_manager_models, background_process, bash, chart, edit, glob, grep, kilo_local_recall,
+// question, read, skill, suggest, task, todowrite, webfetch, write. (`patch`/`multiedit`, still
+// named in the old denylist, appear in neither the captured payloads nor any observed call in
+// kilo.db — likely dead names from an earlier Kilo version; harmless to still fail-close on them
+// since they fall through to "unrecognized" below either way.)
+const READONLY_TOOLS = new Set([
+  "read", // reads one file's content; cannot create, modify, or delete anything
+  "grep", // searches file contents; read-only by definition, same class as read
+  "glob", // lists filenames matching a pattern; read-only by definition, same class as read
+  "question", // asks the user a clarifying question (the exact non-mutating alternative discuss.md
+              // exists to encourage); the tool call itself produces no file or git change
+])
+
+function isMutating(tool: string): boolean {
+  return !READONLY_TOOLS.has(tool)
+}
 
 // Matches an absolute or relative path ending in wiki/protocols/<name>.md — deliberately not
 // anchored to session cwd, since the "read" tool's args.filePath is absolute in practice (round
@@ -377,7 +407,7 @@ const IDLE_NUDGE_MESSAGE = (files: string[]) =>
 // verify commitCountSince fails closed directly (a syntactically-valid but nonexistent `fromSha`
 // reproduces a real `git rev-list` error with no corruption needed) instead of leaving that one
 // helper's fail-closed path unverified.
-export const __internal = { currentHead, lastPrimerTouchSha, commitCountSince, isInsideWorkTree, computeBoundary, GitCommandError }
+export const __internal = { currentHead, lastPrimerTouchSha, commitCountSince, isInsideWorkTree, computeBoundary, GitCommandError, isMutating, READONLY_TOOLS }
 
 export const SubtaskGate = async ({ client }: any = {}) => ({
   "tool.execute.before": async (input: any, output: any) => {
@@ -404,7 +434,7 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     // block fired for it and a real new message followed — set in chat.message below), or it's
     // the boundary that already existed when this session's first message arrived (the
     // fresh-session courtesy, also set in chat.message below).
-    if (MUTATING_TOOLS.has(tool)) {
+    if (isMutating(tool)) {
       const boundary = computeBoundary()
       // Round 29 (FEEDBACK #46): a GitFailure always blocks — it has no SHA to check against
       // acknowledged/pre-approved state, and unlike a real boundary it can't be cleared by any
@@ -443,7 +473,7 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     // in the first place, since the lock only ever lifts on actual compliance (a real read), not
     // on the mere passage of one blocked attempt — round 8's audit confirmed FEEDBACK #3's
     // "verbatim retry slips through" gap was specifically in the primer/elective gate, not here.
-    if (MUTATING_TOOLS.has(tool) && !state.protocolDocRead[sessionID]) {
+    if (isMutating(tool) && !state.protocolDocRead[sessionID]) {
       saveState(state)
       throw new Error(BLOCK_MESSAGE_NO_PROTOCOL_READ)
     }
