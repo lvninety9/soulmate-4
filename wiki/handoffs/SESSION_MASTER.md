@@ -231,4 +231,51 @@ been written down anywhere and would have been lost to the next context reset:
   project's own history of trusting a report that turned out not to match reality closely enough
   to matter — most recently the round-27 stale-clone incident itself, echoing session 5's original
   handoff-re-verification concern almost verbatim. Recorded here so the instruction, and the
+
+## Round 27/28 narrative moved out of SESSION_PRIMER.md (round 29, item 4 — same flow rule as
+round 28's FEEDBACK_PENDING fix: primer stays current-state only, "why" lives here)
+
+Round 27 (2026-08-21) was a targeted fix cycle on 2 candidates surfaced by the stale-clone audit
+above (see "Round 27 mistake"), independently re-derived against real code. **Finding B, landed
+(`193b16b`)**: a real `event`/`session.idle` hook now exists in `subtask-gate.ts` — on session
+idle with a dirty working tree it sends a synthetic `client.session.prompt({noReply:true})` nudge
+naming the real uncommitted files, deduped per session on the dirty-file-set signature. Closes
+part of row #15's "can't catch a session abandoned outright" gap; live-verified via `kilo serve` +
+raw HTTP (correct file names recalled with no fabrication, dedup held); 24/24 unit tests at the
+time. **Finding A, investigated and reverted**: the candidate `<system-reminder>`-tag wrap for the
+carryover warning was re-tested rigorously (7 live trials, 3 phrasings) and did **not** hold (4/5
+post-fix failures), contradicting the stale audit's own reported numbers — no trace remains in
+current code. Full technical detail (root cause, live-verification steps) for both: `wiki/rule-
+archive.md` "Round 27" (L12, L13).
+
+Four meta-lessons drawn from round 27, condensed: (1) "reorder the check, don't just patch it"
+recurred 3× across early rounds' exclusion-mechanism stage pairs (rounds 17-18, 22-23) — a
+pattern worth recognizing early rather than re-discovering per round. (2) Commit the fix before
+any destructive git cleanup, not after. (3) A citation fix isn't the same as re-verifying the
+claim it was attached to (round 5's "no end-of-turn hook" claim survived 18 rounds after its
+*citation* got corrected in round 9, because nobody re-checked the *content* against the corrected
+package — this became L12). (4) A test asserting only "did it throw" can pass even when the exact
+mechanism it targets is broken, if an unrelated gate throws first (round 27's own T11b bug, caught
+before commit) — this became AGENTS.md's L14 (round 29, promoted from here since `tests/subtask-
+gate.test.mjs` actively cites it).
+
+Round 28 (2026-08-22, external review) found 7 concrete, already-broken mechanisms (S1-S7) by
+reading the code adversarially — all 7 landed, each live-verified, one commit/small cluster each;
+full summary + hashes in `wiki/FEEDBACK_PENDING-archive.md` row #39. Headline results: required-
+read tokens 15,128→6,978 (real local llama.cpp `/tokenize`, under the 8,000 target);
+`check_template_drift()` no longer forces this repo's own audit history onto fresh downstream
+projects; S7 turned `templates/harness-integration-test.md` into a real k/N-scored script
+(`scripts/harness-integration-test.sh`) and, while dogfooding it, surfaced one genuinely new gap
+(row #40 at the time, since triaged — see `FEEDBACK_PENDING-archive.md`).
+
+Round 28's own **fix cycle** (distinct from the review above — Opus-authored work order, round
+29's starting point) closed all 7 of its own items: #41 gate redesign (SHA-derived boundary
+instead of a persisted `armed` flag, live-verified 5/5 — see `rule-archive.md` "Round 28"), #42/
+#43 CLI-vs-plugin root cause for the discuss/`question`-tool gap, the FEEDBACK_PENDING flow rule
+itself (300-char row cap, required-read tokens 9,371→6,635), item 3's measurement accepted with no
+code change, the harness-integration-test.sh bench redesign (result-based scoring, N/A not FAIL),
+and the Q3→Q4_K_M quantization swap (lower VRAM, equal correctness, mild polish edge — full 6-task
+comparison in `rule-archive.md`). Opus then independently re-derived every one of these numbers
+from a fresh clone before writing the round 29 work order — no discrepancy found (see round 29's
+own commit for that re-verification's own record).
   reasoning behind it, aren't lost to the next context reset either.
