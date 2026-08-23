@@ -50,7 +50,7 @@ KILO="${KILO_BIN:-kilo}"
 # Pinned to the local model on purpose — this project's whole point is a local-model-shaped
 # harness (RTX 3080, hard context ceiling), not whichever cloud model kilo defaults to. Override
 # with KILO_MODEL if your kilo.jsonc names it differently.
-MODEL="${KILO_MODEL:-qwen-3-6/Qwen3.6-35B-A3B-UD-Q3_K_M.gguf}"
+MODEL="${KILO_MODEL:-qwen-3-6/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf}"
 
 if ! command -v "$KILO" >/dev/null 2>&1; then
   echo "kilo not found on PATH (set KILO_BIN=/path/to/kilo) — cannot run live trials." >&2
