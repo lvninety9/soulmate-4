@@ -12,6 +12,7 @@ Valid `priority` values: `p0` (blocking/urgent) | `p1` (normal) | `p2` (someday)
 | 4/12 | "discuss" self-serve: CLI structurally can't ask a real question (no `question` tool) — permanent CLI ceiling, nudge-only mitigation | p1 | open (ceiling) | Full history + root cause: `wiki/rule-archive.md` "Round 28" | rounds 2,7,8,28 |
 | 6 | Post-block model self-report fabricates "done" claims | p1 | open, permanent ceiling | Inherent LLM limit, no plugin fix — verify git/state, never the model's summary. Full history: `wiki/rule-archive.md` "Round 28" | rounds 2,8,27 |
 | 42 | CLI-vs-plugin "discuss" gap root-caused: CLI's agent lacks a `question` tool (binary-confirmed deny); plugin has it + used it (2/2), vs. this row's own "5/5 FAIL" | p1 | open | Evidence: `rule-archive.md` "Round 28". Next: re-check original 5 trials for a `question` call | round 28 |
+| 47 | Blocked mid-turn, model retries 4-20 tool variants instead of cleanly stopping to ask (doesn't bypass now #46's closed, but wastes turn budget) | p2 | open | Full evidence: `rule-archive.md` "Round 29" | round 29 |
 ---
 
 ## Completed history
