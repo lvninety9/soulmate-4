@@ -763,3 +763,134 @@ first axis-C run's own raw logs (`/tmp/sm4-ladder/`) and both axis-B runs' raw l
 an interim runtime-session reset before this corrected run — no finding was lost, since every
 number/quote had already been written down here before that happened, but the original raw
 transcripts backing this section's earlier claims about them no longer exist on disk.
+
+## Round 30 — item 7 (question-tool re-verification), item 2 (real tool inventory), item 3
+(elective arm turn-boundary fix), items 1/5/6 (hard cap, bench redesign, axis C redesign), and a
+new environmental blocker (`kilo run` reliability) that stopped item 4 and every live-verification
+acceptance criterion this round
+
+**Setup**: fresh clone at `54b3164` (195 commits), re-measured before starting — unit 30/30, fuzz
+42/42, `check-caps.regression.test.mjs` ALL PASS, `check-caps.sh` EXIT=0, required-read total
+**6,344 tokens exactly** (measured via real `POST /tokenize` against the fresh-clone content — see
+item 1 below), `SESSION_PRIMER.md` **147 lines** — all match round 29's report/Opus's independent
+re-verification exactly, no discrepancy found.
+
+**Item 7 — real answer, with a real nuance the work order's framing didn't anticipate**: the
+`question` tool DOES fire under `agent=code` — but the split isn't "does it fire," it's
+CLI-vs-plugin, and round 28's "structural, CLI-invariant" conclusion turns out to be correct for
+the CLI specifically (not overturned).
+
+Evidence, triangulated three independent ways:
+1. `~/.local/share/kilo/kilo.db` (SQLite, readable stdlib-only, no kilo CLI needed) holds 156
+   sessions / 3,542 messages / 11,066 parts, independently re-counted and matching exactly.
+   `question` tool: 13 calls across 9 sessions, 100% `agent=code`, directories
+   `/home/jay/sm4-r28-verify` (11) and `/home/jay/soulmate-4` (2).
+2. Round 28's own MITM capture survives on disk at `/home/jay/sm4-tap-capture/captures/*.json` —
+   the ACTUAL API request payload sent to the model, `tools` field. Extracted directly:
+   ```
+   CLI (kilo run):  12 tools — background_process, bash, edit, glob, grep, kilo_local_recall,
+                     read, skill, task, todowrite, webfetch, write
+   Plugin (Cursor):  17 tools — CLI's 12 + agent_manager, agent_manager_models, chart,
+                     question, suggest
+   ```
+   The 2 `/home/jay/soulmate-4`-dir question calls in the DB (finding 1) are from these exact
+   plugin captures (`export_a.json`'s `directory` field is literally `/home/jay/soulmate-4`,
+   captured 1787440216xxx/1787440265xxx — the plugin capture files, not the CLI ones). The CLI's
+   tool schema, real request body, has NO `question` entry at all — it cannot be called via
+   `kilo run`, full stop, regardless of the `--agent` flag (also tried live with `--agent
+   orchestrator`, but that attempt hung — see the reliability finding below, inconclusive).
+3. `kilo agent list`'s raw permission dump for the `code` agent contains BOTH an early
+   `question:"deny"` rule (matching round 28's binary-string grep) AND a LATER `question:"allow"`
+   rule (grouped with `kilo_memory_save`/`interactive_terminal`/`bash`/`semantic_search`, looking
+   plugin-injected) — rules are evaluated last-match-wins, so the *permission* layer does resolve
+   to "allow." But permission "allow" and tool-schema "present" are different layers: the CLI's
+   actual request body still omits the function definition entirely, so an "allowed" tool that was
+   never offered can't be called. This is the resolution to round 28 vs round 29's apparent
+   conflict — both were right about their own layer, and neither layer alone explains the model's
+   real behavior.
+4. Direct live reproduction (before the reliability blocker set in): `kilo run --dir
+   /home/jay/sm4-qtest -m ... --format json "discuss: add a small CLI tool ... word counter ..."`
+   — real output in 32s, session `ses_fd0d5d043ffe7Z9sDBfqVOYsfQ` (independently confirmed present
+   in `kilo.db`, tool calls read/grep/glob only). The model asked two real clarifying questions
+   in Korean prose (문법: "확인할 점: 1. 파일 구조... 2. 언어...") — zero `question` tool_use
+   event in the NDJSON stream. This is discuss.md's actual protocol satisfied through the CLI's
+   only real channel (plain text), not a violation — discuss.md itself never mandates the tool,
+   only "ask focused questions."
+
+**Practical consequence for item 5** (bench redesign): scoring Step 3 as "did a `question`
+tool-call event fire" would score every CLI trial (which is what `harness-integration-test.sh`'s
+`run_step()` uses) 0/N regardless of model behavior — not a fix, a regression. Item 5's actual
+implementation (see below) checks BOTH the tool event (future/plugin-proofing) and text-based
+Q&A ordering (the CLI's real channel), from the same NDJSON stream, precisely.
+
+**Item 2 — real tool inventory used to build the allowlist**: union of the captured 17 (finding 2
+above) and the DB's 13 distinct invoked names (`bash` 1593, `read` 608, `write` 222, `edit` 213,
+`todowrite` 78, `glob` 73, `question` 13, `webfetch` 12, `grep` 10, `background_process` 10,
+`kilo_local_recall` 3, `task` 2, `skill` 1) — independently re-counted from `kilo.db`, matches
+exactly. `patch`/`multiedit` (still named in the pre-round-30 `MUTATING_TOOLS` denylist) appear in
+NEITHER the captured payloads NOR any observed DB call — likely dead names from an earlier Kilo
+version. `.kilo/plugins/subtask-gate.ts`'s new `READONLY_TOOLS` allowlist (`read`/`grep`/`glob`/
+`question`) + `isMutating()` fail-closed inversion, T18 (fictional tool name still blocked) — full
+detail in the commit message (`eae4528`).
+
+**Item 3 — elective arm turn-boundary fix**: `electiveBoundaryAtTurnStart` per-session snapshot,
+refreshed every `chat.message` (not just the session's first, unlike the existing
+`boundaryAtSessionStart`) — `tool.execute.before` only blocks an elective boundary matching that
+snapshot, deferring a freshly-crossed-mid-turn one to the next turn boundary. Primer boundary
+unaffected (still blocks unconditionally, acceptance B). T19a/T19b live-simulate the exact
+mid-turn-crossing pattern via a unit test (real git commits, real hook calls, no live model
+needed for THIS part) — full detail in commit `510b00a`. Acceptance C (does the real #47 retry
+storm reduce, live) NOT verified this round — blocked, see below.
+
+**Items 1/5/6 — code complete, verified without live model calls where possible**:
+- Item 1: `REQUIRED_READ_CHAR_CAP=27800` (8,000 tokens at this repo's measured 3.48 chars/token
+  ratio, real `POST /tokenize`). Live-verified: current state passes (22077/27800), a deliberate
+  6,000-char pad on `SESSION_PRIMER.md` blocks (exit 1), reverting clears it. Commit `71c7885`.
+- Item 5: Step 3 scored via `score_step3_question()` (NDJSON parse, see item 7's practical
+  consequence above for why pure tool-event scoring would regress the CLI bench). `"discuss: "`
+  prefix dropped (acceptance B). Step 1 excluded from axis B via `na[]` (acceptance C — asking
+  "does AGENTS.md say X" right after deleting AGENTS.md is a tautology). Verified via a mock
+  `kilo` binary dry-running the real script end-to-end in both ON/OFF modes under `set -uo
+  pipefail` — no crashes, correct N/A reporting. Commit `d4abce4`. Acceptance D (re-run axis B
+  live) NOT done — blocked, see below.
+- Item 6: `complexity-ladder-test.sh` restructured into 5 independent per-level loops
+  (`run_levels_through()` drives unscored setup for levels 1..L-1, only level L is scored) — 5 *
+  N = 25 total executions instead of a single cascading run. Verified via the same mock-binary
+  dry-run technique (all 5 levels x N=1, correct unscored-setup-then-scored sequencing confirmed
+  per-level in each trial's log). Commit `19ae377`. The actual 25-trial live run NOT done —
+  blocked, see below.
+
+**Item 4 — NOT investigated, entirely blocked**: could not distinguish (a)/(b)/(c) per the work
+order's own acceptance condition, since that requires reading a real live Step 4 trial's actual
+transcript, and no live trial could be produced this round (see below). `design.md` itself DOES
+clearly instruct writing the sub-task list into `SESSION_PRIMER.md`'s "Current sub-task" block and
+committing it (read in full this round) — this makes cause (b), "design.md doesn't require a
+primer commit," look unlikely on its face, but that is a documentation read, not a live-trial
+finding, and is explicitly NOT what the work order's acceptance condition asks for. Left open as
+row #48 in `FEEDBACK_PENDING.md`.
+
+**New finding: `kilo run` reliability, blocking every live-verification acceptance criterion this
+round** (item 3-C, item 4, item 5-D, item 6's actual 25-trial run, and the deeper "does axis B/C
+even reproduce" question Opus raised mid-round):
+
+Measured directly, isolating one variable at a time (L06's own discipline): after 2 clean
+successes early in the session (a Step-1-shaped factual question, 68s; a real discuss trial with
+`--format json`, 32s, item 7's evidence above), every subsequent solo `kilo run` invocation — same
+command shape, varied prompts, varied target directories including a genuinely fresh bootstrap,
+`llama-server` confirmed healthy (`/health` → `{"status":"ok"}`) and GPU idle (1-6% util, ~4.3-5GB
+baseline VRAM) throughout — hung for the full timeout (124-300s+) with 0 bytes stdout/stderr, no
+error, stuck at `kilocode-indexing initializing project indexing` (sometimes progressing one step
+further to `booting location services` before stopping) per `~/.local/share/kilo/log/*.log`. No
+orphaned `kilo run`/node child processes were left behind by any killed attempt. Two `kilo serve
+--port 0` daemon processes were running concurrently throughout (PID 6842, started 21:40 the prior
+day; PID 98057, started 00:12 same session) — both parented by Cursor IDE node service processes
+(`ppid` traces to `--utility-sub-type=node.mojom.NodeService ... --user-data-dir=/home/jay/.config/
+Cursor`), not spawned by any of this round's own commands. Correlation only, not proven causation
+— NOT killed or restarted (Jay's live Cursor session, out of this round's scope and the work
+order's own "don't touch production config" spirit extends to not disrupting a live IDE process
+without asking). Retried the sanity check 4 times across roughly 75 minutes of elapsed session
+time (23:56 → 01:11 KST); every retry after the first two hung identically. Reported prominently
+per Opus's own mid-round instruction rather than worked around.
+
+Raw evidence: `/tmp/discuss_json_test.out` (successful trial), kilo per-run logs at
+`~/.local/share/kilo/log/2026-08-23T1[45]*.log` (all `/tmp` scratch, not committed).
