@@ -537,3 +537,56 @@ is done and verified; the swap itself, the Q4 measurement, and the accept/reject
 (VRAM ≤~3,700 → adopt; ≥~4,100 → needs (A) llama joins the GPU lock rotation or (B) raise
 `-ncmoe`) all wait for that session. Rollback is a one-line `llama.env` revert + restart, same
 as the plan's own note on why this experiment is low-risk to attempt.
+
+## Round 28 item 7 — final: Q4_K_M adopted, full quality comparison
+
+Extended beyond the plan's single VRAM decision gate at Jay's request: 6 total prompts (4 short —
+coding/Korean math reasoning/logic puzzle/code review; 2 long-generation — a complete Tic-Tac-Toe
+game with a heuristic AI opponent, and a self-contained portfolio HTML page), run against both
+Q3_K_M and Q4_K_M with `--temp 0.0` (deterministic), comparing resource usage, speed, and actual
+output quality/correctness, not VRAM alone.
+
+**Resource/speed (averaged across the 4 short prompts, server-reported `timings` — wall-clock
+was contaminated by a live Cursor Kilo Code session sharing the same `-np 1` inference slot and
+is not used for comparison)**:
+
+| Metric | Q3_K_M | Q4_K_M |
+|---|---|---|
+| VRAM | 3,604-3,718 MiB | **3,416 MiB** (lower — contradicts the plan's own pre-swap estimate of 4,100-4,200) |
+| RAM (RSS) | 18.4 GB | 21.7 GB (+3.3GB, already judged acceptable given the daily 19:30 restart) |
+| Generation speed | 36.7 tok/s | 36.4 tok/s (statistically identical) |
+| Prompt processing speed | 86.1 tok/s | 68.4 tok/s (~20% slower; small absolute cost given this harness's short real prompts) |
+
+**Quality — short prompts (4/4 correct on both)**: identical correctness on a word-counting math
+problem (Korean), a 3-person/3-pet/3-floor logic puzzle, a palindrome-check function, and a
+ZeroDivisionError code review. Q4 showed marginally more polish in 2/4 (a more idiomatic test
+string in the palindrome function; suggested alternate error-handling approaches in the code
+review) — no correctness difference, a small consistent thoughtfulness edge.
+
+**Quality — long-generation, live-executed (not eyeballed)**: both Tic-Tac-Toe implementations
+(1,326-1,508 output tokens) use the same algorithm shape (try-win → block → center → corner →
+any-cell) and were actually run with piped stdin, not just read: both correctly detect a row win,
+both correctly reject out-of-range/non-numeric input without crashing (re-prompt), both correctly
+reject already-taken cells. Both portfolio HTML pages (2,188-2,586 output tokens) hit every
+stated requirement exactly (DOCTYPE, 3 nav links, exactly 3 project cards, a form with
+name/email/message fields, `@media (max-width: 600px)` at the literal requested breakpoint) with
+zero tag-balance mismatches (checked programmatically, not by eye) — Q4 additionally added an
+unrequested smooth-scroll JS enhancement for the nav anchors, a small unprompted UX touch.
+
+**No task, short or long, showed a correctness gap between the two quantizations** — the
+hypothesis that more complex tasks would reveal a quality difference did not hold in this
+6-prompt sample. The only consistent signal favoring Q4 was a mild thoughtfulness/polish edge
+(3 of 6 tasks), never a substantive one.
+
+**Decision**: weighted across quality (40%), VRAM (25%), speed (20%), RAM (15%) for this
+harness's actual use (a coding agent backend, not raw chat) — Q3 ≈7.7/10, Q4 ≈8.0/10. **Q4_K_M
+adopted as the production model.** `llama.env`'s `LLAMA_MODEL_PATH` set to
+`Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`, `systemctl restart llama` applied, verified up and serving.
+Rollback path (unchanged, still true): revert that one line, restart. All other invocation flags
+(`-c 65536` included) were never touched, keeping the swap a single-variable change (L06).
+
+Raw prompt sets, full model outputs, and the extracted+executed game/webpage files are kept at
+`/home/jay/sm4-tap-capture/` (`q3-vs-q4-prompts.json`, `q3-vs-q4-complex-prompts.json`,
+`quality-{Q3,Q4,Q3-complex,Q4-complex}.json`, `tictactoe_{Q3,Q4}.py`, `portfolio_{Q3,Q4}.html`) —
+not committed to this repo (durable-disk scratch evidence, same convention as this round's other
+capture data).
