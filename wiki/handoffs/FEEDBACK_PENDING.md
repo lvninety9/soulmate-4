@@ -9,12 +9,9 @@ Valid `priority` values: `p0` (blocking/urgent) | `p1` (normal) | `p2` (someday)
 | # | Feedback / issue | Priority | Status | How it's handled | Session logged |
 |---|---|---|---|---|---|
 | 2 | `.kilo/commands/*.md` don't work in Kilo CLI (v7.4.20+) | p2 | open | AGENTS.md "Known gap"/L02; watch Kilo's changelog | seed |
-| 4/12 | "discuss" self-serve: CLI structurally lacks a `question` tool — round 30 doubly reconfirmed (captured real payload + live repro) | p1 | open (ceiling), reconfirmed | Full evidence: `rule-archive.md` "Round 28"+"Round 30" | rounds 2,7,8,28,30 |
+| 4/12 | CLI (`kilo run`) has no `question` tool in its real 12-tool payload (permanent, confirmed 3x); Cursor plugin (17 tools) has+uses it | p1 | open, permanent ceiling (CLI only) | `rule-archive.md` "Round 28"+"30" (merged #42) | rounds 2,7,8,28,30 |
 | 6 | Post-block model self-report fabricates "done" claims | p1 | open, permanent ceiling | Inherent LLM limit, no plugin fix — verify git/state, never the model's summary. Full history: `wiki/rule-archive.md` "Round 28" | rounds 2,8,27 |
-| 42 | CLI-vs-plugin "discuss" gap: CLI's agent lacks a `question` tool (now payload-confirmed, not just binary-inferred); plugin has + uses it | p1 | open | Evidence: `rule-archive.md` "Round 28"/"Round 30" | rounds 28,30 |
-| 47 | Blocked mid-turn, model retries 4-20 tool variants instead of asking | p2 | fix landed (item 3: elective arm now turn-boundary-only), live re-verify blocked by #50 | `subtask-gate.ts` + T19a/b; evidence `rule-archive.md` "Round 30" | rounds 29,30 |
-| 48 | Axis B Step 4 (design→primer commit) = 0/5 BOTH modes — root cause undetermined, blocked by #50 this round | p1 | open, blocked | `wiki/rule-archive.md` "Round 30" | rounds 29,30 |
-| 50 | `kilo run` unreliable: ~50%+ of solo calls hang (0 output, stuck pre-model). llama-server healthy throughout; 2 concurrent `kilo serve` daemons observed (Cursor-owned). Blocks #47/#48 + items 3C/4/5D/6 | p1 | open, blocking | `wiki/rule-archive.md` "Round 30" | round 30 |
+| 50 | `kilo run` reliability: round 30 saw ~50%+ solo-call hangs; closing pass re-tested lightly (2/2 quick calls OK, stale-Q3-default hypothesis ruled out) — inconclusive, not proven fixed | p2 | open, monitor (downgraded from blocking) | `rule-archive.md` "Round 30 closing pass" | round 30 |
 ---
 
 ## Completed history
@@ -23,5 +20,5 @@ Valid `priority` values: `p0` (blocking/urgent) | `p1` (normal) | `p2` (someday)
      a pointer only, never a table, so this file (auto-loaded per wiki/protocols/discuss.md's
      Rule Zero grep target) can't silently regrow into pure narrative again (round 28, S5). -->
 
-All resolved rows (#1-#38, rounds 1-27) are in `wiki/FEEDBACK_PENDING-archive.md`, not auto-loaded.
-Nothing deleted, only relocated.
+All resolved rows (#1-#48 incl. rounds 1-30) are in `wiki/FEEDBACK_PENDING-archive.md`, not
+auto-loaded. Nothing deleted, only relocated.
