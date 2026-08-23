@@ -28,17 +28,17 @@ resumption of the full audit loop (that resumes whenever Jay next asks for one).
 
 ## Current sub-task
 
-시작: round 28 fix cycle, item 5 (row #40) — DONE. Item 6 (bench scoring redesign) next
-완료: item 5: measured directly (no live model) that the elective-arm already can't be fooled by
-     a fake `git add`-without-diff primer claim — arms correctly at exactly the hardcoded
-     threshold (4). Decided against lowering it (would trip on legitimate multi-file sub-tasks
-     more often than row #40's narrow pattern). No code change; row #40 archived. Full reasoning:
-     `rule-archive.md` "Round 28".
-다음: item 6 — redesign `harness-integration-test.sh`'s Step 4/6 scoring: path-based → result-based
-     ("premise unmet" = N/A, not FAIL). Also 6-B: `--temp 0.0` means identical-prompt trials are
-     n=1 — need 5 distinct fixed inputs per step. Trials already run sequentially (`-np 1`).
-참고: full 7-item sequence lives outside this repo (Opus's plan). Item-3 script + captures:
-     `/home/jay/sm4-tap-capture/` (durable disk, not `/tmp`).
+시작: round 28 fix cycle — items 1-6 of 7 DONE. Item 7 (Q3 vs Q4) prepped, waiting on Jay
+완료: item 6: harness Steps 5/6 now N/A (not FAIL) on unmet premise, Step 6 result-based
+     (per-file commits), 5 fixed scenarios (6-B); live-verified old logic would've scored 2 false
+     FAILs. Item 7 prep: Q4 file complete (22.13GB), Q3 baseline (VRAM 3,604MiB, 40.12 tok/s).
+     Full detail: `rule-archive.md` "Round 28".
+⚠️ Jay action needed: item 7's actual swap (`llama.env` → Q4, `systemctl restart llama`,
+     re-measure VRAM, decide adopt/(A)/(B), rollback if needed) must happen with Jay present —
+     `llama.service` is Hermes's shared production backend, not a throwaway test service.
+다음: after the swap+decision, round 28's fix cycle (all 7 items) is complete.
+참고: full 7-item sequence lives outside this repo. Item-3/6 scripts + captures:
+     `/home/jay/sm4-tap-capture/` (durable disk).
 
 ## Current score: turnkey 82/100, structural 81/100 — from round 26, the last FULL audit
 
