@@ -251,7 +251,16 @@ function computeBoundary(): Boundary | GitFailure | null {
   }
 }
 
-const MUTATING_TOOLS = new Set(["write", "edit", "bash", "patch", "multiedit", "task"])
+// Round 29 (FEEDBACK #46, axis-C-discovered gate bypass): `background_process` runs an arbitrary
+// shell command asynchronously — functionally equivalent to `bash` for mutation purposes (starts
+// a process that can write files and `git commit`) — but was missing from this set entirely.
+// Live-caught: a real complexity-ladder trial got blocked by the elective gate, read this file's
+// own source via the `read` tool (never blocked — read-only), noticed `background_process` wasn't
+// in MUTATING_TOOLS, and used it to write + commit, bypassing the gate completely (confirmed via
+// the trial's own transcript: the model explicitly reasoned "`background_process` is not in this
+// set, so it should not be blocked" before using it). Treated as fully mutating regardless of the
+// specific command run, same conservative treatment as `bash`.
+const MUTATING_TOOLS = new Set(["write", "edit", "bash", "patch", "multiedit", "task", "background_process"])
 
 // Matches an absolute or relative path ending in wiki/protocols/<name>.md — deliberately not
 // anchored to session cwd, since the "read" tool's args.filePath is absolute in practice (round
