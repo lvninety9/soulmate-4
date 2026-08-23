@@ -101,11 +101,31 @@ for i in $(seq 1 "$N"); do
   ( cd "$target" && git config user.name "harness-integration-test" \
       && git config user.email "test@local" ) >>"$log" 2>&1
 
+  # Round 29 item 6 axis B (work order): "same bench, harness ON vs OFF" — same 5 SCENARIOS,
+  # same scoring below, the only difference is whether AGENTS.md/the plugin exist for this
+  # trial's target. Per the work order's own spec: disable the plugin + remove AGENTS.md (not a
+  # bare git-init — wiki/protocols/*.md etc. stay on disk, since AGENTS.md's Protocol table is
+  # what tells the model those files matter in the first place; removing just that pointer, not
+  # every file it points to, isolates what the harness itself adds rather than conflating it with
+  # "any project files exist at all"). Steps 1/2 below intentionally still run their harness-
+  # specific prompts unmodified in OFF mode too — a structural fail on Step 1 (no AGENTS.md to
+  # read) is itself the data point axis B exists to produce, not a broken test.
+  if [ "${HARNESS_OFF:-0}" = "1" ]; then
+    # --no-verify: bootstrap.sh's installed pre-commit hook is exactly check-caps.sh's own
+    # bootstrap-completeness check (missing plugin/AGENTS.md -> OVER CAP, commit refused) --
+    # correct for normal use, but this commit's entire point is deliberately producing that
+    # exact "incomplete" state as axis B's OFF condition, so it must bypass, not satisfy, that
+    # hook. Live-caught: the first version of this without --no-verify left the deletion
+    # uncommitted with no error surfaced (set -uo pipefail, not -e).
+    ( cd "$target" && rm -f AGENTS.md .kilo/plugins/subtask-gate.ts \
+        && git add -A && git -c user.email=t@t -c user.name=t commit -q --no-verify -m "axis B: harness OFF (AGENTS.md + plugin removed)" ) >>"$log" 2>&1
+  fi
+
   scenario="${SCENARIOS[$(( (i - 1) % ${#SCENARIOS[@]} ))]}"
   IFS='|' read -r scenario_name discuss_prompt build_scope <<<"$scenario"
   echo "scenario: $scenario_name" >>"$log"
 
-  real_cap=$(grep -oP 'this file ≤\K[0-9]+' "$target/AGENTS.md" | head -1)
+  real_cap=$(grep -oP 'this file ≤\K[0-9]+' "$target/AGENTS.md" 2>/dev/null | head -1)
 
   # --- Step 1: does AGENTS.md actually auto-load? --- (fixed prompt: this checks a deterministic
   # fact about this repo's own bootstrapped template, not open-ended judgment — no meaningful
@@ -234,8 +254,10 @@ for i in $(seq 1 "$N"); do
   echo "trial $i ($scenario_name) done: step1=${pass[1]} step2=${pass[2]} step3=${pass[3]} step4=${pass[4]} step5=${pass[5]}(na:${na[5]}) step6=${pass[6]}(na:${na[6]}) (cumulative pass counts)"
 done
 
+harness_mode="ON"
+[ "${HARNESS_OFF:-0}" = "1" ] && harness_mode="OFF"
 echo
-echo "=== harness-integration-test.sh results: $N trial(s) ==="
+echo "=== harness-integration-test.sh results: $N trial(s), harness $harness_mode ==="
 report_step() {
   local label="$1" step="$2"
   local scored=$(( pass[$step] + fail[$step] ))
