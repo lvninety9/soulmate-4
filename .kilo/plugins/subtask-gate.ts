@@ -100,6 +100,10 @@ type State = {
   boundaryAtSessionStart: Record<string, string>
   protocolDocRead: Record<string, boolean>
   idleNudgeSignature: Record<string, string>
+  // Round 30 item 3 (work order): snapshot of the elective boundary's sha (or "" if none) as of
+  // the start of the CURRENT turn — refreshed on every chat.message, not just the session's
+  // first. See the elective-vs-primer split in tool.execute.before for why this exists.
+  electiveBoundaryAtTurnStart: Record<string, string>
 }
 
 function loadState(): State {
@@ -112,6 +116,7 @@ function loadState(): State {
         boundaryAtSessionStart: parsed.boundaryAtSessionStart ?? {},
         protocolDocRead: parsed.protocolDocRead ?? {},
         idleNudgeSignature: parsed.idleNudgeSignature ?? {},
+        electiveBoundaryAtTurnStart: parsed.electiveBoundaryAtTurnStart ?? {},
       }
     }
   } catch {
@@ -125,6 +130,7 @@ function loadState(): State {
     boundaryAtSessionStart: {},
     protocolDocRead: {},
     idleNudgeSignature: {},
+    electiveBoundaryAtTurnStart: {},
   }
 }
 
@@ -444,7 +450,23 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
         saveState(state)
         throw new Error(BLOCK_MESSAGE_GIT_ERROR(boundary.gitError))
       }
-      if (boundary) {
+      // Round 30 item 3 (work order, #46/#47's common root): the elective arm's whole purpose is
+      // "work has drifted, check in with the user" — a between-turns judgment. Judging it
+      // mid-turn instead (the old behavior: computeBoundary() re-evaluated fresh on every single
+      // tool call, so crossing the commit threshold mid-turn armed immediately) traps a model
+      // with no escape: once armed, `bash` is blocked entirely, including read-only diagnostic
+      // commands like `git status`/`pytest` — round 29 live-caught this exact case producing
+      // either a gate-source-reading bypass (#46) or a 20-retry storm (#47). Fix: an "elective"
+      // boundary only blocks if it already existed as of the start of THIS turn (snapshotted in
+      // chat.message below, refreshed every message) — one freshly crossed mid-turn is deferred,
+      // not dropped, and blocks starting at the next message boundary once chat.message re-
+      // snapshots it. A "primer" boundary is unaffected: it still blocks the very next mutating
+      // call unconditionally, same as every prior round — that half of the gate was never the
+      // trapped-mid-turn failure mode, and acceptance criterion B (round 30 work order) requires
+      // it stay that way.
+      const midTurnElectiveDeferred =
+        boundary && boundary.reason === "elective" && boundary.sha !== state.electiveBoundaryAtTurnStart[sessionID]
+      if (boundary && !midTurnElectiveDeferred) {
         const preapprovedSha = state.boundaryAtSessionStart[sessionID]
         const cleared = state.acknowledged.includes(boundary.sha) || preapprovedSha === boundary.sha
         if (!cleared) {
@@ -514,6 +536,12 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
 
     const state = loadState()
 
+    // Round 30 item 3: computed once per message and reused below for two different snapshots —
+    // boundaryAtSessionStart (set once, first message only, unchanged from round 28) and
+    // electiveBoundaryAtTurnStart (refreshed every message, new this round — see its own comment
+    // in tool.execute.before for why a turn-start snapshot exists at all).
+    const turnStartBoundary = computeBoundary()
+
     // Round 28 (#41 redesign, rule b): a session's very first genuine message pre-approves
     // whatever boundary already exists at that moment, for this session only — without this,
     // the fix below (rule a) would block the exact fresh-session workflow build.md recommends
@@ -522,14 +550,23 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     // has no entry yet in boundaryAtSessionStart specifically (not any of the other per-session
     // maps below) — checked once, permanently recorded, never overwritten after.
     if (!(sessionID in state.boundaryAtSessionStart)) {
-      const boundary = computeBoundary()
       // Round 29 (FEEDBACK #46): a GitFailure has no `.sha` to pre-approve — recording "" here
       // (same as "no boundary at start") is deliberately conservative, not a fallback to the old
       // silent behavior: it does not pre-approve anything, so tool.execute.before's fail-closed
       // GitFailure block (which re-runs computeBoundary independently on the next mutating call)
       // is what actually surfaces the problem, not this bookkeeping step.
-      state.boundaryAtSessionStart[sessionID] = boundary && "sha" in boundary ? boundary.sha : ""
+      state.boundaryAtSessionStart[sessionID] = turnStartBoundary && "sha" in turnStartBoundary ? turnStartBoundary.sha : ""
     }
+
+    // Round 30 item 3: unlike boundaryAtSessionStart above, this refreshes on EVERY message, not
+    // just the session's first — it answers "was an elective boundary already open when THIS
+    // turn began," which tool.execute.before uses to defer a mid-turn-freshly-crossed elective
+    // arm to the next turn instead of trapping the current one. Same conservative GitFailure
+    // handling as above: "" (no pre-existing elective boundary), never a stale sha.
+    state.electiveBoundaryAtTurnStart[sessionID] =
+      turnStartBoundary && "sha" in turnStartBoundary && turnStartBoundary.reason === "elective"
+        ? turnStartBoundary.sha
+        : ""
 
     // Round 28 (#41 redesign, rule a): this replaces FEEDBACK #3's (round 8) unconditional
     // clear-on-any-message with one anchored to a fact: a block only gets acknowledged if it

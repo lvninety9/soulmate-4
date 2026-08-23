@@ -708,6 +708,62 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 19 (round 30 item 3, work order, #46/#47's common root): the elective arm judging
+  // mid-turn (re-evaluated fresh on every single tool call, old behavior) trapped a model with
+  // no escape the instant a 4th non-primer commit landed inside one turn — `bash` blocked
+  // entirely, including read-only diagnostic commands, producing either a gate-source-reading
+  // bypass (#46) or a 20-retry storm (#47). Fix: the elective arm now only blocks if it already
+  // existed as of the start of the CURRENT turn; one freshly crossed mid-turn is deferred to the
+  // next turn boundary, not dropped.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    // Turn 1 starts: a chat.message before any tool call, matching real production ordering
+    // (chat.message always precedes that turn's tool calls) — this is what gives
+    // boundaryAtSessionStart something real to record (no boundary yet at session start), same
+    // as every other test in this file that exercises the fresh-session path.
+    await hooks["chat.message"]({ sessionID: "s19" }, { message: { id: "m19a" }, parts: [{ type: "text", text: "start" }] })
+    // satisfy L09 first so only the elective gate is under test
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s19" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    // Land COMMITS_WITHOUT_PRIMER_THRESHOLD (4) total commits reachable from HEAD, none touching
+    // SESSION_PRIMER.md, all within this same turn (freshRepo()'s own initial commit is 1 of the
+    // 4; three more here cross the threshold) — no chat.message in between, i.e. mid-turn.
+    // `git add <file>` (not `-A`): freshRepo() leaves SESSION_PRIMER.md sitting untracked on
+    // disk, so a blanket `-A` here would accidentally sweep it into the first of these commits,
+    // making it a primer touch and invalidating this test's whole elective-only premise.
+    for (const f of ["a.txt", "b.txt", "c.txt"]) {
+      writeFileSync(join(dir, f), "x")
+      execSync(`git add ${f} && git -c user.email=t@t -c user.name=t commit -q -m ${f}`, { cwd: dir })
+    }
+    await assertNoThrow(
+      "T19a elective threshold crossed mid-turn (no new chat.message since) — not blocked yet",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s19" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
+    // Turn 2 starts -> chat.message refreshes electiveBoundaryAtTurnStart to the now-open
+    // elective boundary (boundaryAtSessionStart itself is untouched — already set at turn 1, so
+    // this is NOT the fresh-session courtesy path clearing it a second time).
+    await hooks["chat.message"]({ sessionID: "s19" }, { message: { id: "m19b" }, parts: [{ type: "text", text: "continue" }] })
+    await assertThrows(
+      "T19b same elective boundary, now snapshotted at a turn boundary — blocked",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s19" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
