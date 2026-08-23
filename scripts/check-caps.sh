@@ -58,6 +58,21 @@ PROJECT_BACKGROUND_CHAR_CAP=23000
 SESSION_PRIMER_CHAR_CAP=23000
 FEEDBACK_PENDING_CHAR_CAP=15000
 
+# Round 30 item 1 (work order): every cap above is per-file, so a handoff commit that stays under
+# each individual cap can still grow the *sum* every session reads at start (AGENTS.md +
+# SESSION_PRIMER.md + PROJECT_BACKGROUND.md + FEEDBACK_PENDING.md) — this is exactly what
+# happened twice in a row: round 28 FEEDBACK_PENDING 6,978->8,158 tok, round 29 required-read
+# total 5,563->6,344 tok (SESSION_PRIMER alone 101->147 lines), both times the round's own
+# handoff commit refilling the budget it had just trimmed, and no per-file cap caught it because
+# no single file went OVER CAP. check-caps.sh has no llama-server dependency (must run standalone
+# in a pre-commit hook), so chars stand in for tokens — round 30 measured, on this repo's real
+# fresh-clone content via POST /tokenize (the real local tokenizer), 22,077 chars == 6,344 tokens
+# (ratio 3.48 chars/token). 8,000 tokens * 3.48 = 27,840 chars; rounded down to 27,800 for a small
+# safety margin (content mix shifts the ratio slightly — Korean prose tokenizes denser than
+# English/code, so a Korean-heavier future edit could cross 8,000 tok at a slightly lower char
+# count than today's ratio predicts). Recompute this ratio if the file mix changes a lot.
+REQUIRED_READ_CHAR_CAP=27800
+
 status=0
 
 norm() { sed 's/\r$//' "$1" 2>/dev/null || true; }
@@ -99,6 +114,30 @@ check_chars() {
     status=1
   else
     echo "ok: $label char count ($file) $chars/$cap chars"
+  fi
+}
+
+check_required_read_total() {
+  # Round 30 item 1: hard cap on the SUM of the 4 files every fresh session is expected to read
+  # at start (see AGENTS.md's own file map + PROJECT_BACKGROUND's @import) — a per-file cap alone
+  # lets the total creep back up even while every individual file stays "ok" (see the constant's
+  # comment above for the two live repeats this caught). Files that don't exist yet count as 0,
+  # same as check_chars's own missing-file handling elsewhere in this script.
+  local files=("$@") total=0 f chars
+  for f in "${files[@]}"; do
+    if [ -f "$f" ]; then
+      chars=$(wc -m < "$f" | tr -d ' ')
+      total=$((total + chars))
+    fi
+  done
+  if [ "$total" -gt "$REQUIRED_READ_CHAR_CAP" ]; then
+    echo "OVER CAP: required-read total ($((${#files[@]}))-file sum: ${files[*]}) is $total chars," \
+         "cap $REQUIRED_READ_CHAR_CAP (~8,000 tokens at this repo's measured ratio) — trim" \
+         "SESSION_PRIMER.md first (move narrative to SESSION_MASTER.md, per item 1's own C" \
+         "acceptance condition), not the other three"
+    status=1
+  else
+    echo "ok: required-read total ($total/$REQUIRED_READ_CHAR_CAP chars)"
   fi
 }
 
@@ -860,5 +899,8 @@ else
     fi
   done
 fi
+
+check_required_read_total AGENTS.md wiki/handoffs/SESSION_PRIMER.md \
+  wiki/PROJECT_BACKGROUND.md wiki/handoffs/FEEDBACK_PENDING.md
 
 exit $status
