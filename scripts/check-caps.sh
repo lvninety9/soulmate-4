@@ -58,6 +58,20 @@ SESSION_MASTER_CAP=200
 # catches that at the row level, at write time, not after the file cap trips.
 FEEDBACK_ROW_CHAR_CAP=300
 
+# Round 33 item 2: session-log.md has the exact same line-vs-bytes decoupling FEEDBACK_ROW_CHAR_CAP
+# (above) was built to catch — 25 lines but 21,071 chars (842 chars/line), so its own 200-line
+# check_watch_size WATCH would need ~168,000 chars to ever fire, structurally unreachable at this
+# file's real per-row size. Same mechanism, not a new one: check_row_char_cap() (below) is the same
+# while-loop the FEEDBACK_PENDING section already ran, now shared by both call sites. Cap sized
+# from this file's own real history, not FEEDBACK's: session-log.md's role (one real paragraph per
+# session, per its own header) is legitimately a bigger natural unit than a FEEDBACK hot-table row
+# (which is supposed to defer detail elsewhere) — its 21 real rows as of this round range 373-2,679
+# chars, so 300 would OVER CAP every single existing row. 3000 gives the densest real row (2,679,
+# round 20's multi-day/multi-round entry) ~12% headroom without forcing a retroactive rewrite of
+# history, while still catching an actual runaway row (e.g. a raw session transcript pasted in
+# whole, which runs an order of magnitude past this).
+SESSION_LOG_ROW_CHAR_CAP=3000
+
 # Round 28 (external review, FEEDBACK_PENDING row #39, S4): every cap above is line/row-based,
 # and a line/row count says nothing about how much text is actually inside each line — a table
 # row can be one word or one paragraph and counts the same. Live-confirmed: wiki/handoffs/
@@ -242,6 +256,29 @@ report_count() {
   else
     echo "ok: $label ($file) $value/$cap $unit"
   fi
+}
+
+# Round 28 item 4 originally built this inline for FEEDBACK_PENDING.md only (a line/row count
+# says nothing about how much text is actually inside each row); round 33 item 2 hit the exact
+# same gap in session-log.md and reuses this function rather than re-inlining the same loop a
+# second time — only the cap value and the "where the excess belongs" hint differ per call site
+# (see FEEDBACK_ROW_CHAR_CAP / SESSION_LOG_ROW_CHAR_CAP above for each one's own justification).
+# Matches any markdown table row shaped "| <number or N/M> | ..." — both files' first column.
+check_row_char_cap() {
+  local file="$1" cap="$2" dest_hint="$3"
+  if [ ! -f "$file" ]; then
+    return 0
+  fi
+  local row_line row_len row_num
+  while IFS= read -r row_line; do
+    [ -z "$row_line" ] && continue
+    row_len=${#row_line}
+    if [ "$row_len" -gt "$cap" ]; then
+      row_num=$(printf '%s' "$row_line" | sed -E 's/^\| *([0-9]+(\/[0-9]+)?) *\|.*/\1/')
+      echo "OVER CAP: $file row #$row_num is $row_len chars, cap $cap — $dest_hint"
+      status=1
+    fi
+  done < <(norm "$file" | grep -E '^\| *[0-9]+(/[0-9]+)? *\|')
 }
 
 # Bootstrap-integrity check: AGENTS.md's Protocol table names 6 doc steps. If any matching
@@ -843,6 +880,11 @@ check_primer_handoff_reminder
 check_lines_warn "wiki/rule-archive.md" "$RULE_ARCHIVE_WARN" "$RULE_ARCHIVE_CAP" "wiki/rule-archive.md"
 check_lines_warn "wiki/handoffs/SESSION_MASTER.md" "$SESSION_MASTER_WARN" "$SESSION_MASTER_CAP" "wiki/handoffs/SESSION_MASTER.md"
 check_watch_size "wiki/session-log.md" 200
+# Round 33 item 2: same line-vs-bytes gap FEEDBACK_ROW_CHAR_CAP already closes (see
+# SESSION_LOG_ROW_CHAR_CAP above) — a single runaway session-log.md row could keep the WATCH
+# above structurally unreachable indefinitely without this.
+check_row_char_cap "wiki/session-log.md" "$SESSION_LOG_ROW_CHAR_CAP" \
+  "condense this session's row to a real one-paragraph summary; move detailed narrative to wiki/rule-archive.md or wiki/handoffs/SESSION_MASTER.md instead"
 # Round 28 (external review, FEEDBACK_PENDING row #39, S4): code files had zero size monitoring
 # at all — .kilo/plugins/subtask-gate.ts grew 230->482 lines (+110%) and scripts/check-caps.sh
 # itself grew 455->738+ lines (+62%+) across this project's own 28 rounds, unwatched the whole
@@ -871,15 +913,8 @@ else
     # — a real block, "기계적으로 강제" per item 4's own spec, same as every other char cap in
     # this file. Move the row's evidence/reproduction/root-cause text to a "Round N" section in
     # wiki/rule-archive.md and leave only symptom + status + a pointer here.
-    while IFS= read -r row_line; do
-      [ -z "$row_line" ] && continue
-      row_len=${#row_line}
-      if [ "$row_len" -gt "$FEEDBACK_ROW_CHAR_CAP" ]; then
-        row_num=$(printf '%s' "$row_line" | sed -E 's/^\| *([0-9]+(\/[0-9]+)?) *\|.*/\1/')
-        echo "OVER CAP: $f row #$row_num is $row_len chars, cap $FEEDBACK_ROW_CHAR_CAP — move its full narrative to wiki/rule-archive.md (\"Round N\" section) and leave a pointer, per the flow rule (item 4)"
-        status=1
-      fi
-    done < <(norm "$f" | grep -E '^\| *[0-9]+(/[0-9]+)? *\|')
+    check_row_char_cap "$f" "$FEEDBACK_ROW_CHAR_CAP" \
+      'move its full narrative to wiki/rule-archive.md ("Round N" section) and leave a pointer, per the flow rule (item 4)'
 
     fp_result=$(norm "$f" | awk '
       {

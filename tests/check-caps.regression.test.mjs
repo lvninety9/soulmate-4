@@ -208,6 +208,53 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // --- Round 33 item 2: session-log.md per-row char cap (check_row_char_cap, shared with
+  // FEEDBACK_PENDING.md's existing row cap rather than a second copy of the same loop) ---
+  {
+    const dir = freshFixture()
+    const sessionLog = readFileSync(join(dir, "wiki", "session-log.md"), "utf8")
+    const bigRow = `| 99 | 2026-08-24 | ${"x".repeat(3050)} |\n`
+    writeFileSync(join(dir, "wiki", "session-log.md"), sessionLog + bigRow)
+    const { output, status } = run(dir)
+    expectContains("T10a session-log.md row over its new char cap -> OVER CAP, exact row number", output,
+      "OVER CAP: wiki/session-log.md row #99 is")
+    expectContains("T10b session-log.md row cap message names the real cap value", output,
+      `cap ${3000} —`)
+    expectStatus("T10c session-log.md row over cap -> nonzero exit", status, 1)
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    // The real, unmodified session-log.md (25 rows, up to 2,679 chars/row as of this round) must
+    // stay clean -- proves the cap was sized from this file's own real history, not copied
+    // verbatim from FEEDBACK_ROW_CHAR_CAP (300 chars, which would OVER CAP every existing row).
+    const dir = freshFixture()
+    const { output, status } = run(dir)
+    expectNotContains("T11 real session-log.md has no row anywhere near its own new cap", output,
+      "OVER CAP: wiki/session-log.md row")
+    expectStatus("T11b real repo state still exits 0 with the new session-log.md check active", status, 0)
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    // FEEDBACK_PENDING.md's own row cap (pre-existing, round 28 item 4) must still fire with its
+    // original message, unchanged, now that its inline while-loop was extracted into
+    // check_row_char_cap() and shared with session-log.md's call site above.
+    const dir = freshFixture()
+    const fp = readFileSync(join(dir, "wiki", "handoffs", "FEEDBACK_PENDING.md"), "utf8")
+    const bigRow = `| 99 | ${"x".repeat(320)} | p2 | open | test | seed |\n`
+    const withRow = fp.replace(
+      "| # | Feedback / issue | Priority | Status | How it's handled | Session logged |\n|---|---|---|---|---|---|\n",
+      `| # | Feedback / issue | Priority | Status | How it's handled | Session logged |\n|---|---|---|---|---|---|\n${bigRow}`
+    )
+    writeFileSync(join(dir, "wiki", "handoffs", "FEEDBACK_PENDING.md"), withRow)
+    const { output, status } = run(dir)
+    expectContains("T12a FEEDBACK_PENDING.md row cap still fires post-refactor, exact original message", output,
+      'OVER CAP: wiki/handoffs/FEEDBACK_PENDING.md row #99 is')
+    expectContains("T12b FEEDBACK_PENDING.md row cap still points to the same destination/flow-rule wording", output,
+      'move its full narrative to wiki/rule-archive.md ("Round N" section) and leave a pointer, per the flow rule (item 4)')
+    expectStatus("T12c FEEDBACK_PENDING.md row over cap -> nonzero exit", status, 1)
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
