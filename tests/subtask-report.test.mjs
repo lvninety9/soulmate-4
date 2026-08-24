@@ -32,9 +32,9 @@ function commitAll(dir, msg) {
   git(dir, ["commit", "-q", "-m", msg])
 }
 
-function runReport(dir, args = []) {
+function runReport(dir, args = [], env = undefined) {
   try {
-    const out = execFileSync("bash", [SCRIPT, ...args], { cwd: dir, encoding: "utf8" })
+    const out = execFileSync("bash", [SCRIPT, ...args], { cwd: dir, encoding: "utf8", env: env ? { ...process.env, ...env } : process.env })
     return { status: 0, output: out }
   } catch (e) {
     return { status: e.status ?? 1, output: String(e.stdout || "") + String(e.stderr || "") }
@@ -248,6 +248,130 @@ process.exitCode = 1
     "0 assertions ran (exit 0) — NOT the same as passing")
   expectNotContains("T11 zero-assertion file is not counted as a PASS", output, "PASS (0 assertion(s))")
   expectContains("T11 zero-assertion case surfaced under 확인이 필요한 것", output.split("확인이 필요한 것")[1], "ran 0 assertions")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T12-T19: round 34's own adversarial battery (coordinator-directed: "keep hunting until the
+// tool holds up"). Each targets one category and, where a real gap was found, the specific fix.
+
+// T12: Gap 3 -- unquoted .env-style secret assignment (`KEY=value`, no quotes) must be caught,
+// not just the quoted-string form. Negative: DEBUG=true/PORT=3000 (no sensitive key name) must
+// not trip it regardless of being unquoted.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "x\n")
+  commitAll(dir, "c1")
+  writeFileSync(join(dir, ".env"), "DATABASE_PASSWORD=SuperSecret123456789\nDEBUG=true\nPORT=3000\n")
+  commitAll(dir, "c2 add .env")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectContains("T12 unquoted .env-style secret assignment is caught", output, "generic api_key/secret/password/token assignment")
+  expectNotContains("T12 DEBUG=true does not trip the fallback (no sensitive key name)", output, "DEBUG")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T13: Gap 4 -- a committed .env is flagged by filename alone (content-independent floor), and a
+// legitimately-present .env.example is NOT treated the same as a real .env (negative case).
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "x\n")
+  commitAll(dir, "c1")
+  writeFileSync(join(dir, ".env"), "X=1\n")
+  writeFileSync(join(dir, ".env.example"), "X=changeme\n")
+  commitAll(dir, "c2 add env files")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectContains("T13 real .env flagged by filename check", output, ".env: env file committed")
+  expectNotContains("T13 .env.example is exempted, not flagged", output, ".env.example: env file committed")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T14: hanging test command is killed by the timeout, not left to hang the caller.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "Makefile"), "test:\n\tsleep 300\n")
+  commitAll(dir, "initial")
+  const start = Date.now()
+  const { output } = runReport(dir, [], { SUBTASK_REPORT_TIMEOUT_S: "2" })
+  const elapsed = Date.now() - start
+  expectContains("T14 hanging test command reported as TIMED OUT, not left hanging", output, "TIMED OUT after 2s")
+  if (elapsed < 30000) console.log(`ok: T14 report actually returned quickly (${elapsed}ms), did not hang`)
+  else { console.log(`FAIL: T14 report took ${elapsed}ms -- timeout did not actually bound it`); failures++ }
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T15: a go.mod project without the go binary installed is reported honestly as "detected but
+// not installed", not silently folded into "no test command detected" (same fix applied to
+// pytest/cargo/make -- go.mod is the one exercised here since it's guaranteed absent in CI-like
+// environments without assuming any particular toolchain is or isn't present).
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "go.mod"), "module example.com/foo\n")
+  commitAll(dir, "initial")
+  const { output } = runReport(dir)
+  const hasGo = (() => { try { execFileSync("go", ["version"]); return true } catch { return false } })()
+  if (!hasGo) {
+    expectContains("T15 go.mod detected but go not installed -> honest skip, not blended into 'no test command'", output, "detected: go.mod, but 'go' is not installed — skipped")
+  } else {
+    console.log("ok: T15 skipped (go IS installed on this runner -- honesty-when-absent path not exercised here)")
+  }
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T16: a non-ASCII filename (git's default core.quotepath C-quotes it in --name-only output) must
+// still be reachable by the per-file mock/dummy/fixture scan, not silently dropped.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "x\n")
+  commitAll(dir, "c1")
+  writeFileSync(join(dir, "\uD55C\uAE00\uD30C\uC77C.txt"), "mock_data = true\n")
+  commitAll(dir, "c2 add unicode-named file")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectContains("T16 mock keyword in a non-ASCII-named file is still detected", output, "mock/dummy/fixture keywords added outside test-ish paths: 1")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T17: an invalid --since ref must not crash or print a garbled range description -- git's own
+// quirk (echoing an unresolvable ref back to stdout instead of printing nothing) used to defeat
+// the emptiness check and produce "could not compute range ..<sha>". Falls back gracefully.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "x\n")
+  commitAll(dir, "c1")
+  const { status, output } = runReport(dir, ["--since", "HEAD~99"])
+  expectEqual("T17 invalid --since ref still exits 0", status, 0)
+  expectNotContains("T17 no garbled 'could not compute range' from the git echo-back quirk", output, "could not compute range")
+  expectContains("T17 falls back to real content instead", output, "1 commit(s)")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T18: root commit (no parent) end-to-end -- not just the post-commit hook's own --root fix
+// (T8), the full subtask-report.sh path run directly against a repo's very first commit.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "hello\n")
+  commitAll(dir, "the only commit")
+  const { status, output } = runReport(dir)
+  expectEqual("T18 root-commit report exits 0", status, 0)
+  expectContains("T18 root-commit report covers repo start, not a crash/empty range", output, "(repo start)..")
+  expectContains("T18 root-commit report reaches the real content", output, "1 commit(s)")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T19: a 100+-file commit stays readable -- diffstat is capped with an explicit omission count,
+// and the real aggregate summary line ("N files changed, ...") is never dropped.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "x\n")
+  commitAll(dir, "c1")
+  mkdirSync(join(dir, "src"), { recursive: true })
+  for (let i = 0; i < 120; i++) writeFileSync(join(dir, "src", `f${i}.txt`), "x\n")
+  commitAll(dir, "c2 add 120 files")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  const changedSection = output.split("## Changed")[1].split("## Tests")[0]
+  const lineCount = changedSection.split("\n").length
+  if (lineCount < 60) console.log(`ok: T19 large-diff Changed section stays capped (${lineCount} lines, not 120+)`)
+  else { console.log(`FAIL: T19 Changed section is ${lineCount} lines, not capped`); failures++ }
+  expectContains("T19 omission is stated explicitly, not silently truncated", changedSection, "more file(s) omitted")
+  expectContains("T19 the real aggregate summary line is preserved", changedSection, "120 files changed")
   rmSync(dir, { recursive: true, force: true })
 }
 
