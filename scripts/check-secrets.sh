@@ -48,7 +48,13 @@ else
     "Slack token (xox...)::xox[baprs]-[A-Za-z0-9-]+"
     "Stripe/OpenAI-style key (sk-.../sk_live_...)::sk-[A-Za-z0-9_-]{16,}|sk_live_[A-Za-z0-9_-]{16,}"
     "PEM private key block::-----BEGIN[A-Z ]*PRIVATE KEY-----"
-    "generic api_key/secret/password/token assignment (quoted or bare .env-style)::(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*([\"'][^\"']{16,}[\"']|[^[:space:]\"']{16,})"
+    # The keyword may sit anywhere inside the variable name, not just adjacent to the
+    # assignment: AWS_SECRET_ACCESS_KEY=... has "_ACCESS_KEY" between "secret" and "=",
+    # and the adjacent-only form missed it (found live -- content scan reported no match
+    # on a real AWS secret key; only the sensitive-filename layer caught that commit).
+    # [A-Za-z0-9_]* absorbs the rest of the identifier. The 16-char minimum on the value
+    # is what keeps this quiet: TOKEN_EXPIRY=3600 and DEBUG=true stay under it.
+    "generic api_key/secret/password/token assignment (quoted or bare .env-style)::(api[_-]?key|secret|password|token)[A-Za-z0-9_]*[[:space:]]*[:=][[:space:]]*([\"'][^\"']{16,}[\"']|[^[:space:]\"']{16,})"
   )
   for entry in "${SECRET_PATTERNS[@]}"; do
     label="${entry%%::*}"
