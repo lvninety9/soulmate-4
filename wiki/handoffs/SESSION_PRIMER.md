@@ -2,10 +2,8 @@
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
-> open table for what's still live, `wiki/FEEDBACK_PENDING-archive.md` for every resolved row,
-> `wiki/rule-archive.md` "Round 30 closing pass"/"Round 31"/"Round 32"/"Round 33"/"Round 34" (via
-> the "Round 5-30 (incl. closing pass) — moved to archive" pointer, then live from "Round 31"
-> onward) for full evidence.
+> open table (still-live), `wiki/FEEDBACK_PENDING-archive.md` (resolved), `wiki/rule-archive.md`
+> "Round N" sections (full evidence, "Round 5-30" via its own moved-to-archive pointer).
 
 ## Project overview
 
@@ -20,37 +18,14 @@ round planned unless Jay reopens again.
 ## Current sub-task
 
 ```
-시작: round 33's closed-out state. Jay opened a new 2-deliverable work order: (1) a universal
-     sub-task report generator, because the local model's self-report is measured unreliable
-     (18 straight turns of "완료"/"PASS" claims this week while every tool call was blocked and
-     nothing landed); (2) record this week's aider-polyglot/complexity-ladder measurements
-     somewhere durable, following this repo's own flow rule.
-완료: round 34, both deliverables, pushed:
-     (1) scripts/subtask-report.sh — evidence-only report: git diff/log for what changed, the
-       actually-detected test runner (pytest/npm/go/cargo/make/bare node tests/*.test.mjs) run
-       for real pass/fail counts, TODO/debug-residue/mock-in-non-test-path scan on added lines,
-       whichever of gitleaks/npm-audit/bandit/pip-audit/semgrep exist, whichever of
-       eslint/ruff/ts-prune/vulture exist, CSS font-size/color literal counts, coverage delta —
-       every check optional, absence stated explicitly, script itself always exits 0. Boundary
-       reused verbatim from subtask-gate.ts's computeBoundary() ("primer" reason): a commit
-       touching wiki/handoffs/SESSION_PRIMER.md. scripts/post-commit-subtask-report fires it
-       automatically only on such a commit (also runnable by hand any time); wired into
-       bootstrap.sh so new projects inherit both. Tested against 2 synthetic throwaway repos of
-       a different stack each (bare pytest, bare `node --test`) to prove real detect-vs-skip
-       behavior, not just that it runs here — 18/18 assertions, tests/subtask-report.test.mjs (a
-       real bug caught by its own T8: `git diff-tree` prints nothing for a repo's root commit
-       without `--root`, fixed).
-     (2) this week's measured local-model capability numbers — evergreen reference data, not
-       round narrative — recorded in wiki/PROJECT_BACKGROUND.md's new "Local model capability"
-       section (aider polyglot 9/23=39.1% Python-only with caveats, complexity ladder, the
-       stateless-vs-self-designed-state failure pattern, 2nd-attempt-retry value). Full
-       method/raw numbers: `wiki/rule-archive.md` "Round 34".
-     Re-verified starting state first (fresh clone, per L13): HEAD d8622fb/221 commits, unit
-     39/35, fuzz 42/42, regression 60, check-caps.sh exit 0 quiet — all matched, no mismatch.
-     Real pre-commit hook used for every commit. No `kilo run`/LLM/GPU call made this round.
+시작: round 33's closed-out state.
+완료: round 34 (2 deliverables — scripts/subtask-report.sh + scripts/post-commit-subtask-report
+     evidence-only sub-task report; this week's local-model capability numbers recorded in
+     PROJECT_BACKGROUND.md), pushed. Full detail (what/why/proof/tests): wiki/rule-archive.md
+     "Round 34" — not re-narrated here per this file's own "current-state only" role (see banner).
 막힘: none.
 다음: none planned. Round 32's own open items (#4/12, #6/38, #47, #50 — see table below) are
-     UNCHANGED by round 34 (out of this round's narrow scope, same as round 33).
+     UNCHANGED by round 34 (out of scope, same as round 33).
 참고: opus_round34_report.md is in ~/.hermes/, NOT this repo.
 ```
 
@@ -66,30 +41,19 @@ round planned unless Jay reopens again.
 | — | Bare cross-paragraph token gap — fixing it breaks real content | 🔴 p2, accepted permanent limitation |
 | — | `check_fence_parity()` odd/even blind spot — inherited from original | 🔴 p2, accepted permanent limitation |
 
-**Why each row is at its current state**: #2/#4-12 are the host platform's (Kilo) own gaps,
-outside this repo's control — accepted permanent limitations. **#6 is NOT an accepted permanent
-limitation as of round 32** — that framing is retired: a 2-trial comparison
-(`rule-archive.md` "Round 32") found it correlates with session length/derailment rather than
-being unconditional, which a single fresh short session (trial 2, honest report, no fabrication)
-disproves as an inherent ceiling. Round 31's contradiction injection remains the correct-shaped
-mitigation attempt regardless (contradict with fact instead of trying to prevent the lie), but
-its live efficacy is still unverified — round 32 pins down exactly why (Finding B: the daemon
-never picked up the code that would need testing), not because the question wasn't tried. The 2
-fence/token gaps are structural tradeoffs (fixing either breaks real, legitimate content)
-documented and accepted since before round 28. **#47 and #50 are NOT permanent limitations** —
-they are real open bugs/unknowns a future round could still make progress on; #47 is additionally
-now known to correlate with session length (round 32), not to be an unconditional property of the
-primer-gate block. Round 34 made no change to any row above (out of scope, see "Current sub-task").
+**Current classification only** (full reasoning: `rule-archive.md` "Round 31"/"Round 32"): #2/
+#4-12 = accepted permanent (Kilo's own platform gaps). #6/#47 = **NOT** permanent — round 32 found
+both correlate with session length/derailment rather than being unconditional; #6's mitigation
+(contradiction injection) is unit-verified but live-efficacy still unverified (Finding B: the
+`kilo serve` daemon under test never picked up the new plugin code). #50 = open, root cause never
+found. The 2 fence/token rows = permanent structural tradeoffs (fixing either breaks real
+content). Round 34 made no change to any row above.
 
 ## Hard constraints / warnings
 
-- **Verification split (read this before claiming anything about contradiction injection is
-  "done")**: the *mechanism* is unit-verified (T20/T21, deterministic, git-derived, no mocks).
-  Whether the model *heeds* it on a real next turn is unverified for a known, specific reason
-  (round 32, Finding B below) — both post-round-31 live attempts ran against a `kilo serve`
-  daemon that never picked up the new plugin code, not because the question wasn't tested. This
-  project has also been burned repeatedly by success signals that were not real effects (round
-  31's own #47 finding was a fresh instance of exactly that).
+- **Verification split**: contradiction injection's *mechanism* is unit-verified (T20/T21). Whether
+  the model *heeds* it live is still unverified — both post-round-31 attempts hit a `kilo serve`
+  daemon that never picked up the new plugin code (Finding B below), not a real test of the idea.
 - **`.kilo` plugin changes require a `kilo serve` daemon restart to take effect** (round 32,
   Finding B) — the plugin loads once at daemon start, not per session; a Cursor "New Session"
   reuses whatever daemon is already listening. `kilo daemon` has no stop/restart subcommand.
@@ -111,27 +75,22 @@ primer-gate block. Round 34 made no change to any row above (out of scope, see "
   `wiki/FEEDBACK_PENDING-archive.md`, not auto-loaded.
 - A local clone's own `git log` looking coherent proves nothing about its freshness vs.
   `origin/master` (L13) — always `git fetch`+diff origin, or fresh-clone, first.
-- **`scripts/check-caps.sh` is quiet by default now** (round 33 item 3) — non-blocking WARN/
-  WATCH/reminder lines only print in full when the commit is actually blocked or `--verbose`/
-  `-v` is passed; a clean run instead shows one "N non-blocking notice(s) suppressed" line.
-  Run with `--verbose` for the manual PRUNE review (self-harness.md step 4 already does).
-- **`rule-archive.md` (450-line cap)/`SESSION_MASTER.md` (200-line cap) now hard-block a
-  commit if crossed** (round 33 item 1) — PRUNE proactively per self-harness.md's step 4, don't
-  wait for the block. Round 34 pruned "Round 30 closing pass" out to `rule-archive-archive.md`
-  to make room before adding its own section — same pattern, reuse it next time too.
-- **`scripts/subtask-report.sh`/`scripts/post-commit-subtask-report`** (round 34, new) — fires
-  automatically only on a commit touching this file (same boundary as the gate); every check
-  inside is optional and states explicitly when skipped. Never trust the model's own "완료"/
-  "PASS" claim over this report's output.
+- **`scripts/check-caps.sh` is quiet by default** — non-blocking WARN/WATCH/reminder lines only
+  print in full when blocked or `--verbose`/`-v` passed; run `--verbose` for manual PRUNE review.
+- **`rule-archive.md` (450 lines)/`SESSION_MASTER.md` (200 lines) hard-block a commit if
+  crossed** — PRUNE proactively (self-harness.md step 4), move old sections to `-archive.md`.
+- **`scripts/check-secrets.sh` hard-blocks a commit with a possible secret staged** (round 35
+  item 1) — bypass `SKIP_SECRET_CHECK=1` (always logged, never silent).
+- **`scripts/subtask-report.sh`/`scripts/post-commit-subtask-report`** — fires automatically on
+  a commit touching this file; every check inside is optional, stated when skipped. Never trust
+  the model's own "완료"/"PASS" claim over this report's output.
 
 ## If this project is ever reopened
 
 ```
 Read this file + wiki/rule-archive.md "Round 31"+"Round 32" in full first — do not trust any
-prior round's "done"/"archived" claim without re-deriving it (this exact failure — round 30
-archiving #47 on a fix that didn't cover the path that broke — is why round 31 exists; round 31
-overclaiming #6/#47 as inherent/unconditional without a session-length control is why round 32
-exists). A `kilo serve` daemon restart on ~/sm4-plugin-test is required before any further live
-trial means anything (Finding B). Fresh-clone required, never resume a stale local checkout
-(L13).
+prior round's "done"/"archived" claim without re-deriving it (both rounds exist because an
+earlier round's claim didn't survive re-derivation). A `kilo serve` daemon restart on
+~/sm4-plugin-test is required before any further live trial means anything (Finding B).
+Fresh-clone required, never resume a stale local checkout (L13).
 ```
