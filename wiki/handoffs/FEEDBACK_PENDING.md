@@ -10,7 +10,8 @@ Valid `priority` values: `p0` (blocking/urgent) | `p1` (normal) | `p2` (someday)
 |---|---|---|---|---|---|
 | 2 | `.kilo/commands/*.md` don't work in Kilo CLI (v7.4.20+) | p2 | open | AGENTS.md "Known gap"/L02; watch Kilo's changelog | seed |
 | 4/12 | CLI (`kilo run`) has no `question` tool in its real 12-tool payload (permanent, confirmed 3x); Cursor plugin (17 tools) has+uses it | p1 | open, permanent ceiling (CLI only) | `rule-archive.md` "Round 28"+"30" (merged #42) | rounds 2,7,8,28,30 |
-| 6 | Post-block model self-report fabricates "done" claims | p1 | open, permanent ceiling | Inherent LLM limit, no plugin fix — verify git/state, never the model's summary. Full history: `wiki/rule-archive.md` "Round 28" | rounds 2,8,27 |
+| 6 | Post-block model self-report fabricates "done" claims | p1 | open, permanent ceiling (mitigated) | Round 31: git-derived contradiction injection added (next turn), does not stop the lie itself. `rule-archive.md` "Round 28"+"31" | rounds 2,8,27,31 |
+| 47 | Round 29 retry storm — round 31 live plugin trial reproduced 18 straight primer-gate blocks in one turn; round 30 fix never touched this path — REOPENED | p1 | open, reopened | `rule-archive.md` "Round 31" | rounds 29,30,31 |
 | 50 | `kilo run` reliability: round 30 saw ~50%+ solo-call hangs; closing pass re-tested lightly (2/2 quick calls OK, stale-Q3-default hypothesis ruled out) — inconclusive, not proven fixed | p2 | open, monitor (downgraded from blocking) | `rule-archive.md` "Round 30 closing pass" | round 30 |
 ---
 
