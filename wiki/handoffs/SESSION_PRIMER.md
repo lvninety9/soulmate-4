@@ -1,9 +1,9 @@
-# SESSION PRIMER — round 30 (2026-08-24)
+# SESSION PRIMER — round 30 CLOSED (2026-08-24)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
 > open table for what's still live, `wiki/FEEDBACK_PENDING-archive.md` for every resolved row,
-> `wiki/rule-archive.md` "Round 30" for full evidence behind everything below.
+> `wiki/rule-archive.md` "Round 30"/"Round 30 closing pass" for full evidence behind everything below.
 
 ## Project overview
 
@@ -17,38 +17,37 @@ meant to replace that comparison going forward, once axis B is re-run under roun
 ## Current sub-task
 
 ```
-시작: ~/.hermes/opus_round30_workorder.md (Opus-authored, NOT committed to this repo)
-완료: item 7 — question tool CLI-vs-plugin split resolved with 3-way evidence (kilo.db + captured
-     real API payloads + live repro): CLI's code agent has NO question tool in its actual 12-tool
-     schema (round 28's conclusion CONFIRMED, not overturned); plugin has 17 tools incl. question.
-     item 2 — MUTATING_TOOLS denylist -> READONLY_TOOLS allowlist (fail-closed inversion, real
-     tool inventory measured not guessed). item 3 — elective arm now judged at turn boundaries
-     only (electiveBoundaryAtTurnStart snapshot), primer boundary unchanged. item 1 — hard cap on
-     required-read total chars (27800 = 8000 tok at measured ratio). item 5 — bench Step 3 scored
-     via --format json NDJSON events (question-tool OR pre-mutation text-Q&A), "discuss: " prefix
-     dropped, Step 1 excluded from axis B. item 6 — complexity-ladder-test.sh restructured to 5
-     independent per-level loops, N=5 each (25 total executions instead of 1 cascading run).
-     5 commits: 71c7885, eae4528, 510b00a, d4abce4, 19ae377. 33/33 unit (was 30+T18+T19a/b), 42/42
-     fuzz, regression ALL PASS throughout.
-막힘: item 4 (axis B Step 4 = 0/5 both modes, root cause) — NOT investigated, needs a live trial
-     transcript this round could not produce. **A new environmental blocker (FEEDBACK #50) stopped
-     every live-verification acceptance criterion this round**: kilo run hangs ~50%+ of the time
-     (0 output, stuck pre-model-call), llama-server confirmed healthy/idle throughout — 2 concurrent
-     `kilo serve --port 0` daemons observed (Cursor-IDE-owned, not touched, correlation not proven
-     causation). Items 3-C (does #47's retry storm actually reduce, live), 4 (root cause), 5-D
-     (re-run axis B), 6 (actual 25-trial run) all blocked by this — code changes are done and unit-
-     tested/dry-run-verified where a live model call wasn't required, but none of the "run it live
-     and confirm" acceptance criteria could be closed.
-다음: **first priority for whoever picks this up: check whether kilo run is reliable again**
-     (`ps aux | grep "kilo serve"` — if exactly one daemon, or `question` responds within ~30s to
-     a trivial prompt, retry the blocked items). If still broken, this may need Jay's direct
-     attention (a stray Cursor-IDE `kilo serve` daemon, not something this round's scope could
-     touch). Once live calls work: item 4's root-cause read (a/b/c per the original work order),
-     item 3-C, item 5-D (re-run axis B with the redesigned bench), item 6 (the real 25-trial run,
-     GPU-schedule-aware). #48/#50 tracked in FEEDBACK_PENDING.md.
-참고: opus_round30_workorder.md/opus_round30_execution_report.md are in ~/.hermes/, NOT this repo.
-     Full round 30 evidence (captured payloads, kilo.db queries, reliability findings):
-     `wiki/rule-archive.md` "Round 30".
+시작: none active — round 30 fully closed this pass, every FEEDBACK row at a terminal state.
+완료: round 30 items 1/2/3/5/6 (code, unit-tested, committed round 30) + item 7 (question-tool
+     CLI-vs-plugin split, confirmed). **This closing pass**: item 4 solved STATICALLY, no live run
+     needed — mined kilo.db for 4 real historical axis-B trial transcripts (both harness modes,
+     2 scenarios): Step 3's build_scope is specified fully enough that the model correctly treats
+     it as "clearly-scoped" (AGENTS.md's own routing rule) and finishes the whole sub-task via
+     build BEFORE Step 4's "design" trigger is sent. Root cause = the bench's own Step 3 premise
+     (cause c), NOT design.md/build.md (both read clean, model self-serves them correctly every
+     trial). No code fix to either protocol doc; documented via comment + rule-archive.md. Every
+     open FEEDBACK row closed: #48 (item 4) + #47 (item 3's retry storm, unit-verified) archived
+     done; #42 merged into #4/12 (same CLI-vs-plugin ceiling, reworded precisely); #50 (kilo-run
+     reliability) downgraded p1→p2, not resolved — 2 lightweight probes today succeeded (no hang),
+     ruled out one hypothesis (stale Q3 model default) but sample too small to call it fixed.
+     Fixed a stale claim in PROJECT_BACKGROUND.md ("rounds 1-4 so far" — actually 30+). Backfilled
+     session-log.md rows 17-20 (rounds 28-30 + this pass had no session-log entries at all).
+막힘: none blocking. **Genuinely NOT live-verified, left open on purpose (not a new audit round)**:
+     item 3-C (does #47's retry storm measurably reduce, live), item 5-D (re-run axis B with the
+     redesigned bench), item 6 (the real 5-level × N=5 = 25-trial run). All 3 need real kilo run
+     time this pass deliberately did not spend (would mean either a full bench re-run, explicitly
+     out of scope for a closing pass, or competing with Jay's live Cursor/Kilo session on the one
+     inference slot). Not tracked as an open FEEDBACK row — they're work-order acceptance criteria,
+     not bugs; pick up directly from this note if/when a future round wants them.
+다음: no mandatory next step — round 30 converged to a clean close. If continuing: (1) re-test
+     kilo run reliability more thoroughly before trusting it for a real bench run (`ps aux | grep
+     "kilo serve"`, try one multi-tool-call trial, not just a single Q&A); (2) if reliable, the 3
+     deferred live-verifications above are the natural next work; (3) otherwise, this project's
+     turnkey backlog (bootstrap pollution, README, template duplication) was deliberately never
+     touched across rounds 28-30 — fair game once the harness itself stops needing attention.
+참고: opus_round30_workorder.md/opus_round30_execution_report.md/opus_round30_closing_report.md
+     are in ~/.hermes/, NOT this repo. Full evidence: `wiki/rule-archive.md` "Round 30"/"Round 30
+     closing pass".
 ```
 
 ## Known open issues (numbers match `FEEDBACK_PENDING.md`)
@@ -56,27 +55,28 @@ meant to replace that comparison going forward, once axis B is re-run under roun
 | # | Issue | Status |
 |---|---|---|
 | 2 | Custom slash commands don't work in Kilo CLI v7.4.20+ — Kilo's own limitation | ⚠️ p2, open |
-| 4/12 | CLI structurally lacks a `question` tool — round 30 doubly reconfirmed | 🔴 p1, permanent ceiling (CLI half only) |
+| 4/12 | CLI structurally lacks a `question` tool (merged #42 in, closing pass) | 🔴 p1, permanent ceiling (CLI half only), accepted |
 | 6/38 | Model self-report fabrication after a gate block — inherent LLM unreliability | 🔴 p1, permanent ceiling |
-| 47 | Fix landed (item 3), live re-verify blocked by #50 | 🔶 p2, code done/unverified |
-| 48 | Axis B Step 4 = 0/5 both modes, root cause undetermined | 🔴 p1, blocked by #50 |
-| 50 | `kilo run` ~50%+ hang rate this session, cause not confirmed | 🔴 p1, blocking everything live |
+| 50 | `kilo run` reliability — downgraded, not resolved (see Current sub-task) | 🔶 p2, open, monitor |
 | — | Bare cross-paragraph token gap — fixing it breaks real content | 🔴 p2, accepted limitation |
 | — | `check_fence_parity()` odd/even blind spot — inherited from original | 🔴 p2, low urgency |
 
 ## Hard constraints / warnings
 
 - **Check `ps aux | grep "kilo serve"` before any live trial** — round 30 found 2 concurrent
-  daemons correlating with a ~50%+ hang rate (not proven causal, not touched — Cursor-IDE-owned).
-- Never trust a live re-run as "fully fixed" — unit test AND live-verify, both. Round 30 could only
-  do the first half for items 3/4/5/6 this round (see Current sub-task above).
+  daemons correlating with a ~50%+ hang rate; this closing pass's 2 lightweight re-tests (with and
+  without `-m`) did NOT hang, but that's too small a sample to call the daemon theory confirmed or
+  ruled out — re-test with real load before trusting a full bench run.
+- Never trust a live re-run as "fully fixed" — unit test AND live-verify, both. 3 acceptance
+  criteria (3-C/5-D/6) remain genuinely live-unverified — see Current sub-task, "막힘" is empty on
+  purpose but those 3 are real open ends, not silently resolved.
 - GPU is shared with real Hermes production jobs — check `~/.hermes/longform/.render.lock` +
   `ps aux | grep -E "longform|tts_runner|shorts|music_pipeline|playlist_compiler"` + `nvidia-smi`
   before `kilo run`, wait if busy. A forced server shutdown timer fires daily at 19:30 KST.
 - `kilo` CLI at `~/.cursor/extensions/kilocode.kilo-code-7.4.23-linux-x64/bin/kilo` (not on
-  default `PATH`). `kilo run` REQUIRES both `--dir <path>` and `-m <model>` — omitting either
-  silently produces 0 bytes output + exit 0 in non-TTY mode (round 30, Opus's own finding).
-  Local model `qwen-3-6/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`.
+  default `PATH`). `kilo run` REQUIRES `--dir <path>`; without `-m` it still resolves to the
+  correct model in this repo (confirmed, closing pass — kilo.jsonc only defines one), but the bench
+  scripts pass it explicitly anyway. Local model `qwen-3-6/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`.
 - `templates/AGENTS.md.template` must stay byte-identical to `AGENTS.md` from `## Language`
   onward, excluding `## Learned Rules` — `check_template_drift()` catches this, only when run.
 - `FEEDBACK_PENDING.md`'s "Completed history" is a pointer only — resolved rows live in
@@ -87,11 +87,13 @@ meant to replace that comparison going forward, once axis B is re-run under roun
 ## Next session's starter prompt
 
 ```
-round 31 시작. wiki/handoffs/SESSION_PRIMER.md 전체 읽기 → FEEDBACK_PENDING.md 표 확인 →
-~/.hermes/opus_round30_execution_report.md + Opus 피드백(있다면) 확인. round 30는 부분 완료:
-item 1/2/3/5/6 코드 작업 전부 커밋(71c7885/eae4528/510b00a/d4abce4/19ae377), item 7 결론 확정
-(CLI엔 question 툴 구조적으로 없음, round 28 결론 재확인). **item 4는 전혀 조사 못함, item
-3-C/5-D/6의 라이브 재확인도 전부 막힘** — kilo run이 이 세션 내내 ~50%+ 확률로 응답 없이
-멈춤(#50). 최우선: kilo run이 다시 안정적인지 먼저 확인(`ps aux | grep "kilo serve"`), 안정
-되면 막혔던 라이브 검증부터 처리.
+round 31 시작. wiki/handoffs/SESSION_PRIMER.md 전체 읽기 → FEEDBACK_PENDING.md 표 확인
+(open 3행뿐, 전부 accepted 상태 아니면 permanent ceiling) → ~/.hermes/opus_round30_closing_report.md
+확인. round 30는 이 클로징 패스로 완전히 닫힘: item 4는 kilo.db 실측(라이브 실행 없이)으로
+원인 확정 — 벤치 자체의 Step 3 build_scope가 너무 구체적이라 모델이 AGENTS.md의 "명확히
+scoped면 build로 직행" 규칙을 정확히 따라 design 트리거가 오기 전에 이미 작업을 끝내버림
+(design.md/build.md 결함 아님). #47/#48 아카이브, #42→#4/12 병합, #50은 다운그레이드(해결 아님).
+**진짜 열린 일**: item 3-C/5-D/6 (재시도폭주 실측감소·axis B 재실행·25-trial 실측) — 라이브
+kilo run 시간이 필요해 이번 클로징 패스에서 의도적으로 안 함(새 감사 라운드 금지). 이어가려면
+kilo run 신뢰성부터 다시 확인 후 착수.
 ```
