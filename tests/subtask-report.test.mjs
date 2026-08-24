@@ -42,8 +42,11 @@ function runReport(dir, args = [], env = undefined) {
 }
 
 function runHook(dir) {
+  // "bash HOOK 2>&1" (not the encoding-only form) so a passing run's stderr -- e.g. round 35
+  // item 4's "보고서 생성 실패" signal, deliberately on stderr so it survives even when a caller
+  // only checks "did the commit go through" -- is captured too, not just a failing run's.
   try {
-    const out = execFileSync("bash", [HOOK], { cwd: dir, encoding: "utf8" })
+    const out = execFileSync("bash", ["-c", `bash ${JSON.stringify(HOOK)} 2>&1`], { cwd: dir, encoding: "utf8" })
     return { status: 0, output: out }
   } catch (e) {
     return { status: e.status ?? 1, output: String(e.stdout || "") + String(e.stderr || "") }
@@ -197,6 +200,41 @@ process.exitCode = 1
   const { status, output } = runHook(dir)
   expectEqual("T8 hook exits 0 even when it fires", status, 0)
   expectContains("T8 hook fires the report banner on a boundary commit", output, "subtask-report (auto")
+  expectNotContains("T8 a normal successful run prints no failure signal", output, "보고서 생성 실패")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T8b/T8c (round 35 item 4): this hook always exits 0 by design (a post-commit hook physically
+// cannot undo the commit) -- but before this item, scripts/subtask-report.sh being missing OR
+// crashing outright both went completely silent: report generation just quietly stopped
+// happening, forever, with nothing on record. Both must now leave a one-line stderr signal
+// ("보고서 생성 실패") while still never blocking/crashing the caller (status stays 0).
+
+// T8b: scripts/subtask-report.sh missing/not executable.
+{
+  const dir = freshRepo()
+  mkdirSync(join(dir, "wiki", "handoffs"), { recursive: true })
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "state\n")
+  commitAll(dir, "sub-task boundary commit, no subtask-report.sh present")
+  const { status, output } = runHook(dir)
+  expectEqual("T8b hook still exits 0 when the generator is missing", status, 0)
+  expectContains("T8b missing generator leaves a stderr signal, not silence", output, "보고서 생성 실패")
+  expectContains("T8b signal names the specific cause", output, "scripts/subtask-report.sh missing or not executable")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T8c: scripts/subtask-report.sh present but crashes (nonzero exit) when run.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "scripts", "subtask-report.sh"), "#!/usr/bin/env bash\necho 'boom'\nexit 3\n")
+  execFileSync("chmod", ["+x", join(dir, "scripts", "subtask-report.sh")])
+  mkdirSync(join(dir, "wiki", "handoffs"), { recursive: true })
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "state\n")
+  commitAll(dir, "sub-task boundary commit, subtask-report.sh crashes")
+  const { status, output } = runHook(dir)
+  expectEqual("T8c hook still exits 0 when the generator crashes", status, 0)
+  expectContains("T8c crashing generator leaves a stderr signal, not silence", output, "보고서 생성 실패")
+  expectContains("T8c signal names the real exit code", output, "scripts/subtask-report.sh exited 3")
   rmSync(dir, { recursive: true, force: true })
 }
 

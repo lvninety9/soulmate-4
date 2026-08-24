@@ -28,18 +28,32 @@ if ! printf '%s\n' "$TOUCHED" | grep -qx 'wiki/handoffs/SESSION_PRIMER.md'; then
   exit 0 # not a sub-task-closing commit — stay quiet
 fi
 
-[ -x scripts/subtask-report.sh ] || exit 0
+if [ ! -x scripts/subtask-report.sh ]; then
+  echo "post-commit-subtask-report: 보고서 생성 실패 — scripts/subtask-report.sh missing or not executable (commit still landed; this hook never blocks)" >&2
+  exit 0
+fi
 
 SHORT="$(git rev-parse --short HEAD 2>/dev/null)"
 mkdir -p .subtask-reports 2>/dev/null
 
 echo ""
 echo "================ subtask-report (auto, HEAD touched SESSION_PRIMER.md) ================"
+# round 35 item 4: this hook always exits 0 by design (a post-commit hook physically cannot
+# undo the commit) -- correct for not blocking, but it used to mean subtask-report.sh crashing
+# outright (not just one of its own checks failing, which it already tolerates) went completely
+# silent: report generation just quietly stopped happening, forever, with nothing on record
+# anywhere. PIPESTATUS reads scripts/subtask-report.sh's own exit code THROUGH the tee (tee's
+# own exit status, which is what a bare `$?` after the pipe would give, only reflects tee).
 if [ -n "$SHORT" ] && [ -d .subtask-reports ]; then
   scripts/subtask-report.sh 2>&1 | tee ".subtask-reports/${SHORT}.md"
+  gen_rc="${PIPESTATUS[0]}"
 else
   scripts/subtask-report.sh 2>&1
+  gen_rc=$?
 fi
 echo "=========================================================================================="
+if [ "$gen_rc" -ne 0 ]; then
+  echo "post-commit-subtask-report: 보고서 생성 실패 — scripts/subtask-report.sh exited $gen_rc (see output above; commit still landed, this hook never blocks)" >&2
+fi
 
 exit 0
