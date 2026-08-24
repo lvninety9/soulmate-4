@@ -200,5 +200,56 @@ process.exitCode = 1
   rmSync(dir, { recursive: true, force: true })
 }
 
+// T9-T11: round 34 gap fixes (coordinator's independent test on a throwaway Node project).
+// gitleaks is not installed on this machine (and can't be built here) — good, that IS the
+// scenario the fallback exists for; these tests exercise the fallback path directly rather than
+// skipping because the "real" scanner is absent.
+
+// T9: the coordinator's own planted secret must be caught by the built-in fallback, not silently
+// pass through just because gitleaks isn't installed.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "x\n")
+  commitAll(dir, "c1")
+  writeFileSync(join(dir, "config.js"), 'const API_KEY = "sk-live-abc123def456";\n')
+  commitAll(dir, "c2 add secret")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectContains("T9 fallback explicitly labeled weaker, not mistaken for a real scanner", output,
+    "gitleaks not installed — using built-in pattern fallback (weaker)")
+  expectContains("T9 the planted secret is actually caught", output, "possible secret(s) added")
+  expectContains("T9 caught secrets are surfaced under 확인이 필요한 것", output.split("확인이 필요한 것")[1], "possible secret(s) matched by the built-in fallback")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T10: negative case — ordinary clean code must NOT trip the fallback (false-positive check).
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "x\n")
+  commitAll(dir, "c1")
+  writeFileSync(join(dir, "clean.js"), "function add(a, b) { return a + b; }\nconsole.log('hello world');\n")
+  commitAll(dir, "c2 clean code only")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectContains("T10 clean code: fallback still ran (labeled, not silently skipped)", output,
+    "gitleaks not installed — using built-in pattern fallback (weaker): no high-confidence secret patterns found")
+  expectNotContains("T10 clean code: no false-positive secret finding", output, "possible secret(s) added")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T11: zero assertions in a bare node test file must be flagged distinctly, not reported as PASS
+// (same shape as the coordinator's `node --test` w/ no test files finding, applied to this
+// repo's own bare-test-file detection path so it's testable without npm/a real test file glob).
+{
+  const dir = freshRepo()
+  mkdirSync(join(dir, "tests"), { recursive: true })
+  writeFileSync(join(dir, "tests", "empty.test.mjs"), 'console.log("ALL PASS")\n') // 0 "ok:" lines
+  commitAll(dir, "initial")
+  const { output } = runReport(dir)
+  expectContains("T11 zero assertions reported distinctly, not as PASS", output,
+    "0 assertions ran (exit 0) — NOT the same as passing")
+  expectNotContains("T11 zero-assertion file is not counted as a PASS", output, "PASS (0 assertion(s))")
+  expectContains("T11 zero-assertion case surfaced under 확인이 필요한 것", output.split("확인이 필요한 것")[1], "ran 0 assertions")
+  rmSync(dir, { recursive: true, force: true })
+}
+
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)
