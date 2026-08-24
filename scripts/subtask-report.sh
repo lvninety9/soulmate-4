@@ -107,6 +107,52 @@ echo "## Tests"
 shopt -s nullglob
 TEST_RAN=0
 
+# round 34 gap 2 (coordinator finding): "exit 0" alone was being reported as a bare "PASS", which
+# reads as green even when zero tests actually ran (a broken glob/pattern silently checks
+# nothing). Tries a handful of known runner output shapes (TAP/node --test, pytest, cargo test,
+# jest, mocha, go test's "no test files"); prints "count not parseable" rather than guessing when
+# none match. Echoes "<total>|<passed>|<failed>", or nothing if unparseable.
+detect_test_count() {
+  local out="$1" n p f
+  # TAP / node --test: "# tests N" / "# pass N" / "# fail N" lines
+  n="$(printf '%s\n' "$out" | grep -oE '^# tests [0-9]+' | grep -oE '[0-9]+' | tail -1)"
+  if [ -n "$n" ]; then
+    p="$(printf '%s\n' "$out" | grep -oE '^# pass [0-9]+' | grep -oE '[0-9]+' | tail -1)"
+    f="$(printf '%s\n' "$out" | grep -oE '^# fail [0-9]+' | grep -oE '[0-9]+' | tail -1)"
+    echo "${n}|${p:-?}|${f:-?}"; return
+  fi
+  # pytest
+  if printf '%s\n' "$out" | grep -qE 'no tests ran|collected 0 items'; then echo "0|0|0"; return; fi
+  n="$(printf '%s\n' "$out" | grep -oE '[0-9]+ passed' | tail -1 | grep -oE '[0-9]+')"
+  if [ -n "$n" ]; then
+    f="$(printf '%s\n' "$out" | grep -oE '[0-9]+ failed' | tail -1 | grep -oE '[0-9]+')"
+    echo "$((n + ${f:-0}))|${n}|${f:-0}"; return
+  fi
+  # cargo test
+  if printf '%s\n' "$out" | grep -qE 'running 0 tests'; then echo "0|0|0"; return; fi
+  n="$(printf '%s\n' "$out" | grep -oE 'test result: [a-zA-Z]+\. [0-9]+ passed' | grep -oE '[0-9]+' | tail -1)"
+  if [ -n "$n" ]; then
+    f="$(printf '%s\n' "$out" | grep -oE '[0-9]+ failed' | tail -1 | grep -oE '[0-9]+')"
+    echo "$((n + ${f:-0}))|${n}|${f:-0}"; return
+  fi
+  # jest
+  if printf '%s\n' "$out" | grep -qiE 'no tests found'; then echo "0|0|0"; return; fi
+  n="$(printf '%s\n' "$out" | grep -oE 'Tests:.*[0-9]+ total' | grep -oE '[0-9]+ total' | grep -oE '[0-9]+' | tail -1)"
+  if [ -n "$n" ]; then
+    p="$(printf '%s\n' "$out" | grep -oE 'Tests:.*[0-9]+ passed' | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | tail -1)"
+    echo "${n}|${p:-0}|$((n - ${p:-0}))"; return
+  fi
+  # mocha
+  n="$(printf '%s\n' "$out" | grep -oE '[0-9]+ passing' | tail -1 | grep -oE '[0-9]+')"
+  if [ -n "$n" ]; then
+    f="$(printf '%s\n' "$out" | grep -oE '[0-9]+ failing' | tail -1 | grep -oE '[0-9]+')"
+    echo "$((n + ${f:-0}))|${n}|${f:-0}"; return
+  fi
+  # go test
+  if printf '%s\n' "$out" | grep -qE 'no test files'; then echo "0|0|0"; return; fi
+  echo "" # not parseable for this runner
+}
+
 run_and_report() {
   local label="$1"; shift
   echo "- detected: $label -> \`$*\`"
@@ -114,8 +160,21 @@ run_and_report() {
   out="$("$@" 2>&1)"; rc=$?
   local tail_out
   tail_out="$(echo "$out" | tail -15)"
+  local counts total passed
+  counts="$(detect_test_count "$out")"
   if [ $rc -eq 0 ]; then
-    echo "  -> PASS (exit 0)"
+    if [ -n "$counts" ]; then
+      total="${counts%%|*}"
+      passed="$(printf '%s' "$counts" | cut -d'|' -f2)"
+      if [ "$total" = "0" ]; then
+        echo "  -> 0 tests ran (exit 0) — NOT the same as passing; nothing was actually verified"
+        note_needs_human "test command \`$*\` ran 0 tests (exit 0, likely a broken test-file glob/pattern) — not a real pass"
+      else
+        echo "  -> PASS ($passed/$total tests, exit 0)"
+      fi
+    else
+      echo "  -> PASS (exit 0, test count not parseable for this runner — verify manually)"
+    fi
   else
     echo "  -> FAIL (exit $rc)"
     note_needs_human "test command \`$*\` exited $rc — see full output"
@@ -160,7 +219,10 @@ elif have node; then
     for f in "${NODE_TEST_FILES[@]}"; do
       out="$(node --experimental-strip-types "$f" 2>&1)"; rc=$?
       ok_count="$(echo "$out" | grep -c '^ok:' || true)"
-      if [ $rc -eq 0 ] && echo "$out" | grep -q "ALL PASS"; then
+      if [ $rc -eq 0 ] && [ "$ok_count" = "0" ]; then
+        echo "  - $f: 0 assertions ran (exit 0) — NOT the same as passing; nothing was actually verified"
+        note_needs_human "test file $f ran 0 assertions (exit 0) — likely an empty/broken test file, not a real pass"
+      elif [ $rc -eq 0 ] && echo "$out" | grep -q "ALL PASS"; then
         echo "  - $f: PASS ($ok_count assertion(s))"
         PASS_FILES=$((PASS_FILES + 1))
       else
@@ -213,6 +275,7 @@ echo "## Secrets & security"
 RAN_ANY_SEC=0
 if have gitleaks; then
   RAN_ANY_SEC=1
+  echo "- gitleaks: available, preferred over the built-in fallback"
   out="$(gitleaks detect --source . --log-opts="$RANGE" --no-banner 2>&1)"; rc=$?
   if [ $rc -eq 0 ]; then
     echo "- gitleaks: no leaks detected in $RANGE_DESC"
@@ -223,6 +286,40 @@ if have gitleaks; then
   fi
 else
   note_skipped "gitleaks: not installed"
+  # Built-in fallback (round 34 gap 1, coordinator finding): without this, "secrets" — the
+  # highest-severity category — is the one check that silently never fires on any machine
+  # without gitleaks (and it can't be built here: no Go toolchain, no binary). High-confidence
+  # patterns only, to keep false positives low; scoped to *added* lines in the range, same as
+  # the leftovers check. Deliberately weaker than a real scanner (no entropy analysis, no
+  # allowlist/history awareness) — labeled as such so it's never mistaken for one.
+  RAN_ANY_SEC=1
+  SECRET_PATTERNS=(
+    "AWS access key (AKIA...)::AKIA[0-9A-Z]{16}"
+    "GitHub token (ghp_/gho_/github_pat_)::gh[po]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}"
+    "Slack token (xox...)::xox[baprs]-[A-Za-z0-9-]+"
+    "Stripe/OpenAI-style key (sk-.../sk_live_...)::sk-[A-Za-z0-9_-]{16,}|sk_live_[A-Za-z0-9_-]{16,}"
+    "PEM private key block::-----BEGIN[A-Z ]*PRIVATE KEY-----"
+    "generic api_key/secret/password/token assignment::(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*[\"'][^\"']{16,}[\"']"
+  )
+  FALLBACK_TOTAL=0
+  FALLBACK_DESC=()
+  for entry in "${SECRET_PATTERNS[@]}"; do
+    label="${entry%%::*}"
+    pattern="${entry#*::}"
+    n="$(printf '%s\n' "$ADDED" | grep -icE -- "$pattern" || true)"
+    [ -z "$n" ] && n=0
+    if [ "$n" -gt 0 ]; then
+      FALLBACK_TOTAL=$((FALLBACK_TOTAL + n))
+      FALLBACK_DESC+=("$label: $n match(es)")
+    fi
+  done
+  if [ "$FALLBACK_TOTAL" -gt 0 ]; then
+    echo "- gitleaks not installed — using built-in pattern fallback (weaker): $FALLBACK_TOTAL possible secret(s) added"
+    for d in "${FALLBACK_DESC[@]}"; do echo "  - $d"; done
+    note_needs_human "$FALLBACK_TOTAL possible secret(s) matched by the built-in fallback scan (gitleaks not installed, weaker than a real scanner) — review before considering this safe to ship"
+  else
+    echo "- gitleaks not installed — using built-in pattern fallback (weaker): no high-confidence secret patterns found in added lines"
+  fi
 fi
 
 if [ -f package.json ] && have npm; then
