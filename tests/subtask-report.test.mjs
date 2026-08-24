@@ -201,12 +201,13 @@ process.exitCode = 1
 }
 
 // T9-T11: round 34 gap fixes (coordinator's independent test on a throwaway Node project).
-// gitleaks is not installed on this machine (and can't be built here) — good, that IS the
-// scenario the fallback exists for; these tests exercise the fallback path directly rather than
-// skipping because the "real" scanner is absent.
-
-// T9: the coordinator's own planted secret must be caught by the built-in fallback, not silently
-// pass through just because gitleaks isn't installed.
+//
+// T9/T10 (round 35 item 1 update): the secret scan itself moved to scripts/check-secrets.sh as
+// a pre-commit BLOCKER (real coverage: tests/check-secrets.test.mjs T1-T6) -- a post-commit
+// report is structurally too late for a secret. What's left to prove HERE is that this report no
+// longer re-implements the scan (no fallback pattern list, no per-match output) and instead
+// points at the mechanism that does, on both a secret-containing range and a clean one alike --
+// the report's own text must not depend on staged content it no longer looks at.
 {
   const dir = freshRepo()
   writeFileSync(join(dir, "a.txt"), "x\n")
@@ -214,14 +215,14 @@ process.exitCode = 1
   writeFileSync(join(dir, "config.js"), 'const API_KEY = "sk-live-abc123def456";\n')
   commitAll(dir, "c2 add secret")
   const { output } = runReport(dir, ["--since", "HEAD~1"])
-  expectContains("T9 fallback explicitly labeled weaker, not mistaken for a real scanner", output,
-    "gitleaks not installed — using built-in pattern fallback (weaker)")
-  expectContains("T9 the planted secret is actually caught", output, "possible secret(s) added")
-  expectContains("T9 caught secrets are surfaced under 확인이 필요한 것", output.split("확인이 필요한 것")[1], "possible secret(s) matched by the built-in fallback")
+  expectContains("T9 report points to the pre-commit secret check, not a re-scan", output,
+    "secrets: enforced by the pre-commit hook (scripts/check-secrets.sh), not re-scanned here")
+  expectNotContains("T9 report no longer runs the old built-in fallback scan itself", output, "built-in pattern fallback")
+  expectNotContains("T9 report no longer emits per-pattern match counts", output, "possible secret(s) added")
   rmSync(dir, { recursive: true, force: true })
 }
 
-// T10: negative case — ordinary clean code must NOT trip the fallback (false-positive check).
+// T10: negative case — same pointer text on an ordinary clean range, not conditional on content.
 {
   const dir = freshRepo()
   writeFileSync(join(dir, "a.txt"), "x\n")
@@ -229,9 +230,9 @@ process.exitCode = 1
   writeFileSync(join(dir, "clean.js"), "function add(a, b) { return a + b; }\nconsole.log('hello world');\n")
   commitAll(dir, "c2 clean code only")
   const { output } = runReport(dir, ["--since", "HEAD~1"])
-  expectContains("T10 clean code: fallback still ran (labeled, not silently skipped)", output,
-    "gitleaks not installed — using built-in pattern fallback (weaker): no high-confidence secret patterns found")
-  expectNotContains("T10 clean code: no false-positive secret finding", output, "possible secret(s) added")
+  expectContains("T10 clean range: same pointer text regardless of content", output,
+    "secrets: enforced by the pre-commit hook (scripts/check-secrets.sh), not re-scanned here")
+  expectNotContains("T10 clean range: no stale fallback wording either", output, "gitleaks")
   rmSync(dir, { recursive: true, force: true })
 }
 
@@ -254,9 +255,10 @@ process.exitCode = 1
 // T12-T19: round 34's own adversarial battery (coordinator-directed: "keep hunting until the
 // tool holds up"). Each targets one category and, where a real gap was found, the specific fix.
 
-// T12: Gap 3 -- unquoted .env-style secret assignment (`KEY=value`, no quotes) must be caught,
-// not just the quoted-string form. Negative: DEBUG=true/PORT=3000 (no sensitive key name) must
-// not trip it regardless of being unquoted.
+// T12/T13 (round 35 item 1 update): the unquoted .env-style pattern match and the filename-floor
+// check (Gap 3/Gap 4, round 34) both moved into scripts/check-secrets.sh -- re-proven there as
+// T1/T2/T3 (tests/check-secrets.test.mjs) against the real pre-commit-blocking script, not a
+// second copy of the fixture here. This report no longer emits filename-floor findings either.
 {
   const dir = freshRepo()
   writeFileSync(join(dir, "a.txt"), "x\n")
@@ -264,23 +266,8 @@ process.exitCode = 1
   writeFileSync(join(dir, ".env"), "DATABASE_PASSWORD=SuperSecret123456789\nDEBUG=true\nPORT=3000\n")
   commitAll(dir, "c2 add .env")
   const { output } = runReport(dir, ["--since", "HEAD~1"])
-  expectContains("T12 unquoted .env-style secret assignment is caught", output, "generic api_key/secret/password/token assignment")
-  expectNotContains("T12 DEBUG=true does not trip the fallback (no sensitive key name)", output, "DEBUG")
-  rmSync(dir, { recursive: true, force: true })
-}
-
-// T13: Gap 4 -- a committed .env is flagged by filename alone (content-independent floor), and a
-// legitimately-present .env.example is NOT treated the same as a real .env (negative case).
-{
-  const dir = freshRepo()
-  writeFileSync(join(dir, "a.txt"), "x\n")
-  commitAll(dir, "c1")
-  writeFileSync(join(dir, ".env"), "X=1\n")
-  writeFileSync(join(dir, ".env.example"), "X=changeme\n")
-  commitAll(dir, "c2 add env files")
-  const { output } = runReport(dir, ["--since", "HEAD~1"])
-  expectContains("T13 real .env flagged by filename check", output, ".env: env file committed")
-  expectNotContains("T13 .env.example is exempted, not flagged", output, ".env.example: env file committed")
+  expectNotContains("T12 report no longer runs the filename-floor check itself", output, "filename check (content-independent floor)")
+  expectNotContains("T12 report no longer emits an env-file finding directly", output, ".env: env file committed")
   rmSync(dir, { recursive: true, force: true })
 }
 

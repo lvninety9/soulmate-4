@@ -339,92 +339,17 @@ echo "- mock/dummy/fixture keywords added outside test-ish paths: $MOCK_N"
 echo
 
 # --- 4. secrets & security ------------------------------------------------------------------
+# round 35 item 1: secret/sensitive-filename scanning moved OUT of this post-commit report and
+# INTO scripts/check-secrets.sh, run as a pre-commit BLOCKER (scripts/pre-commit-check-caps) --
+# a post-commit report is structurally too late for a secret (git history is forever, and a
+# pushed commit is a leak). Re-scanning here would be redundant with that hook on every normal
+# commit, and silently wrong on the abnormal one (SKIP_SECRET_CHECK=1 or --no-verify bypassed
+# it) -- so this section states what enforces secrets and where to check that it's actually
+# installed, instead of re-implementing the scan. Dependency/code vulnerability scanners
+# (npm audit/bandit/pip-audit/semgrep) are a different category -- not secrets -- and stay here.
 echo "## Secrets & security"
+echo "- secrets: enforced by the pre-commit hook (scripts/check-secrets.sh), not re-scanned here — see scripts/check-caps.sh's bootstrap check for whether that hook is actually installed"
 RAN_ANY_SEC=0
-if have gitleaks; then
-  RAN_ANY_SEC=1
-  echo "- gitleaks: available, preferred over the built-in fallback"
-  out="$(run_timeout gitleaks detect --source . --log-opts="$RANGE" --no-banner 2>&1)"; rc=$?
-  if [ $rc -eq 0 ]; then
-    echo "- gitleaks: no leaks detected in $RANGE_DESC"
-  else
-    echo "- gitleaks: FINDINGS (exit $rc)"
-    echo "$out" | tail -20 | sed 's/^/  | /'
-    note_needs_human "gitleaks reported findings in $RANGE_DESC — review before considering this safe to ship"
-  fi
-else
-  note_skipped "gitleaks: not installed"
-  # Built-in fallback (round 34 gap 1, coordinator finding): without this, "secrets" — the
-  # highest-severity category — is the one check that silently never fires on any machine
-  # without gitleaks (and it can't be built here: no Go toolchain, no binary). High-confidence
-  # patterns only, to keep false positives low; scoped to *added* lines in the range, same as
-  # the leftovers check. Deliberately weaker than a real scanner (no entropy analysis, no
-  # allowlist/history awareness) — labeled as such so it's never mistaken for one.
-  RAN_ANY_SEC=1
-  SECRET_PATTERNS=(
-    "AWS access key (AKIA...)::AKIA[0-9A-Z]{16}"
-    "GitHub token (ghp_/gho_/github_pat_)::gh[po]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}"
-    "Slack token (xox...)::xox[baprs]-[A-Za-z0-9-]+"
-    "Stripe/OpenAI-style key (sk-.../sk_live_...)::sk-[A-Za-z0-9_-]{16,}|sk_live_[A-Za-z0-9_-]{16,}"
-    "PEM private key block::-----BEGIN[A-Z ]*PRIVATE KEY-----"
-    "generic api_key/secret/password/token assignment (quoted or bare .env-style)::(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*([\"'][^\"']{16,}[\"']|[^[:space:]\"']{16,})"
-  )
-  FALLBACK_TOTAL=0
-  FALLBACK_DESC=()
-  for entry in "${SECRET_PATTERNS[@]}"; do
-    label="${entry%%::*}"
-    pattern="${entry#*::}"
-    n="$(printf '%s\n' "$ADDED" | grep -icE -- "$pattern" || true)"
-    [ -z "$n" ] && n=0
-    if [ "$n" -gt 0 ]; then
-      FALLBACK_TOTAL=$((FALLBACK_TOTAL + n))
-      FALLBACK_DESC+=("$label: $n match(es)")
-    fi
-  done
-  if [ "$FALLBACK_TOTAL" -gt 0 ]; then
-    echo "- gitleaks not installed — using built-in pattern fallback (weaker): $FALLBACK_TOTAL possible secret(s) added"
-    for d in "${FALLBACK_DESC[@]}"; do echo "  - $d"; done
-    note_needs_human "$FALLBACK_TOTAL possible secret(s) matched by the built-in fallback scan (gitleaks not installed, weaker than a real scanner) — review before considering this safe to ship"
-  else
-    echo "- gitleaks not installed — using built-in pattern fallback (weaker): no high-confidence secret patterns found in added lines"
-  fi
-fi
-
-# Filename check (round 34 gap 4, coordinator finding): content-independent floor -- a
-# committed .env/id_rsa/*.pem/*.p12/credentials.json/*.keystore/service-account*.json, or an
-# .npmrc/.pypirc that actually contains a token/password, is nearly always a mistake regardless
-# of what any content regex does or doesn't match. Runs unconditionally (not gated on gitleaks
-# absence) -- defense in depth for the highest-severity category. Scoped to files ADDED in the
-# range (a brand-new sensitive file, not every file the range happens to touch). ".env.example"/
-# ".env.sample"/".env.template"/".env.dist" are explicitly exempted -- a template is not a leak.
-FILENAME_HITS=()
-while IFS= read -r f; do
-  [ -z "$f" ] && continue
-  base="$(basename "$f")"
-  lbase="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
-  case "$lbase" in
-    .env.example|.env.sample|.env.template|.env.dist) : ;;
-    .env|.env.*) FILENAME_HITS+=("$f: env file committed (may contain real secrets)") ;;
-    id_rsa|id_dsa|id_ecdsa|id_ed25519) FILENAME_HITS+=("$f: SSH private key filename") ;;
-    *.pem) FILENAME_HITS+=("$f: PEM file committed") ;;
-    *.p12) FILENAME_HITS+=("$f: PKCS#12 keystore committed") ;;
-    credentials.json) FILENAME_HITS+=("$f: credentials.json committed") ;;
-    *.keystore) FILENAME_HITS+=("$f: keystore file committed") ;;
-    service-account*.json) FILENAME_HITS+=("$f: service-account JSON key committed") ;;
-    .npmrc|.pypirc)
-      file_added="$(git diff "$RANGE" -- "$f" 2>/dev/null | grep -E '^\+[^+]' || true)"
-      if printf '%s\n' "$file_added" | grep -qiE 'token|password|_auth'; then
-        FILENAME_HITS+=("$f: $base committed containing a token/password/_auth line")
-      fi
-      ;;
-  esac
-done < <(git -c core.quotepath=false diff --diff-filter=A --name-only "$RANGE" -- . 2>/dev/null)
-
-echo "- filename check (content-independent floor): ${#FILENAME_HITS[@]} sensitive filename(s) added"
-for h in "${FILENAME_HITS[@]}"; do
-  echo "  - $h"
-  note_needs_human "sensitive filename added: $h"
-done
 
 if [ -f package.json ] && have npm; then
   RAN_ANY_SEC=1
@@ -473,8 +398,8 @@ if have semgrep; then
 fi
 
 if [ "$RAN_ANY_SEC" -eq 0 ]; then
-  echo "- no secrets/security scanner detected (checked: gitleaks, npm audit, bandit, pip-audit, semgrep)"
-  note_skipped "secrets/security: no scanner available on this machine"
+  echo "- no dependency/code vulnerability scanner detected (checked: npm audit, bandit, pip-audit, semgrep)"
+  note_skipped "vulnerability scanners: no scanner available on this machine"
 fi
 echo
 
