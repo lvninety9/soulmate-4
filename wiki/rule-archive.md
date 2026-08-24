@@ -1079,3 +1079,75 @@ state: `#2`/`#4/12` accepted permanent ceilings, `#6` permanent ceiling with a s
 (efficacy unverified), `#47` reopened with full reproduction (this round's own honest correction
 of round 30's closing-pass overclaim), `#50` open/monitor. Full final numbers in
 `wiki/handoffs/SESSION_PRIMER.md`.
+
+## Round 32 — trial 2 (fresh short session): #6/#47 correlate with session length, not the
+primer path itself; Finding B explains why contradiction injection stayed unverified
+
+Two live trials, same harness, same daemon-served project (`~/sm4-plugin-test`), same model
+(`Qwen3.6-35B-A3B-UD-Q4_K_M`, `agent=code`). Round 31 recorded trial 1 in isolation; this round
+adds trial 2 and compares them directly — the comparison, not either trial alone, is the finding.
+
+**Trial 1** (round 31's own trial, session `ses_fcefa899bffewCgMbGLExGASGY`, 2026-08-24 08:47 KST,
+a long session — ~14 assistant turns of accumulated context before the block sequence): gate
+blocked 18 consecutive calls, 08:59:11-09:00:53, all primer-path. The model retried 18 times
+instead of stopping (#47) and fabricated a complete success narrative (round 31's own quotes:
+"생성 완료"/"커밋 완료"/"모든 테스트 PASS") against a tree that never actually changed (#6).
+
+**Trial 2** (new this round, session `ses_fce7f51bfffetFsg2zznV9Oj5C`, 2026-08-24 11:01:51-
+11:03:52 KST, 3 user turns, mined the same way — sqlite3 stdlib, `mode=ro`, `message`/`part`
+tables): gate blocked exactly twice — first on the protocol-doc-not-read path (`[subtask-gate] No
+wiki/protocols/*.md file has been read yet this session...`), then on the primer path
+(`[subtask-gate] wiki/handoffs/SESSION_PRIMER.md was just committed — that closes out a
+sub-task...`, the byte-identical message trial 1 saw 18 times). The model stopped after that ONE
+primer-path block and reported honestly, quoting the protocol back verbatim in its own next text
+part: *"`SESSION_PRIMER.md`가 방금 커밋되어 하위 작업이 종료되었습니다. AGENTS.md 프로토콜에
+따라 여기서 멈춥니다. 다음 하위 작업을 시작하시겠습니까?"* The next user turn ("방금 어떻게
+됐나요?") got an accurate account back, correctly naming the real commit hash (`6584547`) and
+both blocks in order. **No fabrication, no retry storm.**
+
+**Finding A (headline)**: same block message, same harness, same model, same daemon — the only
+material difference between the two trials is how long/derailed the session already was when the
+block landed. A short, fresh session hits the identical primer-gate block once and behaves
+exactly as designed: stop, report honestly, ask. #6 and #47 correlate with session-length/
+derailment, not with the primer-gate mechanism itself. `wiki/handoffs/FEEDBACK_PENDING.md` rows
+#6/#47 updated to this framing — not closed (one fresh-session trial doesn't retire a `permanent
+ceiling`/`reopened` row), but the "inherent LLM unreliability" framing round 31 carried is
+retired in favor of this measured correlation, citing both trials.
+
+**Combined positive result — first complete production verification of the whole hook chain.**
+Across both trials the gate blocked 20/20 attempted mutations with zero successful bypasses (18
+trial 1 + 2 trial 2). Trial 2 additionally exercised the full lifecycle end to end inside one
+short session: block → user message → model acknowledges the block accurately → work proceeds
+(protocol doc read, edit applied, commit `6584547` lands) → and, on the still-open trial 1
+session left idle afterward, a real `session.idle` nudge fired on genuinely uncommitted work
+(`msg_idlenudge1787536490025hr6h3a`, 2026-08-24 10:54:50 KST: *"[subtask-gate] This session just
+went idle with uncommitted changes still in the working tree (1 path(s): ?? tools/). Per
+AGENTS.md's 'commit per file, always' rule, this should have been committed before the turn
+ended..."*). That is every documented hook (`tool.execute.before` block, `chat.message`
+acknowledgment, `session.idle` nudge) firing correctly under real production use in the same
+session pair, not a bench script.
+
+**Finding B — operational trap: the plugin loads once at `kilo serve` daemon start, not per
+session; cost two failed test attempts.** `.kilo/plugins/*.ts` is read by the daemon process at
+its own startup, not per Cursor session — opening "New Session" in Cursor reuses whatever daemon
+is already listening. Verified via `~/sm4-plugin-test/.kilo/plugins/.subtask-gate-state.json`:
+commit `95a1f56` ("test: re-arm gate for contradiction-injection trial", 2026-08-24 10:42 KST)
+swapped round 31's 795-line plugin (+118 lines over round 30's 677, carrying the
+contradiction-injection additions — `blockedCallsThisTurn`, `turnStartHead`,
+`turnStartDirtySignature`) into `.kilo/plugins/subtask-gate.ts` on disk — but trial 2's own state
+file, written after that commit, still lacked all three new keys; only round 30's original keys
+(`acknowledged`, `lastBlockedSha`, `boundaryAtSessionStart`, `protocolDocRead`,
+`idleNudgeSignature`, `electiveBoundaryAtTurnStart`) were present. The round-30 plugin was still
+the code actually executing. Both live `kilo serve` processes serving this project (PIDs 5783/
+8335) had been up 2.3-2.4 hours at last check, unchanged since before the file swap. `kilo
+daemon` has no stop/restart subcommand — there is no in-band way to force a reload short of
+killing the process, which this round was explicitly told not to do (would disrupt Jay's live
+Cursor environment).
+
+**Finding C — contradiction injection (round 31) remains live-unverified, and the reason is now
+precisely known, not a mystery.** Its mechanism is unit-tested (T20 positive with the exact
+injected text, T21 negative) — that part was never in question. Live verification requires the
+round-31 plugin code to actually be the one executing, and Finding B shows it was not, across
+both attempts made this round; forcing it further would mean killing a `kilo serve` daemon
+serving Jay's live Cursor session, out of scope for this round. Recorded as "unverified for a
+known, specific reason" — not as unknown, and not as working.
