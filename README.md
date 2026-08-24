@@ -83,6 +83,7 @@ templates/                        # copy-paste skeletons for adopting this into 
 tests/
   subtask-gate.test.mjs            # unit tests for the sub-task gate, run before trusting a fix
   stale-language.fuzz.test.mjs     # regression net for check-caps.sh's stale-language sweep (below)
+  subtask-report.test.mjs          # regression net for the sub-task report generator (below)
 scripts/
   bootstrap.sh                     # turnkey new-project setup
   check-caps.sh                    # mechanical cap enforcement (line/row counts + a stale-language
@@ -90,6 +91,13 @@ scripts/
                                     #   yet verified" outside historical-narrative files, so a doc
                                     #   can't silently go stale about what's actually fixed)
   pre-commit-check-caps            # second-layer enforcement — see "Known gap"
+  subtask-report.sh                # evidence-only sub-task report: git diff/log, whichever test/
+                                    #   lint/secret scanner the target project actually has, never
+                                    #   the model's own recollection — stack-agnostic, runnable by
+                                    #   hand any time
+  post-commit-subtask-report       # optional hook: fires subtask-report.sh only on a commit that
+                                    #   touches wiki/handoffs/SESSION_PRIMER.md — the same sub-task
+                                    #   boundary subtask-gate.ts's computeBoundary() already uses
 ```
 
 ## The A–D self-diagnosis pattern (for any recurring subsystem)
