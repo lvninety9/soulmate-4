@@ -7,3 +7,4 @@ node_modules/
 venv/
 .DS_Store
 .kilo/plugins/.subtask-gate-state.json
+.subtask-reports/
