@@ -108,9 +108,12 @@ async function main() {
   // AGENTS.md's own call site (check_lines_warn with a real warn<cap gap, 70/85) must still show
   // its WARN tier -- proves the merge didn't accidentally collapse warn!=cap call sites too.
   {
+    // Round 33 item 3 made routine (non---verbose) output quiet by default -- WARN/WATCH lines
+    // no longer print unconditionally, so this now asserts through --verbose (still proves the
+    // WARN branch itself fires; T13/T14 below cover the new quiet-by-default behavior).
     const dir = freshFixture()
-    const { output } = run(dir)
-    expectContains("T3 AGENTS.md real warn<cap gap still produces a WARN (untouched call site)", output,
+    const { output } = run(dir, ["--verbose"])
+    expectContains("T3 AGENTS.md real warn<cap gap still produces a WARN (untouched call site, via --verbose)", output,
       "WARN: AGENTS.md total (AGENTS.md) is")
     rmSync(dir, { recursive: true, force: true })
   }
@@ -252,6 +255,61 @@ async function main() {
     expectContains("T12b FEEDBACK_PENDING.md row cap still points to the same destination/flow-rule wording", output,
       'move its full narrative to wiki/rule-archive.md ("Round N" section) and leave a pointer, per the flow rule (item 4)')
     expectStatus("T12c FEEDBACK_PENDING.md row over cap -> nonzero exit", status, 1)
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // --- Round 33 item 3: quiet-by-default routine output ---
+  // The finding this fixes: a clean repo printed 1 WARN + 4 WATCH on EVERY commit, all
+  // non-actionable -- indistinguishable from a real problem by the time anyone's used to
+  // ignoring them. Detection power itself must be unchanged (OVER CAP always fires); only
+  // whether the non-blocking WARN/WATCH/reminder lines print by default should differ.
+  {
+    // Real repo, clean run, no flag: the non-blocking notices (AGENTS.md WARN, subtask-gate.ts/
+    // check-caps.sh WATCH, primer-handoff reminder) must NOT print by default any more, but a
+    // one-line summary must, so the suppression itself is visible, not silent.
+    const dir = freshFixture()
+    const { output, status } = run(dir)
+    expectNotContains("T13a default run: no WARN line for AGENTS.md", output, "WARN: AGENTS.md")
+    expectNotContains("T13b default run: no WATCH line for subtask-gate.ts", output,
+      "WATCH: .kilo/plugins/subtask-gate.ts")
+    expectNotContains("T13c default run: no reminder line", output, "reminder: this commit doesn't touch")
+    expectContains("T13d default run: one summary line stands in for the suppressed notices", output,
+      "non-blocking notice(s) suppressed — rerun with --verbose to see them")
+    expectStatus("T13e default run still exits 0 on a clean repo", status, 0)
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    // --verbose restores every one of the exact same messages T13 just proved are hidden by
+    // default -- detection power is unchanged, only the default print behavior is.
+    const dir = freshFixture()
+    const { output } = run(dir, ["--verbose"])
+    expectContains("T14a --verbose restores the AGENTS.md WARN, exact original wording", output,
+      "WARN: AGENTS.md total (AGENTS.md) is 80/85 lines (soft target 70) — consider a pruning pass soon")
+    expectContains("T14b --verbose restores the subtask-gate.ts WATCH, exact original wording", output,
+      "WATCH: .kilo/plugins/subtask-gate.ts is")
+    expectContains("T14c --verbose restores the check-caps.sh WATCH, exact original wording", output,
+      "WATCH: scripts/check-caps.sh is")
+    expectContains("T14d --verbose restores the primer-handoff reminder, exact original wording", output,
+      "reminder: this commit doesn't touch wiki/handoffs/SESSION_PRIMER.md")
+    expectNotContains("T14e --verbose run has no leftover suppression-summary line (nothing was suppressed)",
+      output, "non-blocking notice(s) suppressed")
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    // A real OVER CAP must still print in full WITHOUT --verbose -- the whole point is that a
+    // real block is never quieted, only routine non-actionable noise is.
+    const dir = freshFixture()
+    const filler = Array.from({ length: 500 }, (_, i) => `filler line ${i}`).join("\n") + "\n"
+    writeFileSync(join(dir, "wiki", "rule-archive.md"), filler)
+    const { output, status } = run(dir)
+    expectContains("T15a OVER CAP still prints in full without --verbose (never suppressed)", output,
+      "OVER CAP: wiki/rule-archive.md (wiki/rule-archive.md) is 500 lines, cap 450")
+    expectStatus("T15b real block still exits nonzero without --verbose", status, 1)
+    // A commit that's already blocking is exactly the moment a human is reading this output for
+    // a real reason -- once status != 0, every other non-blocking notice comes along too (full
+    // context), same as passing --verbose would, with no flag needed.
+    expectContains("T15c once something's blocking, the other non-blocking notices ride along too (full context, no flag needed)",
+      output, "WARN: AGENTS.md total (AGENTS.md) is")
     rmSync(dir, { recursive: true, force: true })
   }
 

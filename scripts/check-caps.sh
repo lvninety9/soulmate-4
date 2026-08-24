@@ -106,6 +106,27 @@ REQUIRED_READ_CHAR_CAP=27800
 
 status=0
 
+# Round 33 item 3: on a clean repo this printed 1 WARN + 4 WATCH on EVERY commit, all in normal
+# (non-actionable) states — a WARN/WATCH that fires every single time carries zero information
+# and just trains whoever reads pre-commit output to stop reading it, which is exactly how the
+# item-1 finding happened (a WATCH nobody ever acted on for 4 rounds straight). Every check below
+# keeps running and keeps its full detection power (OVER CAP/FAIL always print immediately and
+# still set status=1, unchanged) — this only defers the non-blocking WARN/WATCH/reminder lines:
+# printed immediately as before if something is actually blocking this commit (status ends up 1,
+# so a human is already reading the output for a real reason) or --verbose/-v was passed, else
+# collapsed into one summary line at the end. wiki/protocols/self-harness.md's PRUNE step passes
+# --verbose explicitly, since that manual review is exactly the moment these ARE the useful signal.
+VERBOSE=0
+for _arg in "$@"; do
+  case "$_arg" in
+    -v|--verbose) VERBOSE=1 ;;
+  esac
+done
+NOTICES=()
+# "$*" (not "$1") so a multi-arg call — echo's own old calling convention for a line built from
+# several quoted pieces, still used below — joins with spaces exactly like echo did before.
+notice() { NOTICES+=("$*"); }
+
 norm() { sed 's/\r$//' "$1" 2>/dev/null || true; }
 
 check_lines_warn() {
@@ -125,7 +146,7 @@ check_lines_warn() {
     echo "OVER CAP: $label ($file) is $lines lines, cap $cap — prune before committing"
     status=1
   elif [ "$lines" -gt "$warn" ]; then
-    echo "WARN: $label ($file) is $lines/$cap lines (soft target $warn) — consider a pruning pass soon"
+    notice "WARN: $label ($file) is $lines/$cap lines (soft target $warn) — consider a pruning pass soon"
   else
     echo "ok: $label ($file) $lines/$cap lines"
   fi
@@ -456,9 +477,9 @@ check_primer_handoff_reminder() {
   fi
   if git rev-parse --show-toplevel >/dev/null 2>&1 && \
      ! git diff --cached --name-only 2>/dev/null | grep -qF "$f"; then
-    echo "reminder: this commit doesn't touch $f — if this is the sub-task's LAST file, its" \
-         "'Current sub-task' block should be staged in this same commit (next sub-task, or" \
-         "'verify' if none remain). See wiki/protocols/build.md step 3."
+    notice "reminder: this commit doesn't touch $f — if this is the sub-task's LAST file, its" \
+           "'Current sub-task' block should be staged in this same commit (next sub-task, or" \
+           "'verify' if none remain). See wiki/protocols/build.md step 3."
   fi
 }
 
@@ -548,12 +569,12 @@ check_watch_size() {
   lines=$(norm "$file" | wc -l | tr -d ' ')
   if [ "$lines" -gt "$warn" ]; then
     if [ -n "$hint" ]; then
-      echo "WATCH: $file is $lines lines (no hard cap) — $hint"
+      notice "WATCH: $file is $lines lines (no hard cap) — $hint"
     else
       archive_dest="${file%.md}-archive.md"
-      echo "WATCH: $file is $lines lines (append-only, no hard cap) — move its oldest entries to" \
-           "$archive_dest (per wiki/protocols/self-harness.md's PRUNE step) and leave a" \
-           "one-line pointer behind"
+      notice "WATCH: $file is $lines lines (append-only, no hard cap) — move its oldest entries to" \
+             "$archive_dest (per wiki/protocols/self-harness.md's PRUNE step) and leave a" \
+             "one-line pointer behind"
     fi
   fi
 }
@@ -960,5 +981,18 @@ fi
 
 check_required_read_total AGENTS.md wiki/handoffs/SESSION_PRIMER.md \
   wiki/PROJECT_BACKGROUND.md wiki/handoffs/FEEDBACK_PENDING.md
+
+# Round 33 item 3: flush the buffered WARN/WATCH/reminder notices in full whenever there's an
+# actual reason to (something is blocking this commit, or --verbose was asked for) — otherwise
+# collapse them into one summary line so a clean commit's routine output stays short. Detection
+# power is unchanged either way: every OVER CAP/FAIL above already printed immediately and set
+# status=1, regardless of this.
+if [ "${#NOTICES[@]}" -gt 0 ]; then
+  if [ "$status" -ne 0 ] || [ "$VERBOSE" = "1" ]; then
+    printf '%s\n' "${NOTICES[@]}"
+  else
+    echo "(${#NOTICES[@]} non-blocking notice(s) suppressed — rerun with --verbose to see them)"
+  fi
+fi
 
 exit $status

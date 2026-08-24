@@ -17,7 +17,10 @@ Method:
    with an ID and an expiry tag (`permanent` or a review date).
 3. VALIDATE: would this rule have actually prevented today's friction? Does it conflict with an
    existing rule in `AGENTS.md`'s Fixed Rules or Learned Rules?
-4. PRUNE: run `scripts/check-caps.sh` — mechanically checked. `rule-archive.md`/
+4. PRUNE: run `scripts/check-caps.sh --verbose` (round 33 item 3: routine runs are quiet by
+   default now — non-blocking WARN/WATCH/reminder lines collapse into one summary count unless
+   something's actually blocking the commit; `--verbose` is what surfaces them for this manual
+   review, the one moment they're the useful signal). `rule-archive.md`/
    `handoffs/SESSION_MASTER.md` now hard-cap (round 33: their soft WATCH was obeyed 0% of the
    time across this project's whole history, see check-caps.sh's own comment) — an OVER CAP on
    either blocks the commit, not just a hint. `session-log.md` stays a soft WATCH on line count
