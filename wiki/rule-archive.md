@@ -28,94 +28,16 @@ Moved to `wiki/rule-archive-archive.md` (round 8's self-harness PRUNE step). Cov
 protocol-read gate that fixed it — full 3-trial evidence (backup-first/small-units/real-
 verification/stop-and-ask all failing independently) plus the live re-verification.
 
-## Round 5-30 — moved to archive
+## Round 5-30 (incl. closing pass) — moved to archive
 
-Moved to `wiki/rule-archive-archive.md` (round 33's self-harness PRUNE step, `rule-archive.md`
-crossed the new hard cap). Covers: round 5 objective audit + L10, round 6 re-score, round 7
+Moved to `wiki/rule-archive-archive.md` (round 34's self-harness PRUNE step, `rule-archive.md`
+crossed the new hard cap again). Covers: round 5 objective audit + L10, round 6 re-score, round 7
 regression, round 8 re-audit, round 27 (`session.idle` hook found), round 28 items 1/2/6/7 (#41
 gate redesign, bench redesign, Q3→Q4_K_M quantization), round 29 items 1/6 (#45 fail-closed git
 handling, axis B/C), round 30 items 1-3/5-7 (question-tool re-verification, real tool inventory,
-elective-arm turn-boundary fix). Round 30's *closing pass* onward stays live below — still the
-active narrative as of this round.
-
-## Round 30 closing pass — item 4 solved statically (real cause: bench Step 3 pre-empts Step 4,
-not a design.md/build.md defect), kilo-run reliability partially re-tested, every open row closed
-
-**Item 4, definitive answer — cause (c), the bench's own scenario, not (a) or (b)**: mined
-`~/.local/share/kilo/kilo.db` for real historical axis-B trial sessions rather than attempting a
-fresh live run first (per this closing pass's own instruction). Read 4 full transcripts message-
-by-message via `part.data`/`message.data` JSON (sqlite3, `mode=ro`, stdlib only):
-`/tmp/sm4-axisB-on/trial-1` (`ses_fd2b9ecc8ffeMd7KeOGqpHpTzv`, wordcount), `/tmp/sm4-axisB-on/
-trial-2` (tempconvert), `/tmp/sm4-axisB-off/trial-1` (wordcount), `/tmp/sm4-axisB-off/trial-3`
-(pwgen). All 4 — 2 scenarios, both harness ON and OFF — show the identical sequence:
-
-1. Step 3's discuss prompt gets real clarifying questions from the model (plain text, no
-   `question` tool — see item 7 above).
-2. `build_scope` arrives (the bench's own scripted answer, e.g. "Python, argparse. Split into 3
-   files: tools/wordcount.py (CLI entry point), tools/wordcount_core.py (...), tests/
-   test_wordcount.py (...)").
-3. The model — never told "build" — immediately runs `todowrite`→`write`→`git commit` for every
-   file, runs the tests, and reports done. This happens entirely BEFORE Step 4's "design" message
-   is sent.
-4. Step 4's bare "design" then arrives. The model reads `wiki/protocols/design.md` (a real `read`
-   tool-call event, every trial, every mode) and correctly declines: *"이미 build 단계로 3개
-   파일을 작성하고 커밋까지 마쳤습니다... design 단계는 redundant합니다"* (trial-1);
-   *"The tempconvert CLI is already built and committed. There's nothing left to design"*
-   (trial-2); same pattern in both OFF trials.
-
-`design.md` itself is unambiguous (steps 4-5: write the sub-task block into `SESSION_PRIMER.md`,
-commit before anything else) and the model self-serves it correctly every time it's asked — that
-rules out (a) and (b). The real cause is `harness-integration-test.sh`'s own Step 3
-`build_scope` text (chosen, per the script's own comment, specifically so "design.md's '3+ files'
-trigger applies unambiguously") — it is so fully specified (exact file names, exact per-file
-responsibility, exact language/library) that it satisfies `AGENTS.md`'s own "Clearly-scoped: skip
-to build" rule, so the model correctly skips design and finishes the whole sub-task before Step
-4's trigger word ever arrives. By the time "design" is sent, there is nothing left to plan —
-asking for one retroactively is asking the model to fabricate ceremony around already-finished
-work, and refusing is the *correct* response, not a bug. Reproduces 4/4 read (both harness modes,
-2 different scenarios) — not scenario noise.
-
-**Consequence**: axis B/C's Step 4 = 0/5 both modes is a bench-scenario ordering flaw, not a
-harness or doc defect — Step 3's own build_scope pre-empts the exact trigger Step 4 exists to
-test. No fix applied to `design.md`/`build.md` (nothing wrong in either). Fixing the bench would
-mean deliberately under-specifying Step 3's build_scope so the model can't treat it as clearly-
-scoped and has to invoke `design` itself to decide the file split — a real bench redesign, out of
-scope for a closing pass (no new audit round). Documented as a comment at Step 4's block in
-`scripts/harness-integration-test.sh` (no logic change) plus this section; `#48` closed as
-answered (root cause found), not "fixed" — there was nothing broken to fix.
-
-**kilo-run reliability, partially re-tested (prompted mid-pass by the user's own live Cursor/Kilo
-plugin session)**: the plugin surfaced `Model not found: qwen-3-6/Qwen3.6-35B-A3B-UD-Q3_K_M.gguf`
-— a stale per-session/plugin-UI model selection left over from round 28's Q3→Q4 swap, unrelated to
-`~/.config/kilo/kilo.jsonc` (Q4-only already). Hypothesis tested here (2 short calls, capped):
-does `kilo run` **CLI** fall back to a similarly stale default without `-m`, explaining round 30's
-hang rate? `kilo run --dir <fresh bootstrap> -m qwen-3-6/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf "What is
-2+2? Answer in one word."` → `4`, exit 0, a few seconds. Same call **without** `-m` → still
-resolved to Q4 correctly, `Four`, exit 0, no hang. **The stale-Q3-default hypothesis does not
-reproduce in the CLI** — it looks specific to the Cursor plugin's own separately-stored UI
-selector, a different code path from `kilo run`'s model resolution. Both bench scripts already
-pass an explicit, correct `-m` (`scripts/harness-integration-test.sh:53`,
-`scripts/complexity-ladder-test.sh:54` — read directly, not assumed from round 28's report): even
-if the hypothesis had reproduced, it would not have explained the bench's own hangs. 2/2
-lightweight single-turn calls succeeded with zero hang today — too small a sample to call round
-30's blocker fixed, and no heavier multi-tool-call trial was attempted (would compete with the
-user's own live Kilo-plugin session for the single inference slot). Recorded as inconclusive, not
-a resolution — `#50` downgraded (open, monitor) not closed.
-
-**FEEDBACK rows closed/changed this pass** (`wiki/handoffs/FEEDBACK_PENDING.md`):
-- `#48` → done, archived: item 4's root cause above, no code defect, nothing to fix.
-- `#47` → done, archived: `510b00a`'s `electiveBoundaryAtTurnStart` + T19a/T19b already unit-
-  simulate the exact mid-turn boundary-crossing pattern that caused the retry storm and prove it
-  now defers correctly. A live reproduction of an actual 4-20-retry storm was not attempted this
-  pass (judged out of scope for a closing pass, not a new audit round) — flagged honestly per the
-  same standard archive row `#46` already set (unit-verified, live-reproduction explicitly not
-  attempted, stated plainly rather than overclaimed).
-- `#42` merged into `#4/12` — both rows described the identical CLI-vs-plugin `question`-tool
-  ceiling; consolidated to one precise row (same dedupe precedent as the earlier `#4`+`#12`
-  merge).
-- `#50` downgraded, still open — see the kilo-run re-test above; root cause still not
-  conclusively identified (2 concurrent `kilo serve` daemons remain the leading unproven
-  hypothesis), moved from "blocking everything live" to "monitor, not proven fixed."
+elective-arm turn-boundary fix), and round 30's closing pass (item 4's definitive cause via
+`kilo.db` transcript mining, every open FEEDBACK row closed to a terminal state). Round 31 onward
+stays live below.
 
 ## Round 31 (final round) — live plugin production trial: #47 reopened at full scale, #6's
 strongest evidence yet, contradiction injection shipped as mitigation, project closed out
@@ -391,3 +313,88 @@ doc edits touched none of the 4 required-read files until the SESSION_PRIMER.md 
 which brought it to 23,904/27,800, still comfortably under cap). No LLM calls made this round
 (a foreign benchmark process held the only local llama-server slot for the round's duration);
 `~/aider-bench/` was not touched.
+
+## Round 34 — Deliverable 1 (universal sub-task report generator) + Deliverable 2 (evergreen local-model capability numbers)
+
+**Starting-state re-verification (fresh clone, per L13), before any work**: `HEAD d8622fb`, 221
+commits — matched. `subtask-gate.test.mjs`: 39 `ok:` lines (21 distinct `T<N>` cases, some with
+`a/b/c` sub-labels — matches "39 assertions/35 cases" on the assertion count). `stale-language.
+fuzz.test.mjs`: `ALL PASS (42/42)`. `check-caps.regression.test.mjs`: 60 `ok:` lines, `ALL PASS`.
+`check-caps.sh`: exit 0, `(4 non-blocking notice(s) suppressed...)` — matches "EXIT=0 quieted"
+exactly. No mismatch.
+
+**Deliverable 1 — `scripts/subtask-report.sh` + `scripts/post-commit-subtask-report`.**
+
+*Why the report is evidence-only, not model-summarized*: this week's local-model measurement (see
+below) is the direct motivation — 18 consecutive turns claiming `tools/wordcount_core.py 생성
+완료`/`커밋 완료`/`테스트 결과: 모든 테스트 PASS` while every tool call was blocked and `tools/`
+never existed on disk. Summarizing a fixed evidence bundle is a stateless transformation (the
+shape the model measurably handles, see the aider-polyglot pass list below); recalling its own
+actions is the shape it fails at — so the script never asks the model anything; every line it
+prints traces to a real command's real exit code/stdout.
+
+*Trigger, reusing (not inventing) the existing boundary*: `subtask-gate.ts`'s `computeBoundary()`
+treats a commit touching `wiki/handoffs/SESSION_PRIMER.md` as a "primer" boundary — the exact
+definition the spec named. `scripts/post-commit-subtask-report` checks `git diff-tree
+--no-commit-id --name-only -r --root HEAD` for that path and fires only then; every other commit
+is silent. `scripts/subtask-report.sh` derives the same boundary fresh from git on every
+invocation (`git log -1 --format=%H <target>^ -- wiki/handoffs/SESSION_PRIMER.md`, empty-tree
+fallback) — no state file, fully re-runnable by hand (`[<target>] [--since <sha>]`), and avoids
+the exact staleness class `computeBoundary()`'s own round-28 comment warns a persisted flag risks.
+
+*Checks, each detect-then-maybe-run*: tests (package.json/pytest/go/cargo/make, or bare
+`tests|test/*.test.mjs` via `node --experimental-strip-types` — this repo's own no-package.json
+pattern) — leftovers (TODO/FIXME/XXX, console.log/debugger/pdb.set_trace/`print(`, mock/dummy/
+fixture keywords outside test-ish paths, scoped to *added* diff lines only) — secrets/security
+(gitleaks, npm audit, bandit, pip-audit, semgrep) — lint/dead-code (eslint via `npx --no-install`,
+ruff, ts-prune, vulture) — CSS design consistency (distinct `font-size`/color literal counts) —
+coverage delta (cached to `.subtask-reports/.coverage-baseline`, gitignored). Every branch is
+optional; an unavailable tool is named under "Skipped checks," never silently treated as clean.
+The script itself never exits nonzero in a way that could block a caller (`set -uo pipefail`, not
+`-e`); the hook wraps it with `set +e` besides.
+
+*Proof this repo's own dogfood run is real, not staged*: `bash scripts/subtask-report.sh` against
+this checkout's own last 6 commits (round 33) correctly auto-detected the bare-node-test pattern
+with zero config and reproduced the exact assertion counts from the manual re-verification above
+(60/42/39), and flagged 3 added TODO markers + 4 added "mock"-keyword lines from round 33's own
+prose (e.g. "3 real git-failure tests, not mocks") under 확인이 필요한 것 — a real false-positive-
+shaped finding surfaced honestly for a human to dismiss, not hidden.
+
+*Proof of graceful degradation on a different stack (spec's own acceptance bar)*: two synthetic
+throwaway repos outside this checkout (`testproj-python`, `testproj-node`, neither committed
+here). Python/pytest: a broken import genuinely `FAIL (exit 2)` with real traceback tail, then a
+`conftest.py` fix made it genuinely `PASS (exit 0)` — proves no fabricated success. Node/`npm
+test`: same FAIL-then-PASS proof, plus `npm audit` "0 vulnerabilities" and a CSS file with 11
+distinct font-sizes/11 colors correctly flagged. An `.eslintrc.json` with no eslint installed
+initially mis-reported as "findings" (npx's missing-package message swallowed in) — fixed by
+probing `npx --no-install eslint --version` first, now correctly routed to "Skipped checks."
+
+*Regression tests*: `tests/subtask-report.test.mjs`, 18 assertions/8 synthetic-repo cases (no-
+runner honesty, bare-node PASS/FAIL with exact counts, exact TODO count, boundary resolution incl.
+`--since`, hook silence-vs-fire) — fresh throwaway repos, not a copy of this project. Caught a
+real bug on first run: `git diff-tree --no-commit-id --name-only -r HEAD` prints nothing for a
+repo's root commit without `--root` (confirmed live) — would have made a fresh repo's first
+commit (plausibly the one seeding `SESSION_PRIMER.md`) silently never fire the report. Fixed;
+`ALL PASS (18 assertions)` after.
+
+**Deliverable 2 — this week's measured numbers, recorded as evergreen reference (not round
+narrative)**: full numbers live in `wiki/PROJECT_BACKGROUND.md`'s "Local model capability"
+section (a standing fact about the model, not this round's narrative — updated in place as new
+measurements land). Raw source: complexity ladder N=5/level (own scale) 5/5→4/5→2/4→1/2→0/1.
+Aider polyglot, Python subset, `Qwen3.6-35B-A3B-UD-Q4_K_M`, `--edit-format whole`, aider 0.86.2,
+2-attempt protocol, seed 1234, n=23/25 (2 unrun on deadline): 9/23=39.1%; passes =
+`list-ops`/`pig-latin`/`proverb`/`grep`/`bottle-song`/`zebra-puzzle`; failures =
+`forth`/`paasio`/`simple-linked-list`/`bowling`/`hangman`/`pov`; not comparable to the public
+6-language leaderboard figure, n=23 → roughly ±20pp CI. 3/9 passes landed only on a 2nd attempt.
+**Operational traps** (cross-referenced from `SESSION_PRIMER.md`'s Hard constraints):
+`.kilo/plugins/*.ts` loads once at `kilo serve` daemon start (verified via
+`.subtask-gate-state.json`'s key set — reconfirms round 32 Finding B independently). A
+stale/wrong Kilo-saved model name surfaces in the CLI as **exit 0, zero stdout, no error** —
+related to but distinct from #50's still-open hang mystery (round 30 ruled out a *stale default*
+on scripts already passing `-m` correctly; this is an *explicitly wrong* `-m`), so #50's row is
+left unchanged, not merged.
+
+**No `kilo run`/LLM/GPU call made this round** — every number above is prior measurement being
+recorded, not re-run. `~/aider-bench/`, `~/sm4-plugin-test/`, `llama.service`,
+`/media/jay/D/llama.cpp/llama.env`, `~/.config/kilo/kilo.jsonc` untouched, no process killed,
+every commit through the real `.git/hooks/pre-commit` (`pre-commit-check-caps`, not bypassed).
