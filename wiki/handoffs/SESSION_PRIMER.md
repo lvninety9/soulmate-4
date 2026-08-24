@@ -1,67 +1,57 @@
-# SESSION PRIMER — round 33 complete (2026-08-24)
+# SESSION PRIMER — round 34 complete (2026-08-24)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
 > open table for what's still live, `wiki/FEEDBACK_PENDING-archive.md` for every resolved row,
-> `wiki/rule-archive.md` "Round 30"/"Round 30 closing pass"/"Round 31"/"Round 32"/"Round 33" (via
-> the "Round 5-30 — moved to archive" pointer, then live from "Round 30 closing pass" onward) for
-> full evidence.
+> `wiki/rule-archive.md` "Round 30 closing pass"/"Round 31"/"Round 32"/"Round 33"/"Round 34" (via
+> the "Round 5-30 (incl. closing pass) — moved to archive" pointer, then live from "Round 31"
+> onward) for full evidence.
 
 ## Project overview
 
 `soulmate-4` is a session-handoff harness template for coding agents behind **Kilo Code**, talking
 to a local LLM with a hard context ceiling (RTX 3080 10GB, physically **shared with an unrelated
 production system "Hermes"** — see Hard constraints). `.kilo/plugins/subtask-gate.ts` is the
-payoff: a real `tool.execute.before` mechanical brake. Round 32 closed the project out; **round 33
-was a narrow, fully-specified reopening** (Opus work order, 3 items on `check-caps.sh` itself, not
-a new audit round) — everything below is the true current state after it, not an in-progress
-snapshot. No new round planned unless Jay reopens again.
+payoff: a real `tool.execute.before` mechanical brake. Round 32 closed the project out; rounds 33
+and 34 were both narrow, fully-specified reopenings (Opus work orders, not new audit rounds) —
+everything below is the true current state after round 34, not an in-progress snapshot. No new
+round planned unless Jay reopens again.
 
 ## Current sub-task
 
 ```
-시작: round 32's closed-out state. Jay reopened with a narrow 3-item work order targeting
-     check-caps.sh's own doc-budget enforcement, motivated by a measured finding: hard caps
-     were obeyed 100% of the time across this project's whole history, soft WATCH advisories
-     0% of the time (rule-archive.md grew 408->1153 lines, +182%, over 4 rounds of an
-     unactioned WATCH firing on every commit).
-완료: round 33, all 3 items, 3 commits (7113c00/8478cc5/20466e1/83aed4f/2fd8912 — items 1's
-     prune+cap split into 3, item 2 and item 3 one each):
-     item 1: rule-archive.md/SESSION_MASTER.md's soft WATCH converted to a real hard cap
-       (check_lines_warn, same mechanism every other auto-loaded doc uses) — RULE_ARCHIVE_
-       WARN/CAP=400/450, SESSION_MASTER_WARN/CAP=150/200, both derived from this repo's own
-       history (real post-archive resting sizes, not a round number). Performed the prune the
-       new cap now requires: rounds 5-8/27-30 (rule-archive.md) and rounds 5-27 (SESSION_
-       MASTER.md) moved verbatim to their `-archive.md` companions, one-line pointers left.
-       1153->296 / 281->117 lines. The `-archive.md` tail files stay uncapped on purpose
-       (never auto-loaded, no token-budget reason to bound them).
-     item 2: session-log.md had the identical line-vs-bytes bug round 28 fixed for
-       FEEDBACK_PENDING.md (25 lines/21,071 chars = 842 chars/line, so its 200-line WATCH
-       needs ~168KB to ever fire — structurally unreachable). Fixed by extracting
-       FEEDBACK_PENDING's inline row-char-cap loop into a shared check_row_char_cap()
-       function and adding a second call site: SESSION_LOG_ROW_CHAR_CAP=3000 (sized from
-       this file's own real rows, 373-2,679 chars each — copying FEEDBACK's 300 verbatim
-       would OVER CAP every existing row). FEEDBACK_PENDING's own cap/message unchanged,
-       regression-proven.
-     item 3: check-caps.sh printed 1 WARN + 4 WATCH on every commit regardless of whether
-       anything needed action — real signal was indistinguishable from routine noise. Fixed:
-       non-blocking WARN/WATCH/reminder lines now buffer and print in full only when the
-       commit is actually blocked (status=1) or `--verbose`/`-v` is passed; otherwise one
-       summary line. OVER CAP/FAIL detection and immediate printing are unchanged. wiki/
-       protocols/self-harness.md's PRUNE step now runs `check-caps.sh --verbose` explicitly.
-     18 new regression tests (T7-T15, tests/check-caps.regression.test.mjs) cover all 3 items
-     with the specific-effect standard (exact OVER CAP/ok/notice text, not just exit code).
-     All pre-existing tests still pass unmodified (unit 38/42 assertions before this round's
-     additions, fuzz 42/42). check-caps.sh clean; required-read total unchanged (21840/27800
-     chars — this round touched none of the 4 required-read files).
-막힘: none — all 3 items landed, tested, pushed.
+시작: round 33's closed-out state. Jay opened a new 2-deliverable work order: (1) a universal
+     sub-task report generator, because the local model's self-report is measured unreliable
+     (18 straight turns of "완료"/"PASS" claims this week while every tool call was blocked and
+     nothing landed); (2) record this week's aider-polyglot/complexity-ladder measurements
+     somewhere durable, following this repo's own flow rule.
+완료: round 34, both deliverables, pushed:
+     (1) scripts/subtask-report.sh — evidence-only report: git diff/log for what changed, the
+       actually-detected test runner (pytest/npm/go/cargo/make/bare node tests/*.test.mjs) run
+       for real pass/fail counts, TODO/debug-residue/mock-in-non-test-path scan on added lines,
+       whichever of gitleaks/npm-audit/bandit/pip-audit/semgrep exist, whichever of
+       eslint/ruff/ts-prune/vulture exist, CSS font-size/color literal counts, coverage delta —
+       every check optional, absence stated explicitly, script itself always exits 0. Boundary
+       reused verbatim from subtask-gate.ts's computeBoundary() ("primer" reason): a commit
+       touching wiki/handoffs/SESSION_PRIMER.md. scripts/post-commit-subtask-report fires it
+       automatically only on such a commit (also runnable by hand any time); wired into
+       bootstrap.sh so new projects inherit both. Tested against 2 synthetic throwaway repos of
+       a different stack each (bare pytest, bare `node --test`) to prove real detect-vs-skip
+       behavior, not just that it runs here — 18/18 assertions, tests/subtask-report.test.mjs (a
+       real bug caught by its own T8: `git diff-tree` prints nothing for a repo's root commit
+       without `--root`, fixed).
+     (2) this week's measured local-model capability numbers — evergreen reference data, not
+       round narrative — recorded in wiki/PROJECT_BACKGROUND.md's new "Local model capability"
+       section (aider polyglot 9/23=39.1% Python-only with caveats, complexity ladder, the
+       stateless-vs-self-designed-state failure pattern, 2nd-attempt-retry value). Full
+       method/raw numbers: `wiki/rule-archive.md` "Round 34".
+     Re-verified starting state first (fresh clone, per L13): HEAD d8622fb/221 commits, unit
+     39/35, fuzz 42/42, regression 60, check-caps.sh exit 0 quiet — all matched, no mismatch.
+     Real pre-commit hook used for every commit. No `kilo run`/LLM/GPU call made this round.
+막힘: none.
 다음: none planned. Round 32's own open items (#4/12, #6/38, #47, #50 — see table below) are
-     UNCHANGED by round 33; this round was scoped to check-caps.sh's own doc-budget mechanism
-     only ("no new audit round, no turnkey-oriented fixes" per its own work order), not a
-     revisit of the harness's live-verification gaps. If reopened for those, start from round
-     32's own "If this project is ever reopened" guidance below — it still applies unchanged.
-참고: opus_round33_report.md is in ~/.hermes/, NOT this repo. Round 30/final-round reports
-     referenced by round 32 are also in ~/.hermes/.
+     UNCHANGED by round 34 (out of this round's narrow scope, same as round 33).
+참고: opus_round34_report.md is in ~/.hermes/, NOT this repo.
 ```
 
 ## Final state — every FEEDBACK row (`FEEDBACK_PENDING.md`)
@@ -89,7 +79,7 @@ fence/token gaps are structural tradeoffs (fixing either breaks real, legitimate
 documented and accepted since before round 28. **#47 and #50 are NOT permanent limitations** —
 they are real open bugs/unknowns a future round could still make progress on; #47 is additionally
 now known to correlate with session length (round 32), not to be an unconditional property of the
-primer-gate block.
+primer-gate block. Round 34 made no change to any row above (out of scope, see "Current sub-task").
 
 ## Hard constraints / warnings
 
@@ -112,12 +102,13 @@ primer-gate block.
   before `kilo run`, wait if busy. A forced server shutdown timer fires daily at 19:30 KST.
 - `kilo` CLI at `~/.cursor/extensions/kilocode.kilo-code-7.4.23-linux-x64/bin/kilo` (not on
   default `PATH`). `kilo run` REQUIRES `--dir <path>`; pass `-m qwen-3-6/Qwen3.6-35B-A3B-UD-
-  Q4_K_M.gguf` explicitly (a stale model name is one known `kilo run` failure cause).
+  Q4_K_M.gguf` explicitly — a stale/wrong saved model name is one known `kilo run` failure cause,
+  and in the CLI it surfaces as **exit 0 with zero stdout and no error** (round 34), indistinguishable
+  from a hang unless `-m` is always passed explicitly.
 - `templates/AGENTS.md.template` must stay byte-identical to `AGENTS.md` from `## Language`
   onward, excluding `## Learned Rules` — `check_template_drift()` catches this, only when run.
 - `FEEDBACK_PENDING.md`'s "Completed history" is a pointer only — resolved rows live in
-  `wiki/FEEDBACK_PENDING-archive.md`, not auto-loaded. #47 was moved back OUT of that archive
-  this round (reopened) — a row can move either direction, not just archive-forward.
+  `wiki/FEEDBACK_PENDING-archive.md`, not auto-loaded.
 - A local clone's own `git log` looking coherent proves nothing about its freshness vs.
   `origin/master` (L13) — always `git fetch`+diff origin, or fresh-clone, first.
 - **`scripts/check-caps.sh` is quiet by default now** (round 33 item 3) — non-blocking WARN/
@@ -125,9 +116,13 @@ primer-gate block.
   `-v` is passed; a clean run instead shows one "N non-blocking notice(s) suppressed" line.
   Run with `--verbose` for the manual PRUNE review (self-harness.md step 4 already does).
 - **`rule-archive.md` (450-line cap)/`SESSION_MASTER.md` (200-line cap) now hard-block a
-  commit if crossed** (round 33 item 1, WARN at 400/150) — PRUNE proactively per self-
-  harness.md's step 4, don't wait for the block. `session-log.md` stays line-uncapped but each
-  row now caps at 3,000 chars (`SESSION_LOG_ROW_CHAR_CAP`).
+  commit if crossed** (round 33 item 1) — PRUNE proactively per self-harness.md's step 4, don't
+  wait for the block. Round 34 pruned "Round 30 closing pass" out to `rule-archive-archive.md`
+  to make room before adding its own section — same pattern, reuse it next time too.
+- **`scripts/subtask-report.sh`/`scripts/post-commit-subtask-report`** (round 34, new) — fires
+  automatically only on a commit touching this file (same boundary as the gate); every check
+  inside is optional and states explicitly when skipped. Never trust the model's own "완료"/
+  "PASS" claim over this report's output.
 
 ## If this project is ever reopened
 
