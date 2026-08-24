@@ -11,6 +11,7 @@
 | `templates/` | copy-paste skeletons for adopters |
 | `scripts/check-caps.sh` | mechanical cap enforcement, same shape as soulmate-2/3 |
 | `scripts/pre-commit-check-caps` | git hook — a second, later-stage backstop behind the plugin gate (not the *only* one, unlike soulmate-3) |
+| `scripts/subtask-report.sh` + `scripts/post-commit-subtask-report` | evidence-only sub-task report (round 34) — reuses the gate's own boundary (a commit touching `SESSION_PRIMER.md`); built entirely from git/test-runner/scanner output, never the model's self-report |
 
 ## Why this repo exists (relationship to soulmate-2/3)
 
@@ -79,6 +80,31 @@ UI stub, see L02).
 
 Status icons: ✅ done (evidence/commit hash) · ⏳ code-done, unverified · 🔶 partial · 🔴 unfixed
 bug · ⚠️ needs user action. FEEDBACK priority: `p0` blocking · `p1` normal · `p2` someday.
+
+## Local model capability (measured, evergreen reference — not round narrative)
+
+Method/raw evidence: `wiki/rule-archive.md` "Round 34". Numbers below are the standing reference;
+update in place as new measurements land, don't append a running log here.
+
+- Complexity ladder, level-independent (own scale, not aider's): 1 file 5/5 · 3 files 4/5 ·
+  +refactor 2/4 · +tests 1/2 · multi-sub-task chain 0/1 — self-contained edits hold up; success
+  drops once a task requires the model to invent its own state/design/multi-step chaining.
+- Aider polyglot benchmark, Python subset only (`Qwen3.6-35B-A3B-UD-Q4_K_M`,
+  `--edit-format whole`, aider 0.86.2, 2-attempt protocol, seed 1234, n=23/25 attempted, 2 unrun
+  on deadline): **9/23 = 39.1%**. NOT comparable to the published polyglot leaderboard figure
+  (that aggregates 6 languages; this is Python-only, and n=23 gives roughly a ±20pp CI).
+- Failure pattern, same run: passes cluster on stateless transformations (`list-ops`,
+  `pig-latin`, `proverb`, `grep`, `bottle-song`, `zebra-puzzle`); failures cluster on
+  self-designed state — interpreters (`forth`), IO wrappers (`paasio`), iteration protocols
+  (`simple-linked-list`), state machines (`bowling`, `hangman`), tree restructuring (`pov`).
+  **Operational rule this implies: hand the model the data structure + function signatures,
+  never ask it to design state.**
+- 3 of 9 passes landed only on a 2nd attempt (real failing-test output fed back, retried once) —
+  roughly a third of all successes came from that loop, not the first attempt.
+- This is why `scripts/subtask-report.sh` exists: deterministic tooling (exit codes, scanners,
+  linters, schema checks) handles the bulk at zero cost; the local model gets only genuinely
+  open-ended judgment calls; a human sees a filtered short list. Self-report from the model is
+  never a verification source.
 
 ## What's NOT here
 
