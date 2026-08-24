@@ -1240,3 +1240,83 @@ per Opus's own mid-round instruction rather than worked around.
 Raw evidence: `/tmp/discuss_json_test.out` (successful trial), kilo per-run logs at
 `~/.local/share/kilo/log/2026-08-23T1[45]*.log` (all `/tmp` scratch, not committed).
 
+
+## Round 30 closing pass — item 4 solved statically (real cause: bench Step 3 pre-empts Step 4,
+not a design.md/build.md defect), kilo-run reliability partially re-tested, every open row closed
+
+**Item 4, definitive answer — cause (c), the bench's own scenario, not (a) or (b)**: mined
+`~/.local/share/kilo/kilo.db` for real historical axis-B trial sessions rather than attempting a
+fresh live run first (per this closing pass's own instruction). Read 4 full transcripts message-
+by-message via `part.data`/`message.data` JSON (sqlite3, `mode=ro`, stdlib only):
+`/tmp/sm4-axisB-on/trial-1` (`ses_fd2b9ecc8ffeMd7KeOGqpHpTzv`, wordcount), `/tmp/sm4-axisB-on/
+trial-2` (tempconvert), `/tmp/sm4-axisB-off/trial-1` (wordcount), `/tmp/sm4-axisB-off/trial-3`
+(pwgen). All 4 — 2 scenarios, both harness ON and OFF — show the identical sequence:
+
+1. Step 3's discuss prompt gets real clarifying questions from the model (plain text, no
+   `question` tool — see item 7 above).
+2. `build_scope` arrives (the bench's own scripted answer, e.g. "Python, argparse. Split into 3
+   files: tools/wordcount.py (CLI entry point), tools/wordcount_core.py (...), tests/
+   test_wordcount.py (...)").
+3. The model — never told "build" — immediately runs `todowrite`→`write`→`git commit` for every
+   file, runs the tests, and reports done. This happens entirely BEFORE Step 4's "design" message
+   is sent.
+4. Step 4's bare "design" then arrives. The model reads `wiki/protocols/design.md` (a real `read`
+   tool-call event, every trial, every mode) and correctly declines: *"이미 build 단계로 3개
+   파일을 작성하고 커밋까지 마쳤습니다... design 단계는 redundant합니다"* (trial-1);
+   *"The tempconvert CLI is already built and committed. There's nothing left to design"*
+   (trial-2); same pattern in both OFF trials.
+
+`design.md` itself is unambiguous (steps 4-5: write the sub-task block into `SESSION_PRIMER.md`,
+commit before anything else) and the model self-serves it correctly every time it's asked — that
+rules out (a) and (b). The real cause is `harness-integration-test.sh`'s own Step 3
+`build_scope` text (chosen, per the script's own comment, specifically so "design.md's '3+ files'
+trigger applies unambiguously") — it is so fully specified (exact file names, exact per-file
+responsibility, exact language/library) that it satisfies `AGENTS.md`'s own "Clearly-scoped: skip
+to build" rule, so the model correctly skips design and finishes the whole sub-task before Step
+4's trigger word ever arrives. By the time "design" is sent, there is nothing left to plan —
+asking for one retroactively is asking the model to fabricate ceremony around already-finished
+work, and refusing is the *correct* response, not a bug. Reproduces 4/4 read (both harness modes,
+2 different scenarios) — not scenario noise.
+
+**Consequence**: axis B/C's Step 4 = 0/5 both modes is a bench-scenario ordering flaw, not a
+harness or doc defect — Step 3's own build_scope pre-empts the exact trigger Step 4 exists to
+test. No fix applied to `design.md`/`build.md` (nothing wrong in either). Fixing the bench would
+mean deliberately under-specifying Step 3's build_scope so the model can't treat it as clearly-
+scoped and has to invoke `design` itself to decide the file split — a real bench redesign, out of
+scope for a closing pass (no new audit round). Documented as a comment at Step 4's block in
+`scripts/harness-integration-test.sh` (no logic change) plus this section; `#48` closed as
+answered (root cause found), not "fixed" — there was nothing broken to fix.
+
+**kilo-run reliability, partially re-tested (prompted mid-pass by the user's own live Cursor/Kilo
+plugin session)**: the plugin surfaced `Model not found: qwen-3-6/Qwen3.6-35B-A3B-UD-Q3_K_M.gguf`
+— a stale per-session/plugin-UI model selection left over from round 28's Q3→Q4 swap, unrelated to
+`~/.config/kilo/kilo.jsonc` (Q4-only already). Hypothesis tested here (2 short calls, capped):
+does `kilo run` **CLI** fall back to a similarly stale default without `-m`, explaining round 30's
+hang rate? `kilo run --dir <fresh bootstrap> -m qwen-3-6/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf "What is
+2+2? Answer in one word."` → `4`, exit 0, a few seconds. Same call **without** `-m` → still
+resolved to Q4 correctly, `Four`, exit 0, no hang. **The stale-Q3-default hypothesis does not
+reproduce in the CLI** — it looks specific to the Cursor plugin's own separately-stored UI
+selector, a different code path from `kilo run`'s model resolution. Both bench scripts already
+pass an explicit, correct `-m` (`scripts/harness-integration-test.sh:53`,
+`scripts/complexity-ladder-test.sh:54` — read directly, not assumed from round 28's report): even
+if the hypothesis had reproduced, it would not have explained the bench's own hangs. 2/2
+lightweight single-turn calls succeeded with zero hang today — too small a sample to call round
+30's blocker fixed, and no heavier multi-tool-call trial was attempted (would compete with the
+user's own live Kilo-plugin session for the single inference slot). Recorded as inconclusive, not
+a resolution — `#50` downgraded (open, monitor) not closed.
+
+**FEEDBACK rows closed/changed this pass** (`wiki/handoffs/FEEDBACK_PENDING.md`):
+- `#48` → done, archived: item 4's root cause above, no code defect, nothing to fix.
+- `#47` → done, archived: `510b00a`'s `electiveBoundaryAtTurnStart` + T19a/T19b already unit-
+  simulate the exact mid-turn boundary-crossing pattern that caused the retry storm and prove it
+  now defers correctly. A live reproduction of an actual 4-20-retry storm was not attempted this
+  pass (judged out of scope for a closing pass, not a new audit round) — flagged honestly per the
+  same standard archive row `#46` already set (unit-verified, live-reproduction explicitly not
+  attempted, stated plainly rather than overclaimed).
+- `#42` merged into `#4/12` — both rows described the identical CLI-vs-plugin `question`-tool
+  ceiling; consolidated to one precise row (same dedupe precedent as the earlier `#4`+`#12`
+  merge).
+- `#50` downgraded, still open — see the kilo-run re-test above; root cause still not
+  conclusively identified (2 concurrent `kilo serve` daemons remain the leading unproven
+  hypothesis), moved from "blocking everything live" to "monitor, not proven fixed."
+
