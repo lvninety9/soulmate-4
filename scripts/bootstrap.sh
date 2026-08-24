@@ -74,6 +74,7 @@ cp "$SELF_DIR/templates/FEEDBACK_PENDING.md.template" "$TARGET/wiki/handoffs/FEE
 : > "$TARGET/wiki/session-log.md"
 : > "$TARGET/wiki/rule-archive.md"
 chmod +x "$TARGET/scripts/check-caps.sh" "$TARGET/scripts/pre-commit-check-caps"
+chmod +x "$TARGET/scripts/subtask-report.sh" "$TARGET/scripts/post-commit-subtask-report" 2>/dev/null || true
 
 # Verification templates (harness-integration-test.md / cold-read-test-prompt.md) also need to
 # exist inside the target, not just the seed clone — the seed clone gets deleted right after this
@@ -97,6 +98,7 @@ node_modules/
 venv/
 .DS_Store
 .kilo/plugins/.subtask-gate-state.json
+.subtask-reports/
 GITIGNORE
 
 # .kilo/ itself must NOT be gitignored — subtask-gate.ts lives there and needs to be tracked.
@@ -120,6 +122,8 @@ esac
   mkdir -p .git/hooks
   cp scripts/pre-commit-check-caps .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
+  cp scripts/post-commit-subtask-report .git/hooks/post-commit
+  chmod +x .git/hooks/post-commit
   if ! git config user.email >/dev/null 2>&1; then
     git config user.email "agent@localhost"
     git config user.name "soulmate-4-bootstrap"
