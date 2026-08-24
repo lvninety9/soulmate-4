@@ -22,7 +22,7 @@
 //
 // Run: node --experimental-strip-types tests/check-caps.regression.test.mjs
 import { execFileSync } from "child_process"
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, readdirSync, readFileSync } from "fs"
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, readdirSync, readFileSync, copyFileSync, chmodSync } from "fs"
 import { tmpdir } from "os"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
@@ -166,6 +166,40 @@ async function main() {
     expectContains("T6b filled placeholder -> ok, exact original message", output,
       "ok: bootstrap — AGENTS.md placeholders filled in")
 
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // --- Round 35 item 3: post-commit hook install is checked too, not just pre-commit ---
+  // .git/hooks/ is never in git -- a fresh clone (as opposed to a scripts/bootstrap.sh run,
+  // which installs both) can silently end up with the pre-commit hook present but post-commit
+  // missing, and before this item nothing ever said so: scripts/subtask-report.sh's sub-task
+  // report would just never fire, forever, with no signal anywhere. Builds the hooks directly
+  // (not via scripts/bootstrap.sh, unlike the "Merge 3" fixture above) -- running bootstrap.sh
+  // a second time in this suite would fire the post-commit hook it installs on its own seed
+  // commit and dump a full sub-task report into this suite's output, which is exactly the
+  // "meta" kind of noise round 35 item 6 is about cutting, not adding more of.
+  {
+    const dir = mkdtempSync(join(tmpdir(), "checkcaps-regress-postcommit-"))
+    execFileSync("git", ["init", "-q"], { cwd: dir })
+    execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-q", "-m", "bootstrap: soulmate-4 harness"], { cwd: dir })
+    mkdirSync(join(dir, "scripts"), { recursive: true })
+    copyFileSync(join(REPO_ROOT, "scripts", "check-caps.sh"), join(dir, "scripts", "check-caps.sh")) // run() needs this at dir-relative scripts/check-caps.sh
+    mkdirSync(join(dir, ".git", "hooks"), { recursive: true })
+    for (const hook of ["pre-commit", "post-commit"]) {
+      const src = hook === "pre-commit" ? "pre-commit-check-caps" : "post-commit-subtask-report"
+      const dest = join(dir, ".git", "hooks", hook)
+      copyFileSync(join(REPO_ROOT, "scripts", src), dest)
+      chmodSync(dest, 0o755)
+    }
+    let { output } = run(dir, ["--bootstrap-check"])
+    expectContains("T-postcommit-a both hooks present (matches a real bootstrap.sh run) -> ok", output,
+      "ok: bootstrap — post-commit hook installed (.git/hooks/post-commit)")
+    rmSync(join(dir, ".git", "hooks", "post-commit"))
+    ;({ output } = run(dir, ["--bootstrap-check"]))
+    expectContains("T-postcommit-b missing post-commit hook -> BOOTSTRAP FAIL, specific message", output,
+      "BOOTSTRAP FAIL: .git/hooks/post-commit missing or not executable — the sub-task report generator (scripts/subtask-report.sh) never fires.")
+    expectContains("T-postcommit-c pre-commit check is independent, still ok even with post-commit missing", output,
+      "ok: bootstrap — pre-commit hook installed (.git/hooks/pre-commit)")
     rmSync(dir, { recursive: true, force: true })
   }
 

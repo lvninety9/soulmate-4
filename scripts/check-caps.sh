@@ -453,14 +453,20 @@ check_bootstrap_no_inherited_history() {
   fi
 }
 
-check_bootstrap_precommit_hook_installed() {
+# Generic form (round 35 item 3): same check, reused for both git hooks this project installs --
+# .git/hooks/ is never in git, so a fresh clone silently has NEITHER until someone runs
+# scripts/bootstrap.sh or copies them by hand. Before item 3 only the pre-commit side was
+# checked; a missing post-commit hook meant scripts/subtask-report.sh's sub-task report simply
+# never fired, with no signal anywhere that it was supposed to.
+check_bootstrap_hook_installed() {
+  local hook="$1" src_script="$2" what_it_protects="$3"
   if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
     return
   fi
-  if [ -x ".git/hooks/pre-commit" ]; then
-    echo "ok: bootstrap — pre-commit hook installed (.git/hooks/pre-commit)"
+  if [ -x ".git/hooks/$hook" ]; then
+    echo "ok: bootstrap — $hook hook installed (.git/hooks/$hook)"
   else
-    echo "BOOTSTRAP FAIL: .git/hooks/pre-commit missing or not executable — the staged-file-count safety net isn't installed. scripts/bootstrap.sh installs this automatically; if you bootstrapped manually, run: cp scripts/pre-commit-check-caps .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit"
+    echo "BOOTSTRAP FAIL: .git/hooks/$hook missing or not executable — $what_it_protects scripts/bootstrap.sh installs this automatically; if you bootstrapped manually, run: cp $src_script .git/hooks/$hook && chmod +x .git/hooks/$hook"
     status=1
   fi
 }
@@ -842,7 +848,8 @@ run_bootstrap_checks() {
   check_bootstrap_not_in_tmp
   check_bootstrap_own_git_identity
   check_bootstrap_no_inherited_history
-  check_bootstrap_precommit_hook_installed
+  check_bootstrap_hook_installed "pre-commit" "scripts/pre-commit-check-caps" "the staged-file-count/doc-cap/secret-scan safety net isn't installed."
+  check_bootstrap_hook_installed "post-commit" "scripts/post-commit-subtask-report" "the sub-task report generator (scripts/subtask-report.sh) never fires."
   check_bootstrap_no_leftover_clone
   check_prompts_present
   check_feedback_template_header
