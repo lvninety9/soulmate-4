@@ -18,6 +18,18 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
+# Secret / sensitive-filename scan (round 35 item 1): the only hard block in this hook that
+# guards something irreversible once committed (git history, or a push). See
+# scripts/check-secrets.sh for the scan itself and its bypass (SKIP_SECRET_CHECK=1).
+if [ -x scripts/check-secrets.sh ]; then
+  if ! scripts/check-secrets.sh; then
+    echo "" >&2
+    echo "Commit blocked: scripts/check-secrets.sh found possible secret(s)/sensitive file(s) (see above)." >&2
+    echo "Fix the content, or bypass intentionally with: SKIP_SECRET_CHECK=1 git commit ..." >&2
+    exit 1
+  fi
+fi
+
 # Per-file commit enforcement (AGENTS.md's Edit discipline): prose alone doesn't reliably hold
 # under a freeform build — this is the same pattern soulmate-2/3 both had to add after real
 # incidents. Exempt: the very first commit in the repo (the bootstrap scaffold legitimately
