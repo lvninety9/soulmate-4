@@ -24,6 +24,13 @@ function freshRepo() {
   cpSync(SRC_PLUGIN, join(dir, ".kilo", "plugins", "subtask-gate.ts"))
   writeFileSync(join(dir, "wiki", "protocols", "refactor.md"), "# refactor\n")
   writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer\n")
+  // Final round: mirror bootstrap.sh's own real .gitignore line for this exact file — without
+  // it, a `git add -A` anywhere in a test (several already do this) tracks the gate's own
+  // runtime state file, and its git-derived fields (turnStartHead/turnStartDirtySignature,
+  // final round) then legitimately change on every save, making a committed copy look "dirty"
+  // forever after — a test-fixture gap the contradiction-injection work exposed, not a
+  // production bug (a real bootstrap has always gitignored this file).
+  writeFileSync(join(dir, ".gitignore"), ".kilo/plugins/.subtask-gate-state.json\n")
   execSync("git init -q", { cwd: dir })
   execSync('git -c user.email=t@t -c user.name=t commit --allow-empty -q -m init', { cwd: dir })
   return dir
@@ -761,6 +768,104 @@ async function main() {
         )
       }
     )
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 20 (final round, contradiction injection — FEEDBACK #6): a turn that produced N>=1
+  // gate blocks and zero successful mutating calls must have its NEXT chat.message inject a
+  // factual notice naming the specific blocked calls — reproducing round 31's live evidence
+  // (18 straight primer-gate blocks, model claimed "완료"/"PASS" the whole time; ground truth:
+  // no files, clean tree, HEAD unmoved). AGENTS.md L14: assert the specific injected text, not
+  // just "did something get added."
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    await hooks["chat.message"]({ sessionID: "s20" }, { message: { id: "m1" }, parts: [{ type: "text", text: "start" }] })
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s20" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    // A primer commit lands (simulating a legitimate boundary from earlier this session/a prior
+    // one) — a real commit, not a blocked attempt.
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    // New turn begins: this snapshots the post-primer-commit HEAD/dirty-tree as this turn's
+    // baseline.
+    await hooks["chat.message"]({ sessionID: "s20" }, { message: { id: "m2" }, parts: [{ type: "text", text: "continue" }] })
+    // Two DISTINCT mutating calls, both blocked by the now-armed (unacknowledged) primer
+    // boundary — neither one performs any real file/git operation (this test only exercises the
+    // hook, not a real tool executor), so git state stays exactly at the baseline just set.
+    await assertThrows("T20 setup: bash blocked", async () => {
+      await hooks["tool.execute.before"](
+        { tool: "bash", sessionID: "s20" },
+        { args: { command: "mkdir -p tools", description: "Create tools directory" } }
+      )
+    })
+    await assertThrows("T20 setup: write blocked", async () => {
+      await hooks["tool.execute.before"](
+        { tool: "write", sessionID: "s20" },
+        { args: { filePath: "tools/wordcount_core.py" } }
+      )
+    })
+    // Next turn: git confirms nothing landed since the baseline -> inject.
+    const output = { message: { id: "m3" }, parts: [{ type: "text", text: "continue" }] }
+    await hooks["chat.message"]({ sessionID: "s20" }, output)
+    const notice = output.parts.find((p) => p?.synthetic && /fact check/.test(p.text))
+    if (
+      notice &&
+      /2 tool call\(s\)/.test(notice.text) &&
+      /bash\(mkdir -p tools\)/.test(notice.text) &&
+      /write\(tools\/wordcount_core\.py\)/.test(notice.text) &&
+      /HEAD and the working tree are both unchanged/.test(notice.text)
+    ) {
+      console.log("ok: T20 contradiction injection names both blocked calls, exact text")
+    } else {
+      console.log("FAIL: T20 expected a contradiction notice naming both blocked calls, got:", JSON.stringify(output.parts))
+      failures++
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 21 (final round, contradiction injection — negative case): a turn with at least one
+  // successful mutating call must NOT get a contradiction notice next turn, even if a DIFFERENT
+  // call was also blocked earlier the same turn (design cautions: derive "nothing happened" from
+  // real git state, not from the blocked-call bookkeeping alone).
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    await hooks["chat.message"]({ sessionID: "s21" }, { message: { id: "m1" }, parts: [{ type: "text", text: "start" }] })
+    // First mutating call this session, before any protocols/*.md read -> blocked (L09 gate).
+    await assertThrows("T21 setup: first mutation blocked (no protocol read yet)", async () => {
+      await hooks["tool.execute.before"](
+        { tool: "write", sessionID: "s21" },
+        { args: { filePath: join(dir, "foo.py") } }
+      )
+    })
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s21" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    // Second mutating call this same turn now succeeds (L09 satisfied, no primer/elective
+    // boundary armed yet) — and this time the test performs the real write + commit a
+    // successful tool execution would have produced, so git state genuinely moves.
+    await assertNoThrow("T21 setup: second mutation succeeds", async () => {
+      await hooks["tool.execute.before"](
+        { tool: "write", sessionID: "s21" },
+        { args: { filePath: join(dir, "foo.py") } }
+      )
+    })
+    writeFileSync(join(dir, "foo.py"), "print(1)\n")
+    execSync("git add foo.py && git -c user.email=t@t -c user.name=t commit -q -m foo", { cwd: dir })
+    const output = { message: { id: "m2" }, parts: [{ type: "text", text: "continue" }] }
+    await hooks["chat.message"]({ sessionID: "s21" }, output)
+    if (!output.parts.some((p) => p?.synthetic && /fact check/.test(p.text))) {
+      console.log("ok: T21 a turn with a successful mutation gets no contradiction notice, even though an earlier call that turn was blocked")
+    } else {
+      console.log("FAIL: T21 unexpected contradiction notice after a successful mutation:", JSON.stringify(output.parts))
+      failures++
+    }
     rmSync(dir, { recursive: true, force: true })
   }
 

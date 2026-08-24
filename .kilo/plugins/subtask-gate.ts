@@ -62,6 +62,22 @@
 // corrupt/unreadable state — delete `.subtask-gate-state.json`, the load falls back to fully
 // unarmed (see loadState()'s catch below).
 //
+// Final round (FEEDBACK #6, contradiction injection): a real 5-message live production trial
+// through Cursor's Kilo Code plugin (round 31 evidence, wiki/rule-archive.md) reproduced the
+// model reporting file/commit/test-pass "완료" claims across 18 STRAIGHT tool calls that this
+// gate actually blocked — ground truth: no files, clean tree, HEAD unmoved. #6 had been accepted
+// as a permanent ceiling on the premise that the lie itself can't be stopped (0/2 wording-rewrite
+// record project-wide). It doesn't need to be: the model's own NEXT turn now carries a factual
+// notice naming exactly which tool calls were blocked, built from `blockedCallsThisTurn` (written
+// only at the throw sites, see State's own comment) but injected ONLY once chat.message
+// independently confirms via real `git` state that nothing landed since — same "derive from git,
+// never trust self-report" principle as `computeBoundary()`'s SHA-derived redesign above, applied
+// to the fact that a turn happened at all rather than just to boundary state. Does not reword any
+// existing BLOCK_MESSAGE (0/2 record on that specific class of fix, see round 27's Finding A) and
+// does not wrap the injected text in a `<system-reminder>` tag (round 27 tried that on the
+// carryover warning, no measured improvement). Whether the model actually *heeds* the notice on a
+// live turn is unverified by this round — see wiki/rule-archive.md.
+//
 // State is persisted to .subtask-gate-state.json, next to this file. Bun/Node's sync fs/exec
 // calls are fine here: state is a few bytes, one user, no meaningful concurrency to race
 // against.
@@ -104,6 +120,15 @@ type State = {
   // the start of the CURRENT turn — refreshed on every chat.message, not just the session's
   // first. See the elective-vs-primer split in tool.execute.before for why this exists.
   electiveBoundaryAtTurnStart: Record<string, string>
+  // Final round (contradiction injection, FEEDBACK #6): a factual log of mutating calls blocked
+  // THIS turn — written only at the throw sites below, so it can't itself claim more than "this
+  // call was attempted and did not execute." Never used alone to decide whether to inject (see
+  // chat.message's own comment) — only to name what to inject once git confirms nothing landed.
+  blockedCallsThisTurn: Record<string, { tool: string; detail: string }[]>
+  // git HEAD / working-tree signature snapshotted at the start of the CURRENT turn (refreshed on
+  // every chat.message) — the ONLY thing the injection decision is based on.
+  turnStartHead: Record<string, string>
+  turnStartDirtySignature: Record<string, string>
 }
 
 function loadState(): State {
@@ -117,6 +142,9 @@ function loadState(): State {
         protocolDocRead: parsed.protocolDocRead ?? {},
         idleNudgeSignature: parsed.idleNudgeSignature ?? {},
         electiveBoundaryAtTurnStart: parsed.electiveBoundaryAtTurnStart ?? {},
+        blockedCallsThisTurn: parsed.blockedCallsThisTurn ?? {},
+        turnStartHead: parsed.turnStartHead ?? {},
+        turnStartDirtySignature: parsed.turnStartDirtySignature ?? {},
       }
     }
   } catch {
@@ -131,6 +159,9 @@ function loadState(): State {
     protocolDocRead: {},
     idleNudgeSignature: {},
     electiveBoundaryAtTurnStart: {},
+    blockedCallsThisTurn: {},
+    turnStartHead: {},
+    turnStartDirtySignature: {},
   }
 }
 
@@ -187,6 +218,27 @@ function isInsideWorkTree(): boolean {
 
 function currentHead(): string {
   return gitExec("rev-parse HEAD") // caller already confirmed a repo exists; a failure here is real breakage, not "no repo"
+}
+
+// Final round (contradiction injection): a non-throwing variant for chat.message's own
+// git-derived check below — unlike currentHead()'s callers, this one must never crash the hook
+// on a broken/unborn-HEAD repo; "can't verify" and "verified unchanged" must stay distinguishable
+// (null vs a real sha), so an unverifiable state conservatively skips injection rather than
+// guessing either way.
+function currentHeadSafe(): string | null {
+  try {
+    if (!isInsideWorkTree()) return null
+    return currentHead()
+  } catch {
+    return null
+  }
+}
+
+// Same signature format already used by the `event` hook's own idle-dedup signature below —
+// factored out here only because this is now the second call site, not a design change to the
+// existing one (left untouched, same "surgical" reasoning as everywhere else in this file).
+function dirtySignature(dirty: string[]): string {
+  return [...dirty].sort().join("\n")
 }
 
 function gitPorcelainStatus(): string[] {
@@ -379,6 +431,40 @@ const BLOCK_MESSAGE_NO_PROTOCOL_READ =
   "tool calls stay blocked until one is. Per AGENTS.md's Protocol table, read the doc matching " +
   "this task's shape first (discuss/design/build/verify/refactor/self-harness) — then retry."
 
+// Final round (contradiction injection, FEEDBACK #6 — a live plugin production trial, round 31
+// evidence in wiki/rule-archive.md, reproduced the model reporting "생성 완료"/"커밋 완료"/
+// "모든 테스트 PASS" for 18 STRAIGHT tool calls that every one of these throw sites actually
+// blocked): #6 was accepted as a permanent ceiling on the theory that the lie itself can't be
+// stopped. It doesn't need to be — contradicted with git-derived fact on the model's own next
+// turn, same "derive from git, never trust self-report" principle as computeBoundary() above.
+// Only ever built from `blockedCallsThisTurn` (a factual log, see State's own comment) AFTER
+// chat.message has independently confirmed via real git state that nothing landed — this
+// function itself does not make that decision, only the naming.
+function toolCallDetail(tool: string, output: any): string {
+  const args = output?.args ?? {}
+  if (tool === "bash" || tool === "background_process") return String(args.command ?? "").slice(0, 60)
+  if (tool === "write" || tool === "edit") return String(args.filePath ?? "").slice(0, 60)
+  return ""
+}
+
+function recordBlockedCall(state: State, sessionID: string, tool: string, output: any) {
+  if (!state.blockedCallsThisTurn[sessionID]) state.blockedCallsThisTurn[sessionID] = []
+  state.blockedCallsThisTurn[sessionID].push({ tool, detail: toolCallDetail(tool, output) })
+}
+
+const CONTRADICTION_NOTICE = (blocked: { tool: string; detail: string }[]) => {
+  const shown = blocked
+    .slice(0, 5)
+    .map((b) => (b.detail ? `${b.tool}(${b.detail})` : b.tool))
+    .join(", ")
+  const more = blocked.length > 5 ? `, ... (+${blocked.length - 5} more)` : ""
+  return (
+    `[subtask-gate] fact check: ${blocked.length} tool call(s) were blocked last turn and did ` +
+    `not execute — ${shown}${more}. git confirms nothing landed: HEAD and the working tree are ` +
+    "both unchanged since then."
+  )
+}
+
 // Round 27: FEEDBACK candidate — every mechanism above only ever fires from inside
 // tool.execute.before/after or chat.message, so none of them can catch a session that just
 // stops after an edit with no commit and no further tool call or message (the same gap
@@ -447,6 +533,7 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
       // amount of chat.message traffic (there's nothing to acknowledge). It clears only once
       // computeBoundary succeeds again on a later call.
       if (boundary && "gitError" in boundary) {
+        recordBlockedCall(state, sessionID, tool, output)
         saveState(state)
         throw new Error(BLOCK_MESSAGE_GIT_ERROR(boundary.gitError))
       }
@@ -471,6 +558,7 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
         const cleared = state.acknowledged.includes(boundary.sha) || preapprovedSha === boundary.sha
         if (!cleared) {
           state.lastBlockedSha[sessionID] = boundary.sha
+          recordBlockedCall(state, sessionID, tool, output)
           saveState(state)
           throw new Error(
             boundary.reason === "primer"
@@ -496,6 +584,7 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     // on the mere passage of one blocked attempt — round 8's audit confirmed FEEDBACK #3's
     // "verbatim retry slips through" gap was specifically in the primer/elective gate, not here.
     if (isMutating(tool) && !state.protocolDocRead[sessionID]) {
+      recordBlockedCall(state, sessionID, tool, output)
       saveState(state)
       throw new Error(BLOCK_MESSAGE_NO_PROTOCOL_READ)
     }
@@ -535,6 +624,35 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     }
 
     const state = loadState()
+
+    // Final round (contradiction injection, FEEDBACK #6): decide whether to inject BEFORE
+    // resetting the turn-start baselines below, using ONLY real git state — never
+    // `blockedCallsThisTurn` alone (that list only supplies WHAT to name, per its own comment).
+    // `turnStartHead`/`turnStartDirtySignature` were snapshotted at the previous chat.message
+    // (i.e. the start of the turn that just ended); if both are still identical now, no mutating
+    // call from that turn actually landed, regardless of what the model claimed happened — this
+    // also correctly produces NO injection whenever at least one mutating call in that turn
+    // actually succeeded (HEAD or the working tree moved), even if others were also blocked.
+    const priorHead = state.turnStartHead[sessionID]
+    const priorDirty = state.turnStartDirtySignature[sessionID]
+    const blockedLastTurn = state.blockedCallsThisTurn[sessionID] ?? []
+    if (priorHead !== undefined && blockedLastTurn.length > 0) {
+      const nowHead = currentHeadSafe()
+      const nowDirty = dirtySignature(gitPorcelainStatus())
+      if (nowHead !== null && nowHead === priorHead && nowDirty === priorDirty) {
+        output.parts.unshift({
+          id: `prt_gatecontra${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
+          sessionID,
+          messageID: output?.message?.id ?? input?.messageID ?? "",
+          type: "text",
+          synthetic: true,
+          text: CONTRADICTION_NOTICE(blockedLastTurn),
+        })
+      }
+    }
+    state.blockedCallsThisTurn[sessionID] = []
+    state.turnStartHead[sessionID] = currentHeadSafe() ?? ""
+    state.turnStartDirtySignature[sessionID] = dirtySignature(gitPorcelainStatus())
 
     // Round 30 item 3: computed once per message and reused below for two different snapshots —
     // boundaryAtSessionStart (set once, first message only, unchanged from round 28) and
