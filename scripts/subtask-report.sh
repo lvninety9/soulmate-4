@@ -48,7 +48,20 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-TARGET_SHA="$(git rev-parse "$TARGET" 2>/dev/null)"
+# round 34 adversarial-battery finding: `git rev-parse <bad-ref> 2>/dev/null` is NOT reliably
+# empty on failure -- for an unresolvable-but-pathname-shaped arg (a bogus --since value, or
+# "<sha>^" on a root commit with no parent), git echoes the arg back to STDOUT verbatim
+# alongside its fatal error on stderr (confirmed live: `git rev-parse bogus-ref 2>/dev/null`
+# prints the literal string "bogus-ref", not nothing). A plain `[ -z "$x" ]` check after that
+# does not catch it -- resolve_ref() checks the actual exit code instead, so a bad ref always
+# resolves to a true empty string.
+resolve_ref() {
+  local out
+  out="$(git rev-parse "$1" 2>/dev/null)"
+  [ $? -eq 0 ] && printf '%s' "$out"
+}
+
+TARGET_SHA="$(resolve_ref "$TARGET")"
 if [ -z "$TARGET_SHA" ]; then
   echo "subtask-report: could not resolve '$TARGET' to a commit — nothing to report on."
   exit 0
@@ -57,9 +70,9 @@ SHORT_TARGET="$(git rev-parse --short "$TARGET_SHA")"
 
 # --- boundary resolution --------------------------------------------------------------------
 if [ -n "$SINCE_OVERRIDE" ]; then
-  PREV_SHA="$(git rev-parse "$SINCE_OVERRIDE" 2>/dev/null)"
+  PREV_SHA="$(resolve_ref "$SINCE_OVERRIDE")"
 else
-  PARENT_SHA="$(git rev-parse "${TARGET_SHA}^" 2>/dev/null)"
+  PARENT_SHA="$(resolve_ref "${TARGET_SHA}^")"
   if [ -n "$PARENT_SHA" ]; then
     PREV_SHA="$(git log -1 --format=%H "$PARENT_SHA" -- wiki/handoffs/SESSION_PRIMER.md 2>/dev/null)"
   else
@@ -77,6 +90,16 @@ else
 fi
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+# round 34 adversarial-battery finding (category: hanging/slow test command): every external
+# command below used to run with no time bound -- a hanging test command (or scanner) would hang
+# this script, and since scripts/post-commit-subtask-report calls it synchronously, that would
+# hang the developer's `git commit` itself. "A report generator that can wedge a commit is worse
+# than none." Every external invocation now runs under `timeout` (GNU coreutils, already present
+# -- confirmed via `timeout --version`, no install needed). Override with
+# SUBTASK_REPORT_TIMEOUT_S=<seconds> for a project with a genuinely slower suite.
+TIMEOUT_S="${SUBTASK_REPORT_TIMEOUT_S:-120}"
+run_timeout() { timeout "${TIMEOUT_S}s" "$@"; }
 NEEDS_HUMAN=()
 SKIPPED=()
 note_needs_human() { NEEDS_HUMAN+=("$1"); }
@@ -87,12 +110,34 @@ echo
 
 # --- 1. what changed -------------------------------------------------------------------------
 echo "## Changed"
+# round 34 adversarial-battery finding (category: very large diff): a 100+-file sub-task used to
+# dump one line per commit/per file with no cap -- readable for the normal case, unreadable (and
+# "brevity is a feature" per this tool's own spec) once a sub-task legitimately touches hundreds
+# of files (a big rename, a vendored dependency, a generated-file dump). Cap both lists, always
+# keep the real aggregate line (diffstat's own "N files changed, ..." summary is never dropped).
+COMMIT_LIST_CAP=15
+DIFFSTAT_LINE_CAP=30
 if git rev-list --count "$RANGE" >/dev/null 2>&1; then
   N_COMMITS="$(git rev-list --count "$RANGE" 2>/dev/null)"
   echo "- $N_COMMITS commit(s):"
-  git log --format='  - %h %s' "$RANGE" 2>/dev/null
+  git log --format='  - %h %s' "$RANGE" 2>/dev/null | head -"$COMMIT_LIST_CAP"
+  if [ "$N_COMMITS" -gt "$COMMIT_LIST_CAP" ]; then
+    echo "  - ... and $((N_COMMITS - COMMIT_LIST_CAP)) more commit(s) (full range: $RANGE_DESC)"
+  fi
   echo "- diffstat:"
-  git diff --stat "$RANGE" 2>/dev/null | sed 's/^/  /'
+  DIFFSTAT_OUT="$(git diff --stat "$RANGE" 2>/dev/null)"
+  DIFFSTAT_LINES="$(printf '%s
+' "$DIFFSTAT_OUT" | wc -l | tr -d ' ')"
+  if [ "$DIFFSTAT_LINES" -gt "$DIFFSTAT_LINE_CAP" ]; then
+    printf '%s
+' "$DIFFSTAT_OUT" | head -"$((DIFFSTAT_LINE_CAP - 1))" | sed 's/^/  /'
+    echo "  ... ($((DIFFSTAT_LINES - DIFFSTAT_LINE_CAP)) more file(s) omitted, see \`git diff --stat $RANGE\`)"
+    printf '%s
+' "$DIFFSTAT_OUT" | tail -1 | sed 's/^/  /'
+  else
+    printf '%s
+' "$DIFFSTAT_OUT" | sed 's/^/  /'
+  fi
 else
   echo "- could not compute range $RANGE_DESC (git error) — treating as empty change set"
   note_needs_human "changed-files range ($RANGE_DESC) could not be computed by git — verify manually"
@@ -100,7 +145,7 @@ fi
 echo
 
 CHANGED_FILES=()
-while IFS= read -r f; do [ -n "$f" ] && CHANGED_FILES+=("$f"); done < <(git diff --name-only "$RANGE" 2>/dev/null)
+while IFS= read -r f; do [ -n "$f" ] && CHANGED_FILES+=("$f"); done < <(git -c core.quotepath=false diff --name-only "$RANGE" 2>/dev/null)  # -c core.quotepath=false: round 34 finding -- a non-ASCII filename (e.g. Korean) otherwise comes back C-quoted/octal-escaped, which then fails every downstream [ -f "$f" ]/git-diff-per-file lookup, silently dropping that file from the mock/CSS-literal scans
 
 # --- 2. tests ----------------------------------------------------------------------------------
 echo "## Tests"
@@ -157,7 +202,7 @@ run_and_report() {
   local label="$1"; shift
   echo "- detected: $label -> \`$*\`"
   local out rc
-  out="$("$@" 2>&1)"; rc=$?
+  out="$(run_timeout "$@" 2>&1)"; rc=$?
   local tail_out
   tail_out="$(echo "$out" | tail -15)"
   local counts total passed
@@ -175,6 +220,9 @@ run_and_report() {
     else
       echo "  -> PASS (exit 0, test count not parseable for this runner — verify manually)"
     fi
+  elif [ "$rc" -eq 124 ]; then
+    echo "  -> TIMED OUT after ${TIMEOUT_S}s (killed, did not block the caller)"
+    note_needs_human "test command \`$*\` did not finish within ${TIMEOUT_S}s and was killed — investigate a hang, or raise SUBTASK_REPORT_TIMEOUT_S for a genuinely slower suite"
   else
     echo "  -> FAIL (exit $rc)"
     note_needs_human "test command \`$*\` exited $rc — see full output"
@@ -193,17 +241,37 @@ if [ -f package.json ] && grep -q '"test"[[:space:]]*:' package.json 2>/dev/null
     note_skipped "npm-style tests: $RUNNER not on PATH"
   fi
   TEST_RAN=1
-elif have pytest && { [ -f pytest.ini ] || [ -f setup.cfg ] || { [ -f pyproject.toml ] && grep -q '\[tool.pytest' pyproject.toml 2>/dev/null; } || compgen -G "test_*.py" >/dev/null || compgen -G "tests/test_*.py" >/dev/null; }; then
-  run_and_report "pytest" pytest -q
+elif [ -f pytest.ini ] || [ -f setup.cfg ] || { [ -f pyproject.toml ] && grep -q '\[tool.pytest' pyproject.toml 2>/dev/null; } || compgen -G "test_*.py" >/dev/null || compgen -G "tests/test_*.py" >/dev/null; then
+  if have pytest; then
+    run_and_report "pytest" pytest -q
+  else
+    echo "- detected: pytest config/test files, but 'pytest' is not installed — skipped"
+    note_skipped "pytest: not on PATH"
+  fi
   TEST_RAN=1
-elif [ -f go.mod ] && have go; then
-  run_and_report "go test" go test ./...
+elif [ -f go.mod ]; then
+  if have go; then
+    run_and_report "go test" go test ./...
+  else
+    echo "- detected: go.mod, but 'go' is not installed — skipped"
+    note_skipped "go test: go toolchain not on PATH"
+  fi
   TEST_RAN=1
-elif [ -f Cargo.toml ] && have cargo; then
-  run_and_report "cargo test" cargo test
+elif [ -f Cargo.toml ]; then
+  if have cargo; then
+    run_and_report "cargo test" cargo test
+  else
+    echo "- detected: Cargo.toml, but 'cargo' is not installed — skipped"
+    note_skipped "cargo test: cargo not on PATH"
+  fi
   TEST_RAN=1
-elif [ -f Makefile ] && grep -qE '^test:' Makefile && have make; then
-  run_and_report "make test" make test
+elif [ -f Makefile ] && grep -qE '^test:' Makefile; then
+  if have make; then
+    run_and_report "make test" make test
+  else
+    echo "- detected: Makefile with a 'test:' target, but 'make' is not installed — skipped"
+    note_skipped "make test: make not on PATH"
+  fi
   TEST_RAN=1
 elif have node; then
   NODE_TEST_FILES=()
@@ -217,7 +285,7 @@ elif have node; then
     echo "- detected: bare node test files (no package.json test script) -> running each directly"
     PASS_FILES=0
     for f in "${NODE_TEST_FILES[@]}"; do
-      out="$(node --experimental-strip-types "$f" 2>&1)"; rc=$?
+      out="$(run_timeout node --experimental-strip-types "$f" 2>&1)"; rc=$?
       ok_count="$(echo "$out" | grep -c '^ok:' || true)"
       if [ $rc -eq 0 ] && [ "$ok_count" = "0" ]; then
         echo "  - $f: 0 assertions ran (exit 0) — NOT the same as passing; nothing was actually verified"
@@ -276,7 +344,7 @@ RAN_ANY_SEC=0
 if have gitleaks; then
   RAN_ANY_SEC=1
   echo "- gitleaks: available, preferred over the built-in fallback"
-  out="$(gitleaks detect --source . --log-opts="$RANGE" --no-banner 2>&1)"; rc=$?
+  out="$(run_timeout gitleaks detect --source . --log-opts="$RANGE" --no-banner 2>&1)"; rc=$?
   if [ $rc -eq 0 ]; then
     echo "- gitleaks: no leaks detected in $RANGE_DESC"
   else
@@ -299,7 +367,7 @@ else
     "Slack token (xox...)::xox[baprs]-[A-Za-z0-9-]+"
     "Stripe/OpenAI-style key (sk-.../sk_live_...)::sk-[A-Za-z0-9_-]{16,}|sk_live_[A-Za-z0-9_-]{16,}"
     "PEM private key block::-----BEGIN[A-Z ]*PRIVATE KEY-----"
-    "generic api_key/secret/password/token assignment::(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*[\"'][^\"']{16,}[\"']"
+    "generic api_key/secret/password/token assignment (quoted or bare .env-style)::(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*([\"'][^\"']{16,}[\"']|[^[:space:]\"']{16,})"
   )
   FALLBACK_TOTAL=0
   FALLBACK_DESC=()
@@ -322,9 +390,45 @@ else
   fi
 fi
 
+# Filename check (round 34 gap 4, coordinator finding): content-independent floor -- a
+# committed .env/id_rsa/*.pem/*.p12/credentials.json/*.keystore/service-account*.json, or an
+# .npmrc/.pypirc that actually contains a token/password, is nearly always a mistake regardless
+# of what any content regex does or doesn't match. Runs unconditionally (not gated on gitleaks
+# absence) -- defense in depth for the highest-severity category. Scoped to files ADDED in the
+# range (a brand-new sensitive file, not every file the range happens to touch). ".env.example"/
+# ".env.sample"/".env.template"/".env.dist" are explicitly exempted -- a template is not a leak.
+FILENAME_HITS=()
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  base="$(basename "$f")"
+  lbase="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
+  case "$lbase" in
+    .env.example|.env.sample|.env.template|.env.dist) : ;;
+    .env|.env.*) FILENAME_HITS+=("$f: env file committed (may contain real secrets)") ;;
+    id_rsa|id_dsa|id_ecdsa|id_ed25519) FILENAME_HITS+=("$f: SSH private key filename") ;;
+    *.pem) FILENAME_HITS+=("$f: PEM file committed") ;;
+    *.p12) FILENAME_HITS+=("$f: PKCS#12 keystore committed") ;;
+    credentials.json) FILENAME_HITS+=("$f: credentials.json committed") ;;
+    *.keystore) FILENAME_HITS+=("$f: keystore file committed") ;;
+    service-account*.json) FILENAME_HITS+=("$f: service-account JSON key committed") ;;
+    .npmrc|.pypirc)
+      file_added="$(git diff "$RANGE" -- "$f" 2>/dev/null | grep -E '^\+[^+]' || true)"
+      if printf '%s\n' "$file_added" | grep -qiE 'token|password|_auth'; then
+        FILENAME_HITS+=("$f: $base committed containing a token/password/_auth line")
+      fi
+      ;;
+  esac
+done < <(git -c core.quotepath=false diff --diff-filter=A --name-only "$RANGE" -- . 2>/dev/null)
+
+echo "- filename check (content-independent floor): ${#FILENAME_HITS[@]} sensitive filename(s) added"
+for h in "${FILENAME_HITS[@]}"; do
+  echo "  - $h"
+  note_needs_human "sensitive filename added: $h"
+done
+
 if [ -f package.json ] && have npm; then
   RAN_ANY_SEC=1
-  out="$(npm audit --json 2>/dev/null)"
+  out="$(run_timeout npm audit --json 2>/dev/null)"
   if [ -n "$out" ] && have node; then
     vulns="$(node -e 'try{const d=JSON.parse(require("fs").readFileSync(0,"utf8"));const m=d.metadata&&d.metadata.vulnerabilities;if(!m){console.log("0");process.exit(0)}let t=0;for(const k in m){if(k!=="total")t+=m[k]||0}console.log(t)}catch(e){console.log("?")}' <<<"$out" 2>/dev/null)"
     echo "- npm audit: $vulns vulnerabilities reported"
@@ -336,7 +440,7 @@ fi
 
 if have bandit && compgen -G "**/*.py" >/dev/null 2>&1; then
   RAN_ANY_SEC=1
-  out="$(bandit -q -r . -x .git 2>&1)"; rc=$?
+  out="$(run_timeout bandit -q -r . -x .git 2>&1)"; rc=$?
   if [ $rc -eq 0 ]; then
     echo "- bandit: no issues"
   else
@@ -348,7 +452,7 @@ fi
 
 if have pip-audit && { [ -f requirements.txt ] || [ -f pyproject.toml ]; }; then
   RAN_ANY_SEC=1
-  out="$(pip-audit 2>&1)"; rc=$?
+  out="$(run_timeout pip-audit 2>&1)"; rc=$?
   if [ $rc -eq 0 ]; then
     echo "- pip-audit: no known vulnerabilities"
   else
@@ -359,7 +463,7 @@ fi
 
 if have semgrep; then
   RAN_ANY_SEC=1
-  out="$(semgrep --quiet --config auto --error 2>&1)"; rc=$?
+  out="$(run_timeout semgrep --quiet --config auto --error 2>&1)"; rc=$?
   if [ $rc -eq 0 ]; then
     echo "- semgrep: clean"
   else
@@ -383,7 +487,7 @@ if [ -f package.json ] && { [ -f .eslintrc.json ] || [ -f .eslintrc.js ] || [ -f
   # found issues" are never reported as the same thing.
   if have npx && npx --no-install eslint --version >/dev/null 2>&1; then
     RAN_ANY_LINT=1
-    out="$(npx --no-install eslint . 2>&1)"; rc=$?
+    out="$(run_timeout npx --no-install eslint . 2>&1)"; rc=$?
     if [ $rc -eq 0 ]; then
       echo "- eslint: clean"
     else
@@ -398,7 +502,7 @@ fi
 
 if have ruff && { [ -f pyproject.toml ] || [ -f ruff.toml ] || [ -f .ruff.toml ]; }; then
   RAN_ANY_LINT=1
-  out="$(ruff check . 2>&1)"; rc=$?
+  out="$(run_timeout ruff check . 2>&1)"; rc=$?
   if [ $rc -eq 0 ]; then
     echo "- ruff: clean"
   else
@@ -410,7 +514,7 @@ fi
 
 if have ts-prune && [ -f tsconfig.json ]; then
   RAN_ANY_LINT=1
-  out="$(ts-prune 2>&1)"
+  out="$(run_timeout ts-prune 2>&1)"
   n="$(echo "$out" | grep -c . || true)"
   echo "- ts-prune: $n possibly-unused export(s)"
   [ "$n" -gt 0 ] && note_needs_human "ts-prune flagged $n possibly-unused export(s) — confirm intentional"
@@ -418,7 +522,7 @@ fi
 
 if have vulture && compgen -G "**/*.py" >/dev/null 2>&1; then
   RAN_ANY_LINT=1
-  out="$(vulture . 2>&1)"
+  out="$(run_timeout vulture . 2>&1)"
   n="$(echo "$out" | grep -c . || true)"
   echo "- vulture: $n possibly-dead code finding(s)"
   [ "$n" -gt 0 ] && note_needs_human "vulture flagged $n possibly-dead finding(s) — confirm intentional"
