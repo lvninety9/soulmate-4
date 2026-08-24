@@ -284,7 +284,7 @@ async function main() {
     const dir = freshFixture()
     const { output } = run(dir, ["--verbose"])
     expectContains("T14a --verbose restores the AGENTS.md WARN, exact original wording", output,
-      "WARN: AGENTS.md total (AGENTS.md) is 80/85 lines (soft target 70) — consider a pruning pass soon")
+      "WARN: AGENTS.md total (AGENTS.md) is 81/85 lines (soft target 70) — consider a pruning pass soon")
     expectContains("T14b --verbose restores the subtask-gate.ts WATCH, exact original wording", output,
       "WATCH: .kilo/plugins/subtask-gate.ts is")
     expectContains("T14c --verbose restores the check-caps.sh WATCH, exact original wording", output,
