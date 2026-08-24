@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Optional git post-commit hook: fires scripts/subtask-report.sh automatically the moment a
+# commit closes a sub-task boundary — reusing .kilo/plugins/subtask-gate.ts's own definition
+# (a commit touching wiki/handoffs/SESSION_PRIMER.md), not a second invented one. Every other
+# commit is a no-op here (silent, no output) so routine per-file commits stay quiet.
+#
+# A post-commit hook physically cannot block or roll back the commit that already landed — this
+# script additionally never lets a check's own failure crash the shell it runs in (subtask-
+# report.sh itself already treats every check as best-effort; this wrapper is a second layer of
+# the same guarantee for the hook invocation itself).
+#
+# Install:
+#   cp scripts/post-commit-subtask-report .git/hooks/post-commit
+#   chmod +x .git/hooks/post-commit
+#
+# Run the same report by hand any time (no hook needed):
+#   scripts/subtask-report.sh
+
+set +e
+cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || exit 0
+
+# --root: without it, git diff-tree prints nothing at all for the repo's very first (root)
+# commit -- confirmed live, a real bug caught by this hook's own test (T8) -- which would make a
+# fresh repo's first commit (very plausibly the one that also seeds SESSION_PRIMER.md) silently
+# never fire the report.
+TOUCHED="$(git diff-tree --no-commit-id --name-only -r --root HEAD 2>/dev/null)"
+if ! printf '%s\n' "$TOUCHED" | grep -qx 'wiki/handoffs/SESSION_PRIMER.md'; then
+  exit 0 # not a sub-task-closing commit — stay quiet
+fi
+
+[ -x scripts/subtask-report.sh ] || exit 0
+
+SHORT="$(git rev-parse --short HEAD 2>/dev/null)"
+mkdir -p .subtask-reports 2>/dev/null
+
+echo ""
+echo "================ subtask-report (auto, HEAD touched SESSION_PRIMER.md) ================"
+if [ -n "$SHORT" ] && [ -d .subtask-reports ]; then
+  scripts/subtask-report.sh 2>&1 | tee ".subtask-reports/${SHORT}.md"
+else
+  scripts/subtask-report.sh 2>&1
+fi
+echo "=========================================================================================="
+
+exit 0
