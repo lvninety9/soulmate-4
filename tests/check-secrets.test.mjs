@@ -151,5 +151,46 @@ function fakeGitleaks(dir, rc) {
   rmSync(dir, { recursive: true, force: true })
 }
 
+// T7: the keyword may sit mid-identifier, not just adjacent to the assignment.
+// Found live: a real AWS secret key in a .env produced "no high-confidence secret
+// patterns found" from the content scan -- only the sensitive-filename layer blocked
+// that commit. In an ordinary source file, nothing would have caught it.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "settings.py"), 'AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY"\n')
+  git(dir, ["add", "-A"])
+  const { status, output } = run(dir)
+  expectStatus("T7 mid-identifier keyword (AWS_SECRET_ACCESS_KEY) blocks", status, 1)
+  expectContains("T7 attributed to the generic assignment pattern", output,
+    "generic api_key/secret/password/token assignment")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T7b: same shape, unquoted .env style, in a file whose NAME is not sensitive --
+// so the filename layer cannot help and the content scan has to stand on its own.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "deploy.conf"), "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY\n")
+  git(dir, ["add", "-A"])
+  const { status, output } = run(dir)
+  expectStatus("T7b unquoted mid-identifier keyword in a non-sensitive filename blocks", status, 1)
+  expectContains("T7b caught by content, not by filename", output,
+    "generic api_key/secret/password/token assignment")
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T7c: negative -- widening the pattern must not start flagging ordinary long config.
+// The 16-char minimum on the value is what keeps these quiet.
+{
+  const dir = freshRepo()
+  writeFileSync(join(dir, "app.conf"),
+    "TOKEN_EXPIRY=3600\nSECRET_ENABLED=true\nPASSWORD_MIN_LEN=12\nAPI_KEY_HEADER=X-Api-Key\n")
+  git(dir, ["add", "-A"])
+  const { status, output } = run(dir)
+  expectStatus("T7c short config values with secret-ish names do not block", status, 0)
+  expectContains("T7c explicitly reported clean", output, "check-secrets: clean")
+  rmSync(dir, { recursive: true, force: true })
+}
+
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)
