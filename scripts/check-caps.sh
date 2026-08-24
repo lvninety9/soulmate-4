@@ -32,6 +32,23 @@ FIXED_RULES_ROW_CAP=10
 FILE_MAP_ROW_CAP=10
 FEEDBACK_OPEN_ROW_CAP=25
 FEEDBACK_HISTORY_LINE_CAP=40
+# Round 33 (Opus work order, item 1): rule-archive.md/SESSION_MASTER.md's soft WATCH (below,
+# check_watch_size) was obeyed 0% of the time across the project's whole history — it printed on
+# every single commit for 4 rounds straight (rule-archive.md 408->1153 lines, +182%) and nobody
+# pruned, because it never blocked anything. Measured against this repo's OWN history rather than
+# picking a round number: rule-archive.md's only real archive-and-shrink event ever (session
+# 7/round 8) landed it at 284 lines; its most recent pre-bloat resting size (no PRUNE, just
+# organic growth having not yet run away) was 408 lines, right after round 27 — both real
+# checkpoints this project actually sat at. SESSION_MASTER.md's own two archive events (round 7,
+# round 9) landed it at 149 and 102 lines respectively. The existing WATCH thresholds (400/150,
+# below) already sat close to those checkpoints and never produced a false positive in 20+ rounds
+# — so they become the soft WARN tier here unchanged; CAP adds real headroom above WARN (roughly
+# one round's worth of narrative at this project's own recent growth rate) before a PRUNE is
+# mechanically required, same warn/cap shape check_lines_warn already gives every other file.
+RULE_ARCHIVE_WARN=400
+RULE_ARCHIVE_CAP=450
+SESSION_MASTER_WARN=150
+SESSION_MASTER_CAP=200
 # Round 28 item 4 (flow rule, external review): a per-row char cap isn't a size limit on the
 # FILE (FEEDBACK_PENDING_CHAR_CAP already does that) — it's a limit on how much a single hot row
 # is ALLOWED to carry before the narrative belongs in wiki/rule-archive.md instead. Without this,
@@ -477,10 +494,14 @@ check_template_drift() {
   fi
 }
 
-# Non-blocking, unlike everything above — these files (rule-archive/session-log/
-# SESSION_MASTER) are append-only by design, never auto-loaded, so a hard cap would fight their
-# purpose. But "no cap" can quietly become "nobody ever looks" — this just keeps them visible so
-# a stale/bloated one gets noticed during self-harness's PRUNE step instead of growing forever.
+# Non-blocking. rule-archive.md and SESSION_MASTER.md moved off this and onto a real hard cap
+# (check_lines_warn, RULE_ARCHIVE_*/SESSION_MASTER_* below) in round 33 — this soft WATCH was
+# obeyed 0% of the time across the project's history (see that constant's own comment), so an
+# append-only doc that's actually read every session can no longer rely on it alone. What's left
+# on this path: session-log.md (still genuinely append-only-forever by design, see round 33's
+# session-log.md comment below for why a line cap doesn't fit it either) and the two code-size
+# watches (subtask-gate.ts/check-caps.sh, hint param below) — splitting/refactoring code isn't
+# the same move as archiving prose, so those keep getting advice that fits their own shape.
 check_watch_size() {
   local file="$1" warn="$2" hint="${3:-}"
   if [ ! -f "$file" ]; then
@@ -494,8 +515,8 @@ check_watch_size() {
     else
       archive_dest="${file%.md}-archive.md"
       echo "WATCH: $file is $lines lines (append-only, no hard cap) — move its oldest entries to" \
-           "$archive_dest (same pattern for all 3 of these files, wiki/protocols/self-harness.md" \
-           "PRUNE step) and leave a one-line pointer behind"
+           "$archive_dest (per wiki/protocols/self-harness.md's PRUNE step) and leave a" \
+           "one-line pointer behind"
     fi
   fi
 }
@@ -817,9 +838,11 @@ check_lines_warn "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CAP" "$SESSI
 check_chars "wiki/handoffs/SESSION_PRIMER.md" "$SESSION_PRIMER_CHAR_CAP" "SESSION_PRIMER.md"
 check_primer_subtask_heading
 check_primer_handoff_reminder
-check_watch_size "wiki/rule-archive.md" 400
+# Round 33: rule-archive.md/SESSION_MASTER.md moved off the soft WATCH (check_watch_size) and
+# onto a real hard cap — see RULE_ARCHIVE_*/SESSION_MASTER_* above for the numbers' justification.
+check_lines_warn "wiki/rule-archive.md" "$RULE_ARCHIVE_WARN" "$RULE_ARCHIVE_CAP" "wiki/rule-archive.md"
+check_lines_warn "wiki/handoffs/SESSION_MASTER.md" "$SESSION_MASTER_WARN" "$SESSION_MASTER_CAP" "wiki/handoffs/SESSION_MASTER.md"
 check_watch_size "wiki/session-log.md" 200
-check_watch_size "wiki/handoffs/SESSION_MASTER.md" 150
 # Round 28 (external review, FEEDBACK_PENDING row #39, S4): code files had zero size monitoring
 # at all — .kilo/plugins/subtask-gate.ts grew 230->482 lines (+110%) and scripts/check-caps.sh
 # itself grew 455->738+ lines (+62%+) across this project's own 28 rounds, unwatched the whole

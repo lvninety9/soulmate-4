@@ -1,6 +1,7 @@
-// Regression net for round 29 item 5 (check-caps.sh consolidation, work order): proves the 3
-// narrow-check merges below still catch everything their pre-merge originals caught, with the
-// same messages -- "merge, don't delete coverage" per the work order's own acceptance condition.
+// Regression net for check-caps.sh behavior changes. Started round 29 item 5 (check-caps.sh
+// consolidation, work order): proves the 3 narrow-check merges below still catch everything
+// their pre-merge originals caught, with the same messages -- "merge, don't delete coverage" per
+// the work order's own acceptance condition.
 //
 // 1. check_lines() deleted -- its 3 call sites (README.md, PROJECT_BACKGROUND.md,
 //    SESSION_PRIMER.md) now call check_lines_warn(file, cap, cap, label) instead. Proven: with
@@ -13,6 +14,11 @@
 //    original scenarios (SESSION_PRIMER.md untouched, AGENTS.md placeholder left in) still FAIL
 //    with their original exact message text; both clean scenarios still print their original ok
 //    message.
+//
+// Round 33 (Opus work order) appended 3 more sections below, each guarding one of that round's
+// 3 tasks: rule-archive.md/SESSION_MASTER.md's WATCH->hard-cap conversion (item 1), session-log.md's
+// per-row char cap (item 2, same mechanism as FEEDBACK_ROW_CHAR_CAP), and quiet-by-default routine
+// output with --verbose restoring full detail (item 3).
 //
 // Run: node --experimental-strip-types tests/check-caps.regression.test.mjs
 import { execFileSync } from "child_process"
@@ -157,6 +163,48 @@ async function main() {
     expectContains("T6b filled placeholder -> ok, exact original message", output,
       "ok: bootstrap — AGENTS.md placeholders filled in")
 
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // --- Round 33 item 1: rule-archive.md / SESSION_MASTER.md WATCH -> hard cap ---
+  // The finding that motivated this: soft WATCH was obeyed 0% of the time (rule-archive.md grew
+  // 408->1153 lines across 4 rounds with a WATCH firing on every single commit). Proves the new
+  // check_lines_warn call sites actually block, not just warn, once a real file crosses the cap
+  // -- and that a file safely under cap still reads "ok", not a spurious OVER CAP/WARN.
+  {
+    const dir = freshFixture()
+    const filler = Array.from({ length: 500 }, (_, i) => `filler line ${i}`).join("\n") + "\n"
+    writeFileSync(join(dir, "wiki", "rule-archive.md"), filler)
+    const { output, status } = run(dir)
+    expectContains("T7a rule-archive.md over its new hard cap -> OVER CAP, blocks the commit", output,
+      "OVER CAP: wiki/rule-archive.md (wiki/rule-archive.md) is 500 lines, cap 450")
+    expectStatus("T7b rule-archive.md over cap -> nonzero exit (real block, not just a WATCH hint)", status, 1)
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    const dir = freshFixture()
+    const filler = Array.from({ length: 250 }, (_, i) => `filler line ${i}`).join("\n") + "\n"
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_MASTER.md"), filler)
+    const { output, status } = run(dir)
+    expectContains("T8a SESSION_MASTER.md over its new hard cap -> OVER CAP, blocks the commit", output,
+      "OVER CAP: wiki/handoffs/SESSION_MASTER.md (wiki/handoffs/SESSION_MASTER.md) is 250 lines, cap 200")
+    expectStatus("T8b SESSION_MASTER.md over cap -> nonzero exit", status, 1)
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    // Real post-prune sizes (296 / 117 lines as of this round) must read clean -- proves the
+    // prune this round actually landed both files under their own new cap, not just close to it.
+    const dir = freshFixture()
+    const { output, status } = run(dir)
+    expectContains("T9a real rule-archive.md (post-prune) is ok under its new cap, not WARN/OVER CAP", output,
+      "ok: wiki/rule-archive.md (wiki/rule-archive.md)")
+    expectContains("T9b real SESSION_MASTER.md (post-prune) is ok under its new cap, not WARN/OVER CAP", output,
+      "ok: wiki/handoffs/SESSION_MASTER.md (wiki/handoffs/SESSION_MASTER.md)")
+    expectNotContains("T9c no stray WATCH line for rule-archive.md any more (migrated off check_watch_size)", output,
+      "WATCH: wiki/rule-archive.md")
+    expectNotContains("T9d no stray WATCH line for SESSION_MASTER.md any more (migrated off check_watch_size)", output,
+      "WATCH: wiki/handoffs/SESSION_MASTER.md")
+    expectStatus("T9e real repo state -> exit 0", status, 0)
     rmSync(dir, { recursive: true, force: true })
   }
 

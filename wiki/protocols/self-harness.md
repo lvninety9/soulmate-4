@@ -17,15 +17,22 @@ Method:
    with an ID and an expiry tag (`permanent` or a review date).
 3. VALIDATE: would this rule have actually prevented today's friction? Does it conflict with an
    existing rule in `AGENTS.md`'s Fixed Rules or Learned Rules?
-4. PRUNE: run `scripts/check-caps.sh` — mechanically checked, including a WATCH hint once
-   `rule-archive.md`/`session-log.md`/`handoffs/SESSION_MASTER.md` cross their soft size
-   threshold. These 3 files are append-only by design (never auto-loaded, so a hard cap would
-   fight their purpose) — but "no hard cap" isn't "never archive." Once WATCHed: move that
-   file's *oldest* entries (lowest `L<NN>`/earliest session rows/earliest Round sections) out to
-   a same-named `-archive.md` companion next to it (e.g. `wiki/rule-archive.md` →
-   `wiki/rule-archive-archive.md`, same pattern for all 3) — leave one pointer line at the top of
-   the live file naming what moved and where ("L01-L0N: see rule-archive-archive.md"). Same
-   destination pattern for all 3, don't invent a different one per file.
+4. PRUNE: run `scripts/check-caps.sh` — mechanically checked. `rule-archive.md`/
+   `handoffs/SESSION_MASTER.md` now hard-cap (round 33: their soft WATCH was obeyed 0% of the
+   time across this project's whole history, see check-caps.sh's own comment) — an OVER CAP on
+   either blocks the commit, not just a hint. `session-log.md` stays a soft WATCH on line count
+   (it's genuinely one line per session, unbounded is the correct shape there) but gets its own
+   per-row char cap (`SESSION_LOG_ROW_CHAR_CAP`, same mechanism as `FEEDBACK_ROW_CHAR_CAP`) so a
+   single row can't blow up the file's real character size while looking small by line count.
+   All 3 files are still append-only by design (never auto-loaded) — "capped" isn't "never
+   archive." Once WATCHed or OVER CAP: move that file's *oldest* entries (lowest `L<NN>`/
+   earliest session rows/earliest Round sections) out to a same-named `-archive.md` companion
+   next to it (e.g. `wiki/rule-archive.md` → `wiki/rule-archive-archive.md`, same pattern for all
+   3) — leave one pointer line at the top of the live file naming what moved and where ("L01-L0N:
+   see rule-archive-archive.md"). Same destination pattern for all 3, don't invent a different
+   one per file. The `-archive.md` companions themselves stay uncapped on purpose — they're never
+   auto-loaded either, so there's no token-budget reason to cap them, and doing so would just
+   force yet another archive tier for no benefit.
 5. LOG: append one line to `wiki/session-log.md`.
 6. COMMIT: update `AGENTS.md` (Learned/Fixed Rules, if any changed) + `SESSION_PRIMER.md`, then
    commit. Expect the sub-task gate to fire on this commit if it touches SESSION_PRIMER.md —
