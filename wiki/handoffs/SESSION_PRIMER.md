@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 34 complete (2026-08-24)
+# SESSION PRIMER — round 36 complete (2026-08-25)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
@@ -10,23 +10,33 @@
 `soulmate-4` is a session-handoff harness template for coding agents behind **Kilo Code**, talking
 to a local LLM with a hard context ceiling (RTX 3080 10GB, physically **shared with an unrelated
 production system "Hermes"** — see Hard constraints). `.kilo/plugins/subtask-gate.ts` is the
-payoff: a real `tool.execute.before` mechanical brake. Round 32 closed the project out; rounds 33
-and 34 were both narrow, fully-specified reopenings (Opus work orders, not new audit rounds) —
-everything below is the true current state after round 34, not an in-progress snapshot. No new
-round planned unless Jay reopens again.
+payoff: a real `tool.execute.before` mechanical brake. `scripts/subtask-report.sh` (layer 1,
+tool-only) + `scripts/subtask-review-llm.sh` (layer 2, local-model diff review, report-only) are
+the sub-task-close verification. Round 32 closed the project out; rounds 33-36 were each narrow,
+fully-specified reopenings (Opus/Jay work orders, not new audit rounds) — everything below is the
+true current state after round 36, not an in-progress snapshot. No new round planned unless Jay
+reopens again.
 
 ## Current sub-task
 
 ```
-시작: round 33's closed-out state.
-완료: round 34 (2 deliverables — scripts/subtask-report.sh + scripts/post-commit-subtask-report
-     evidence-only sub-task report; this week's local-model capability numbers recorded in
-     PROJECT_BACKGROUND.md), pushed. Full detail (what/why/proof/tests): wiki/rule-archive.md
-     "Round 34" — not re-narrated here per this file's own "current-state only" role (see banner).
+시작: round 34's closed-out state. (Note: round 35's own commits — secret scan moved to
+     pre-commit, subtask-report.sh gaps 3/4 fixed, this file compressed — landed in git
+     (18071a1..a9bba1c) but never got their own "Round 35" rule-archive.md write-up or a
+     SESSION_PRIMER/session-log handoff. Round 36 did not backfill that gap — see rule-archive.md
+     "Round 36" closing note and session-log.md's row for this round.)
+완료: round 36 (layer 2 — scripts/subtask-review-llm.sh, a fresh/context-free local-model call
+     that reads the sub-task's diff and flags concrete issues layer 1 structurally can't, report-
+     only, tagged [layer2/local-llm, unverified], never blends with layer 1's tool findings.
+     scripts/lib/subtask-range.sh extracted so both layers share one boundary definition.
+     scripts/post-commit-subtask-report now fires both. Live-verified against the real local
+     model, not simulated — planted a flipped-comparison bug, model cited the exact file+line;
+     clean diff correctly returned zero findings). Full detail: wiki/rule-archive.md "Round 36" —
+     not re-narrated here per this file's own "current-state only" role (see banner).
 막힘: none.
-다음: none planned. Round 32's own open items (#4/12, #6/38, #47, #50 — see table below) are
-     UNCHANGED by round 34 (out of scope, same as round 33).
-참고: opus_round34_report.md is in ~/.hermes/, NOT this repo.
+다음: none planned by this round. Round 32's own open items (#4/12, #6/38, #47, #50 — see table
+     below) are UNCHANGED by round 36 (out of scope). Round 35's undocumented-handoff gap (above)
+     is still open if a future session wants to close it.
 ```
 
 ## Final state — every FEEDBACK row (`FEEDBACK_PENDING.md`)
@@ -84,6 +94,12 @@ content). Round 34 made no change to any row above.
 - **`scripts/subtask-report.sh`/`scripts/post-commit-subtask-report`** — fires automatically on
   a commit touching this file; every check inside is optional, stated when skipped. Never trust
   the model's own "완료"/"PASS" claim over this report's output.
+- **`scripts/subtask-review-llm.sh`** (round 36, layer 2) — same hook, fires right after layer 1.
+  Calls this project's own `llama-server` directly (`http://127.0.0.1:8080/v1` by default — the
+  same single-slot server `kilo run` uses, shared with Hermes GPU jobs, see the GPU line above).
+  Report-only, never blocking; findings are tagged `[layer2/local-llm, unverified]` and must not
+  be treated as equal-trust to layer 1's tool findings in the same report. `SUBTASK_REVIEW_
+  LLM_DISABLE=1` skips it entirely if the local server isn't running.
 
 ## If this project is ever reopened
 
