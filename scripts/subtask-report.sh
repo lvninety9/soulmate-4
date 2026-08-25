@@ -48,45 +48,13 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# round 34 adversarial-battery finding: `git rev-parse <bad-ref> 2>/dev/null` is NOT reliably
-# empty on failure -- for an unresolvable-but-pathname-shaped arg (a bogus --since value, or
-# "<sha>^" on a root commit with no parent), git echoes the arg back to STDOUT verbatim
-# alongside its fatal error on stderr (confirmed live: `git rev-parse bogus-ref 2>/dev/null`
-# prints the literal string "bogus-ref", not nothing). A plain `[ -z "$x" ]` check after that
-# does not catch it -- resolve_ref() checks the actual exit code instead, so a bad ref always
-# resolves to a true empty string.
-resolve_ref() {
-  local out
-  out="$(git rev-parse "$1" 2>/dev/null)"
-  [ $? -eq 0 ] && printf '%s' "$out"
-}
-
-TARGET_SHA="$(resolve_ref "$TARGET")"
-if [ -z "$TARGET_SHA" ]; then
+# --- boundary resolution (shared with scripts/subtask-review-llm.sh — see lib/subtask-range.sh
+# for why this must not be a second, invented definition) ------------------------------------
+# shellcheck source=lib/subtask-range.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/subtask-range.sh"
+if ! compute_subtask_range "$TARGET" "$SINCE_OVERRIDE"; then
   echo "subtask-report: could not resolve '$TARGET' to a commit — nothing to report on."
   exit 0
-fi
-SHORT_TARGET="$(git rev-parse --short "$TARGET_SHA")"
-
-# --- boundary resolution --------------------------------------------------------------------
-if [ -n "$SINCE_OVERRIDE" ]; then
-  PREV_SHA="$(resolve_ref "$SINCE_OVERRIDE")"
-else
-  PARENT_SHA="$(resolve_ref "${TARGET_SHA}^")"
-  if [ -n "$PARENT_SHA" ]; then
-    PREV_SHA="$(git log -1 --format=%H "$PARENT_SHA" -- wiki/handoffs/SESSION_PRIMER.md 2>/dev/null)"
-  else
-    PREV_SHA=""
-  fi
-fi
-
-EMPTY_TREE="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-if [ -n "$PREV_SHA" ]; then
-  RANGE="$PREV_SHA..$TARGET_SHA"
-  RANGE_DESC="$(git rev-parse --short "$PREV_SHA")..$SHORT_TARGET"
-else
-  RANGE="$EMPTY_TREE..$TARGET_SHA"
-  RANGE_DESC="(repo start)..$SHORT_TARGET"
 fi
 
 have() { command -v "$1" >/dev/null 2>&1; }
