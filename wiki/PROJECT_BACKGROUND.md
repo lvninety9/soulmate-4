@@ -11,7 +11,8 @@
 | `templates/` | copy-paste skeletons for adopters |
 | `scripts/check-caps.sh` | mechanical cap enforcement, same shape as soulmate-2/3 |
 | `scripts/pre-commit-check-caps` | git hook — a second, later-stage backstop behind the plugin gate (not the *only* one, unlike soulmate-3) |
-| `scripts/subtask-report.sh` + `scripts/post-commit-subtask-report` | evidence-only sub-task report (round 34) — reuses the gate's own boundary (a commit touching `SESSION_PRIMER.md`); built entirely from git/test-runner/scanner output, never the model's self-report |
+| `scripts/subtask-report.sh` (layer 1) | evidence-only sub-task report (round 34) — reuses the gate's own boundary (a commit touching `SESSION_PRIMER.md`); built entirely from git/test-runner/scanner output, never the model's self-report |
+| `scripts/subtask-review-llm.sh` (layer 2) + `scripts/post-commit-subtask-report` | round 36 — fresh, context-free local-model call reads the same range's diff, flags concrete issues layer 1 can't (cited file+line, JSON-only); report-only, findings tagged `[layer2/local-llm, unverified]`, distinct trust level from layer 1's tool output |
 
 ## Why this repo exists (relationship to soulmate-2/3)
 
@@ -105,6 +106,11 @@ update in place as new measurements land, don't append a running log here.
   linters, schema checks) handles the bulk at zero cost; the local model gets only genuinely
   open-ended judgment calls; a human sees a filtered short list. Self-report from the model is
   never a verification source.
+- Round 36 gave the model one narrow, structurally-safe judgment call: reading a fixed diff and
+  emitting a bounded `{file, line, issue}` list. That's a stateless transformation (the shape the
+  passes above cluster on), not self-designed state (the shape the failures above cluster on) —
+  `scripts/subtask-review-llm.sh` exists on the strength of that distinction, report-only, never a
+  blocker.
 
 ## What's NOT here
 
