@@ -56,4 +56,24 @@ if [ "$gen_rc" -ne 0 ]; then
   echo "post-commit-subtask-report: 보고서 생성 실패 — scripts/subtask-report.sh exited $gen_rc (see output above; commit still landed, this hook never blocks)" >&2
 fi
 
+# layer 2 (local-model diff review) — optional and best-effort in the exact same sense as layer 1:
+# never blocks, never lets its own crash go silent. A missing/non-executable script here is not
+# an error the way a missing layer 1 would be (layer 2 is a newer, lower-trust addition, see its
+# own header) -- skip quietly if it's not present, e.g. an older checkout of this template.
+if [ -x scripts/subtask-review-llm.sh ]; then
+  echo ""
+  echo "================ subtask-review-llm (auto, layer 2) ===================================="
+  if [ -n "$SHORT" ] && [ -d .subtask-reports ]; then
+    scripts/subtask-review-llm.sh 2>&1 | tee -a ".subtask-reports/${SHORT}.md"
+    gen2_rc="${PIPESTATUS[0]}"
+  else
+    scripts/subtask-review-llm.sh 2>&1
+    gen2_rc=$?
+  fi
+  echo "=========================================================================================="
+  if [ "$gen2_rc" -ne 0 ]; then
+    echo "post-commit-subtask-report: 보고서 생성 실패(layer 2) — scripts/subtask-review-llm.sh exited $gen2_rc (see output above; commit still landed, this hook never blocks)" >&2
+  fi
+fi
+
 exit 0
