@@ -45,7 +45,7 @@ steps above are self-served prose instead, same shape as soulmate-3's Continue g
 | entity map, glossary, pipeline | `wiki/PROJECT_BACKGROUND.md` |
 | open feedback | `wiki/handoffs/FEEDBACK_PENDING.md` |
 | sub-task gate plugin | `.kilo/plugins/subtask-gate.ts` |
-| sub-task report (evidence, not self-report — same boundary as the gate) | `scripts/subtask-report.sh`, auto via `scripts/post-commit-subtask-report` |
+| sub-task report — layer 1 tool evidence + layer 2 local-model diff review (tagged `[layer2/local-llm, unverified]`, report-only) | `scripts/subtask-report.sh` + `scripts/subtask-review-llm.sh`, auto via `scripts/post-commit-subtask-report` |
 | sub-task gate tests (`node --experimental-strip-types tests/subtask-gate.test.mjs`) | `tests/subtask-gate.test.mjs` |
 | local model provider config | `~/.config/kilo/kilo.jsonc` (global) |
 
