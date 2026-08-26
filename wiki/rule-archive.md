@@ -61,102 +61,13 @@ start, not per session — explains why round 31's contradiction injection staye
 live-unverified). Combined gate record across trials 1+2: 20/20 blocked, zero bypasses. Round
 33 onward stays live below.
 
-## Round 33 — hard cap replaces soft WATCH (item 1), session-log.md's line-vs-bytes bug (item 2),
-quiet-by-default check-caps.sh output (item 3)
+## Round 33 — moved to archive
 
-Opus work order, narrow scope: fix check-caps.sh's own doc-budget enforcement, not a new audit
-round. Motivating measurement, taken live before any fix (fresh clone `e68e356`, 215 commits):
-hard caps were obeyed 100% of the time across this project's whole history; the append-only WATCH
-on `rule-archive.md`/`SESSION_MASTER.md` was obeyed 0% of the time. `git show <commit>:wiki/
-rule-archive.md | wc -l` walked across every commit touching the file (`git log --reverse
---format=%H -- wiki/rule-archive.md`) confirmed one real archive event ever (session 7/round 8,
-374->284 lines), then unbroken growth 284->1153 with the WATCH printing on every single commit
-along the way and nobody pruning. `SESSION_MASTER.md` showed the same shape: two real archive
-events (round 7: 231->149, round 9: 137->102-ish), then unbroken growth 137(round 9)->281 across
-rounds 10-32 with its own 150-line WATCH firing the whole time, unactioned.
-
-**Item 1 — cap numbers, derived from real checkpoints not a round number.** `git show
-6fcf9931:wiki/rule-archive.md | grep -n '^## '` confirmed the file's real 408-line checkpoint
-(2026-08-22) was the state right after Round 27 landed, before Round 28's additions began —
-this project's own last real pre-bloat resting size, not an arbitrary number. `RULE_ARCHIVE_
-WARN=400`/`RULE_ARCHIVE_CAP=450`: WARN kept at the pre-existing 400 (already sat within ~2% of
-that 408 checkpoint and never false-positived in 20+ rounds); CAP adds 50 lines (~1 round's worth
-at this project's recent growth rate) of real headroom above WARN before a commit is mechanically
-blocked. `SESSION_MASTER_WARN=150`/`SESSION_MASTER_CAP=200`: WARN kept at the pre-existing 150
-(matches the round-7 post-archive checkpoint, 149, almost exactly); CAP adds 50 lines. Both
-pairs reuse `check_lines_warn()` (the exact mechanism every other auto-loaded doc already uses)
-instead of `check_watch_size()` — no new cap-shape invented.
-
-**Item 1 — the prune itself, performed to meet the new cap immediately (not deferred):**
-`rule-archive.md`: moved lines 31-897 of the pre-prune file (Round 5 through Round 30's *main*
-section, 867 lines — L01-L05/L06-L07/L09 pointer stubs at the top were left in place, already
-minimal) to `wiki/rule-archive-archive.md`, replaced with one pointer section ("Round 5-30 —
-moved to archive"). 1153->296 lines (23,281 chars), well under the new 450 cap and even under
-the 400 WARN. `SESSION_MASTER.md`: moved lines 10-185 (Round 5/Round 6/session-5-handoff-
-reverify/Round-27-mistake/PRUNE-pass, 176 lines) to `wiki/handoffs/SESSION_MASTER-archive.md`,
-one pointer section added. 281->117 lines (9,043 chars). Fixed two internal "above" cross-
-references in the surviving text that would otherwise have dangled into the now-archived
-section (both now name `wiki/handoffs/SESSION_MASTER-archive.md` explicitly instead of "above").
-Nothing deleted — every moved line still exists verbatim in its `-archive.md` companion,
-line-count-verified before/after (`wc -l` on both files, sum preserved plus the new pointer
-paragraphs' own lines).
-
-**Item 1 — judgment call: `-archive.md` tail files left uncapped.** Neither `rule-archive-
-archive.md` nor `SESSION_MASTER-archive.md` is ever auto-loaded (confirmed: neither appears in
-`check_required_read_total`'s file list, nor in AGENTS.md's File Map / `@import`-equivalent
-pointers) — capping them would cost real token budget for zero benefit (nobody reads them by
-default) and would just force inventing a third archive tier per file for no reason. Left
-unbounded on purpose, not by omission.
-
-**Item 2 — session-log.md's real per-row char distribution, measured before picking a cap:**
-`grep -nE '^\| *[0-9]+ *\|' wiki/session-log.md | while IFS=: read -r n rest; do echo
-"${#rest} row_$n"; done | sort -n` on the file as of this round: min 373 chars (row 8), max
-2,679 chars (row 20, the densest real entry — a multi-day, multi-round session), most rows in
-the 500-1,400 range. Copying `FEEDBACK_ROW_CHAR_CAP` (300) verbatim would OVER CAP all 21 real
-rows immediately, forcing an unwanted retroactive rewrite of session history — rejected.
-`SESSION_LOG_ROW_CHAR_CAP=3000` gives the real max (2,679) ~12% headroom.
-
-**Item 2 — reuse, not a second mechanism.** Extracted FEEDBACK_PENDING.md's inline row-char-cap
-`while` loop (previously duplicated logic living only at that one call site) into
-`check_row_char_cap(file, cap, dest_hint)`, called once per file with its own cap/hint. Diffed
-`check-caps.sh`'s own git history logic before/after the extraction to confirm the loop body
-(the `grep -E '^\| *[0-9]+(/[0-9]+)? *\|'` row match, the `${#row_line}` length check, the row-
-number `sed` extraction) is byte-identical to what FEEDBACK_PENDING.md's call site had before —
-only the surrounding `while` loop became a function body. Regression-proven (T12): the real
-`FEEDBACK_PENDING.md` row-cap OVER CAP message is unchanged, exact original wording.
-
-**Item 3 — quiet-by-default, measured before and after.** Before: `bash scripts/check-caps.sh`
-on a clean fresh-clone repo printed 1 WARN (`AGENTS.md total ... 80/85 ... soft target 70`) + 4
-WATCH (`rule-archive.md`, `SESSION_MASTER.md` — both now hard-capped by item 1, so this count
-drops to 2 after it — `subtask-gate.ts`, `check-caps.sh`), all in normal/non-actionable states,
-exit 0. After (post-item-1, so 2 WATCH remain) + item 3's own fix: same clean repo, no flag ->
-0 WARN/WATCH/reminder lines printed, one line instead
-(`bash scripts/check-caps.sh`, live-run output: `(4 non-blocking notice(s) suppressed — rerun
-with --verbose to see them)` — the 4 being AGENTS.md's WARN, the 2 code-size WATCHes, and the
-primer-handoff reminder that also fires on this repo's own working state), exit 0.
-`--verbose` on the same repo reproduced every one of those 4 lines, byte-identical wording to
-the pre-item-3 output (live-diffed). Deliberately introduced a real OVER CAP (`wiki/rule-
-archive.md` filled with 500 filler lines) and re-ran without `--verbose`: the OVER CAP line and
-all 4 non-blocking notices printed in full, unconditionally — confirms the "already blocking ->
-full context automatically, no flag needed" branch, not just the summary/verbose split.
-
-**Commits (in order): rule-archive.md prune (`7113c00`), SESSION_MASTER.md prune (`8478cc5`),
-item 1's cap-mechanism + self-harness.md doc update + T7-T9 (`20466e1`), item 2 + T10-T12
-(`83aed4f`), item 3 + T13-T15 + T3 update (`2fd8912`).** Split across 5 commits, not 1, because
-`scripts/pre-commit-check-caps`'s own `STAGED_FILE_CAP=3` blocks a single commit touching more
-than 3 files — grouped by logical unit (each file-count-3-or-fewer) rather than by item, since
-item 1 alone touched 5 files across data (prune) and code (cap mechanism) changes.
-
-**Verification after all 5 commits, fresh state:** `node tests/check-caps.regression.test.mjs`
-— 18 new assertions (T7-T15) + all pre-existing ones, ALL PASS. `node tests/stale-language.fuzz.
-test.mjs` — 42/42, unchanged (this round made zero `check_stale_language()` changes, an explicit
-non-goal). `node tests/subtask-gate.test.mjs` — unchanged, ALL PASS (this round made zero gate-
-blocking-logic changes, an explicit non-goal). `bash scripts/check-caps.sh` — exit 0, required-
-read total 21840/27800 chars (unchanged from the round's starting state — this round's own code/
-doc edits touched none of the 4 required-read files until the SESSION_PRIMER.md handoff commit,
-which brought it to 23,904/27,800, still comfortably under cap). No LLM calls made this round
-(a foreign benchmark process held the only local llama-server slot for the round's duration);
-`~/aider-bench/` was not touched.
+Moved to `wiki/rule-archive-archive.md` (round 37's self-harness PRUNE step, `rule-archive.md`
+crossed the WARN threshold again after round 37's own addition). Covers: hard caps replacing
+soft WATCH for `rule-archive.md`/`SESSION_MASTER.md` (100% vs 0% obeyed, measured), session-
+log.md's line-vs-bytes cap bug fix, and check-caps.sh's quiet-by-default output. Round 34
+onward stays live below.
 
 ## Round 34 — Deliverable 1 (universal sub-task report generator) + Deliverable 2 (evergreen local-model capability numbers)
 
@@ -368,3 +279,87 @@ currently going through cap-checking only, not the secret block `SESSION_PRIMER.
 constraints describes as active. Not reinstalled here (git-hooks changes are outside this round's
 ask); worth a `cp scripts/pre-commit-check-caps .git/hooks/pre-commit` the moment someone's
 actually in round 35's scope.
+
+## Round 37 — Opus's 3-item close-out order: hook-staleness check (item 1), layer 2 n=16 (item 2), round 35's +62-line judgment call (item 3)
+
+Opus work order from HANDOFF.md (`/media/jay/D/cursor/soulmate-4/`), narrow scope, not a new audit
+round. Starting state re-derived independently (fresh clone, 257 commits, `7f864b5`): 6 suites ALL
+PASS, `check-caps.sh` EXIT=0, required-read 24,535/27,800 chars, this file 370/450 lines —
+matched Opus's HANDOFF numbers exactly, no discrepancy.
+
+**Item 1 — installed-hook staleness, not just existence.** Round 36 itself found (see "Also
+found, also left alone" above) that this checkout's own installed pre-commit hook predated
+`check-secrets.sh` being added — `check_bootstrap_hook_installed()` only ever checked `-x`
+existence, so drift between an installed copy and its source script was structurally invisible.
+Fix: after the existence check passes, `diff -q ".git/hooks/$hook" "$src_script"` — mismatch is a
+new, distinct `BOOTSTRAP FAIL` (same fix instructions as the missing case: re-`cp`+`chmod`), match
+keeps the original unchanged `ok` wording (no gratuitous rewrite of a passing message). 4 new
+regression assertions (`tests/check-caps.regression.test.mjs`, T-stalehook-a/b/c/d): fresh install
+→ ok; source script edited after install (the exact live shape — a feature addition landing after
+the hook copy was made) → the new specific FAIL, distinct from the missing-hook FAIL text;
+re-copying → ok again (negative case, proves this doesn't false-positive forever once actually
+fixed). Committed through the real installed pre-commit hook (`7c5bf07`) — this dev checkout's own
+hooks were installed fresh from source first, so item 1's own mechanism ran clean on itself.
+
+**Item 2 — layer 2 detection rate, n=16 (was n=2).** Same methodology as round 34/35's own
+"plant a defect, verify it's caught," scaled up and applied to the model instead of a tool, called
+directly against the real `llama-server` (`Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`, confirmed via
+`/v1/models`), no mock, no `kilo serve`/Cursor involvement (`SUBTASK_REVIEW_API_BASE` is a plain
+HTTP endpoint — layer 2 never needed the Kilo daemon to begin with). 16 independent throwaway
+repos, one semantic/logic defect class each (the class layer 2 exists for — a deterministic tool
+can't catch any of these), each run through `scripts/subtask-review-llm.sh <sha> --since
+<baseline-sha>` for real. Total wall time: 45s for all 16 (avg ~2.8s/call).
+
+Result: **11/16 hit (68.75%)** — model's JSON finding cited the correct file+line and named the
+actual mechanism, not just "something's off": flipped comparison, guest-as-admin, discount
+amount-vs-percent, off-by-one loop skip, tax applied twice, wrong HTTP status on failure, early-
+return skipping validation, mutable default arg, date string compared in non-lexicographic
+format, swapped row/col index, wrong look-alike function called. **5/16 missed (0 findings)**:
+`and`→`or` widening an access check, an unconverted minutes-as-seconds unit mismatch, floor-vs-
+round systematic underpay, a field-comparison that needs an unseen schema (`item.id` vs
+`item.owner_id`), and — the cleanest miss — `sorted(scores)` directly contradicting an inline
+comment one line above it saying "highest first" (nothing external needed, still missed).
+
+**Two of the five misses are confounded by the prompt's own conservative rule, not proof of a
+gap**: `subtask-review-llm.sh`'s prompt explicitly says "do not assume what other files contain."
+The floor-vs-round case never states a rounding requirement anywhere in the diff; the field-
+comparison case never shows `item`'s or `user`'s class definition, so `item.id == user.id` isn't
+visibly wrong from the diff alone — the model followed its own instruction not to invent unseen
+context in both cases. Treating those two as "fair, in-scope misses" would be measuring the
+prompt's own guardrail, not the model's defect-finding capability. Excluding them: **11/14
+(78.6%)** on cases where everything needed was visible in the diff.
+
+**Verdict for "how much to trust this layer" (Opus's own framing for why item 2 mattered)**: no
+policy change. Still report-only, per the project's own admission bar ("(a) irreversible or (b)
+proven ignored → block") — a ~70-79% catch rate on a genuinely hard defect class is not "proven
+ignored," it's a real but partial net, exactly what `HANDOFF.md` section 3-1 already documented at
+n=2 (same-bug, different diff-scope, one miss one hit) and this n=16 run reproduces at scale: it
+catches most obvious single-line logic inversions and misapplied operations, and reliably misses
+defects needing either implicit unit/domain knowledge or unseen cross-file context — a useful
+shape to know before leaning on it for anything higher-stakes than "another pair of eyes."
+
+**Item 3 — round 35's own +56/+62-line judgment call: nothing to delete.** Re-measured the exact
+range (`git diff --stat 220c7ca..1978fa9 -- scripts .kilo`, round 34's close to round 35's actual
+end, not the `18071a1..a9bba1c` sub-slice HANDOFF.md cited): **+154/-92, net +62** across 5 files.
+Breakdown: `scripts/check-secrets.sh` is a genuinely new 104-line file, but `scripts/subtask-
+report.sh` lost 97 lines the same round (`refactor: drop duplicate secret scan from post-commit
+report`) — this is a **relocation, not net-new bulk**: the secret scanner moved from a report-only
+post-commit check to a hard-blocking pre-commit gate (report→block is exactly this project's own
+admission-bar direction, not padding). The remaining +12/`pre-commit-check-caps` (wiring the new
+script in) and +17-net/`check-caps.sh` + item-4's post-commit failure-signaling together account
+for the rest — both are "irreversible or silently-ignored-class" additions (a missing block would
+mean secrets silently unscanned; a silent post-commit failure would mean "silence must never read
+as checked and clean," this project's own subtask-report.sh rule, violated). Scanned all 25
+`check_*` functions in `check-caps.sh` for a candidate to cut anyway (broader than round 35's own
+diff, per Opus's "값 못 버는 검사가 있으면" phrasing) — none stood out as redundant or dead;
+every one maps to a specific past incident (round 33's WATCH→hard-cap being the most recent
+precedent for retiring a check that measurably wasn't earning its keep). **No deletion proposed.**
+
+**Verification, fresh state after all 3 items**: 6 suites unaffected + updated regression suite
+still ALL PASS (`node --test tests/*.test.mjs`, run individually), `check-caps.sh` exit 0 both
+plain and `--bootstrap-check` mode, required-read total unchanged at commit time
+(24,535/27,800 — this round's code/test edit didn't touch a required-read file until the handoff
+commit). No `kilo run`/Cursor/`kilo serve` call made — item 2's local-model calls went straight to
+`http://127.0.0.1:8080/v1`, the same server `kilo run` shares, sequential (`-np 1`), never
+concurrent with anything. `~/.hermes/longform/.render.lock` checked empty before and clear after.
+`llama.service`/`kilo.jsonc` untouched.

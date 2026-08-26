@@ -1500,3 +1500,103 @@ both attempts made this round; forcing it further would mean killing a `kilo ser
 serving Jay's live Cursor session, out of scope for this round. Recorded as "unverified for a
 known, specific reason" — not as unknown, and not as working.
 
+
+## Round 33 — hard cap replaces soft WATCH (item 1), session-log.md's line-vs-bytes bug (item 2), quiet-by-default check-caps.sh output (item 3)
+
+## Round 33 — hard cap replaces soft WATCH (item 1), session-log.md's line-vs-bytes bug (item 2),
+quiet-by-default check-caps.sh output (item 3)
+
+Opus work order, narrow scope: fix check-caps.sh's own doc-budget enforcement, not a new audit
+round. Motivating measurement, taken live before any fix (fresh clone `e68e356`, 215 commits):
+hard caps were obeyed 100% of the time across this project's whole history; the append-only WATCH
+on `rule-archive.md`/`SESSION_MASTER.md` was obeyed 0% of the time. `git show <commit>:wiki/
+rule-archive.md | wc -l` walked across every commit touching the file (`git log --reverse
+--format=%H -- wiki/rule-archive.md`) confirmed one real archive event ever (session 7/round 8,
+374->284 lines), then unbroken growth 284->1153 with the WATCH printing on every single commit
+along the way and nobody pruning. `SESSION_MASTER.md` showed the same shape: two real archive
+events (round 7: 231->149, round 9: 137->102-ish), then unbroken growth 137(round 9)->281 across
+rounds 10-32 with its own 150-line WATCH firing the whole time, unactioned.
+
+**Item 1 — cap numbers, derived from real checkpoints not a round number.** `git show
+6fcf9931:wiki/rule-archive.md | grep -n '^## '` confirmed the file's real 408-line checkpoint
+(2026-08-22) was the state right after Round 27 landed, before Round 28's additions began —
+this project's own last real pre-bloat resting size, not an arbitrary number. `RULE_ARCHIVE_
+WARN=400`/`RULE_ARCHIVE_CAP=450`: WARN kept at the pre-existing 400 (already sat within ~2% of
+that 408 checkpoint and never false-positived in 20+ rounds); CAP adds 50 lines (~1 round's worth
+at this project's recent growth rate) of real headroom above WARN before a commit is mechanically
+blocked. `SESSION_MASTER_WARN=150`/`SESSION_MASTER_CAP=200`: WARN kept at the pre-existing 150
+(matches the round-7 post-archive checkpoint, 149, almost exactly); CAP adds 50 lines. Both
+pairs reuse `check_lines_warn()` (the exact mechanism every other auto-loaded doc already uses)
+instead of `check_watch_size()` — no new cap-shape invented.
+
+**Item 1 — the prune itself, performed to meet the new cap immediately (not deferred):**
+`rule-archive.md`: moved lines 31-897 of the pre-prune file (Round 5 through Round 30's *main*
+section, 867 lines — L01-L05/L06-L07/L09 pointer stubs at the top were left in place, already
+minimal) to `wiki/rule-archive-archive.md`, replaced with one pointer section ("Round 5-30 —
+moved to archive"). 1153->296 lines (23,281 chars), well under the new 450 cap and even under
+the 400 WARN. `SESSION_MASTER.md`: moved lines 10-185 (Round 5/Round 6/session-5-handoff-
+reverify/Round-27-mistake/PRUNE-pass, 176 lines) to `wiki/handoffs/SESSION_MASTER-archive.md`,
+one pointer section added. 281->117 lines (9,043 chars). Fixed two internal "above" cross-
+references in the surviving text that would otherwise have dangled into the now-archived
+section (both now name `wiki/handoffs/SESSION_MASTER-archive.md` explicitly instead of "above").
+Nothing deleted — every moved line still exists verbatim in its `-archive.md` companion,
+line-count-verified before/after (`wc -l` on both files, sum preserved plus the new pointer
+paragraphs' own lines).
+
+**Item 1 — judgment call: `-archive.md` tail files left uncapped.** Neither `rule-archive-
+archive.md` nor `SESSION_MASTER-archive.md` is ever auto-loaded (confirmed: neither appears in
+`check_required_read_total`'s file list, nor in AGENTS.md's File Map / `@import`-equivalent
+pointers) — capping them would cost real token budget for zero benefit (nobody reads them by
+default) and would just force inventing a third archive tier per file for no reason. Left
+unbounded on purpose, not by omission.
+
+**Item 2 — session-log.md's real per-row char distribution, measured before picking a cap:**
+`grep -nE '^\| *[0-9]+ *\|' wiki/session-log.md | while IFS=: read -r n rest; do echo
+"${#rest} row_$n"; done | sort -n` on the file as of this round: min 373 chars (row 8), max
+2,679 chars (row 20, the densest real entry — a multi-day, multi-round session), most rows in
+the 500-1,400 range. Copying `FEEDBACK_ROW_CHAR_CAP` (300) verbatim would OVER CAP all 21 real
+rows immediately, forcing an unwanted retroactive rewrite of session history — rejected.
+`SESSION_LOG_ROW_CHAR_CAP=3000` gives the real max (2,679) ~12% headroom.
+
+**Item 2 — reuse, not a second mechanism.** Extracted FEEDBACK_PENDING.md's inline row-char-cap
+`while` loop (previously duplicated logic living only at that one call site) into
+`check_row_char_cap(file, cap, dest_hint)`, called once per file with its own cap/hint. Diffed
+`check-caps.sh`'s own git history logic before/after the extraction to confirm the loop body
+(the `grep -E '^\| *[0-9]+(/[0-9]+)? *\|'` row match, the `${#row_line}` length check, the row-
+number `sed` extraction) is byte-identical to what FEEDBACK_PENDING.md's call site had before —
+only the surrounding `while` loop became a function body. Regression-proven (T12): the real
+`FEEDBACK_PENDING.md` row-cap OVER CAP message is unchanged, exact original wording.
+
+**Item 3 — quiet-by-default, measured before and after.** Before: `bash scripts/check-caps.sh`
+on a clean fresh-clone repo printed 1 WARN (`AGENTS.md total ... 80/85 ... soft target 70`) + 4
+WATCH (`rule-archive.md`, `SESSION_MASTER.md` — both now hard-capped by item 1, so this count
+drops to 2 after it — `subtask-gate.ts`, `check-caps.sh`), all in normal/non-actionable states,
+exit 0. After (post-item-1, so 2 WATCH remain) + item 3's own fix: same clean repo, no flag ->
+0 WARN/WATCH/reminder lines printed, one line instead
+(`bash scripts/check-caps.sh`, live-run output: `(4 non-blocking notice(s) suppressed — rerun
+with --verbose to see them)` — the 4 being AGENTS.md's WARN, the 2 code-size WATCHes, and the
+primer-handoff reminder that also fires on this repo's own working state), exit 0.
+`--verbose` on the same repo reproduced every one of those 4 lines, byte-identical wording to
+the pre-item-3 output (live-diffed). Deliberately introduced a real OVER CAP (`wiki/rule-
+archive.md` filled with 500 filler lines) and re-ran without `--verbose`: the OVER CAP line and
+all 4 non-blocking notices printed in full, unconditionally — confirms the "already blocking ->
+full context automatically, no flag needed" branch, not just the summary/verbose split.
+
+**Commits (in order): rule-archive.md prune (`7113c00`), SESSION_MASTER.md prune (`8478cc5`),
+item 1's cap-mechanism + self-harness.md doc update + T7-T9 (`20466e1`), item 2 + T10-T12
+(`83aed4f`), item 3 + T13-T15 + T3 update (`2fd8912`).** Split across 5 commits, not 1, because
+`scripts/pre-commit-check-caps`'s own `STAGED_FILE_CAP=3` blocks a single commit touching more
+than 3 files — grouped by logical unit (each file-count-3-or-fewer) rather than by item, since
+item 1 alone touched 5 files across data (prune) and code (cap mechanism) changes.
+
+**Verification after all 5 commits, fresh state:** `node tests/check-caps.regression.test.mjs`
+— 18 new assertions (T7-T15) + all pre-existing ones, ALL PASS. `node tests/stale-language.fuzz.
+test.mjs` — 42/42, unchanged (this round made zero `check_stale_language()` changes, an explicit
+non-goal). `node tests/subtask-gate.test.mjs` — unchanged, ALL PASS (this round made zero gate-
+blocking-logic changes, an explicit non-goal). `bash scripts/check-caps.sh` — exit 0, required-
+read total 21840/27800 chars (unchanged from the round's starting state — this round's own code/
+doc edits touched none of the 4 required-read files until the SESSION_PRIMER.md handoff commit,
+which brought it to 23,904/27,800, still comfortably under cap). No LLM calls made this round
+(a foreign benchmark process held the only local llama-server slot for the round's duration);
+`~/aider-bench/` was not touched.
+

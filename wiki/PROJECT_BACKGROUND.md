@@ -111,6 +111,12 @@ update in place as new measurements land, don't append a running log here.
   passes above cluster on), not self-designed state (the shape the failures above cluster on) —
   `scripts/subtask-review-llm.sh` exists on the strength of that distinction, report-only, never a
   blocker.
+- Round 37 measured that judgment call's detection rate at n=16 (was n=2): **11/16 (68.75%)**
+  hit on single-line semantic/logic defects (flipped comparisons, misapplied operations, wrong
+  field/function used) — 11/14 (78.6%) excluding 2 cases confounded by the prompt's own
+  "don't invent unseen context" guardrail. Reliably misses defects needing implicit unit/domain
+  knowledge (e.g. an unconverted minutes→seconds value) or unseen cross-file schema. Raw evidence:
+  `wiki/rule-archive.md` "Round 37".
 
 ## What's NOT here
 
