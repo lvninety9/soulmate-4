@@ -36,7 +36,11 @@ still open, next.
 막힘: none.
 다음: Opus's own suggested close-out condition — build one real project end-to-end with this
      harness (item 4/aider-polyglot-full-6-language and item 5/layer-2-slot-contention are
-     explicitly optional per HANDOFF.md section 4, not required for that condition). Round 32's
+     explicitly optional per HANDOFF.md section 4, not required for that condition). That build
+     also carries one prompt-level experiment, no harness change: every step prompt ends with an
+     acceptance line (README.md, bootstrapping section). Decide at its close whether it earned a
+     `verify:` field in this file's sub-task block or should be dropped — prompt-only until then.
+     Round 32's
      own open items (#4/12, #6/38, #47, #50 — see table below) are UNCHANGED by round 37 (out of
      scope). Round 35's undocumented-handoff gap (still open, see rule-archive.md "Round 36" closing
      note) is unrelated to round 37 and still open if a future session wants to close it.
