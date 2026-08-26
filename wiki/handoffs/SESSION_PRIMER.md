@@ -40,6 +40,11 @@ still open, next.
      also carries one prompt-level experiment, no harness change: every step prompt ends with an
      acceptance line (README.md, bootstrapping section). Decide at its close whether it earned a
      `verify:` field in this file's sub-task block or should be dropped — prompt-only until then.
+     2026-08-26: that build is `warms-mobile` (a Worms-1995-style mobile web game) at
+     /media/jay/D/cursor/tossinapp/warms-mobile — bootstrapped, 15 sub-tasks decomposed up front
+     in its own wiki/PROJECT_BACKGROUND.md, --bootstrap-check EXIT=0. This repo is in
+     maintenance mode from here: reopen it only for a harness defect that real use actually
+     surfaces, one defect at a time — not for another refinement round.
      Round 32's
      own open items (#4/12, #6/38, #47, #50 — see table below) are UNCHANGED by round 37 (out of
      scope). Round 35's undocumented-handoff gap (still open, see rule-archive.md "Round 36" closing
