@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 36 complete (2026-08-25)
+# SESSION PRIMER — round 37 complete (2026-08-26)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
@@ -12,31 +12,34 @@ to a local LLM with a hard context ceiling (RTX 3080 10GB, physically **shared w
 production system "Hermes"** — see Hard constraints). `.kilo/plugins/subtask-gate.ts` is the
 payoff: a real `tool.execute.before` mechanical brake. `scripts/subtask-report.sh` (layer 1,
 tool-only) + `scripts/subtask-review-llm.sh` (layer 2, local-model diff review, report-only) are
-the sub-task-close verification. Round 32 closed the project out; rounds 33-36 were each narrow,
+the sub-task-close verification. Round 32 closed the project out; rounds 33-37 were each narrow,
 fully-specified reopenings (Opus/Jay work orders, not new audit rounds) — everything below is the
-true current state after round 36, not an in-progress snapshot. No new round planned unless Jay
-reopens again.
+true current state after round 37, not an in-progress snapshot. Opus's own HANDOFF.md (round 37's
+work order) framed closing criteria as "items 1/2/3 closed + one real project built end-to-end
+with this harness" — items 1/2/3 are now closed (below); the end-to-end real-project build is
+still open, next.
 
 ## Current sub-task
 
 ```
-시작: round 34's closed-out state. (Note: round 35's own commits — secret scan moved to
-     pre-commit, subtask-report.sh gaps 3/4 fixed, this file compressed — landed in git
-     (18071a1..a9bba1c) but never got their own "Round 35" rule-archive.md write-up or a
-     SESSION_PRIMER/session-log handoff. Round 36 did not backfill that gap — see rule-archive.md
-     "Round 36" closing note and session-log.md's row for this round.)
-완료: round 36 (layer 2 — scripts/subtask-review-llm.sh, a fresh/context-free local-model call
-     that reads the sub-task's diff and flags concrete issues layer 1 structurally can't, report-
-     only, tagged [layer2/local-llm, unverified], never blends with layer 1's tool findings.
-     scripts/lib/subtask-range.sh extracted so both layers share one boundary definition.
-     scripts/post-commit-subtask-report now fires both. Live-verified against the real local
-     model, not simulated — planted a flipped-comparison bug, model cited the exact file+line;
-     clean diff correctly returned zero findings). Full detail: wiki/rule-archive.md "Round 36" —
-     not re-narrated here per this file's own "current-state only" role (see banner).
+시작: round 36's closed-out state, Opus's round 37 HANDOFF.md work order (items 1/2/3).
+완료: item 1 — check_bootstrap_hook_installed() now diffs the installed hook against its source
+     script, not just -x existence (catches exactly the drift round 36 found live: a stale
+     pre-commit hook missing check-secrets.sh). item 2 — layer 2 detection rate measured at
+     n=16 (was n=2): 11/16 (68.75%) hit on single-line semantic/logic defects, 11/14 (78.6%)
+     excluding 2 cases confounded by the prompt's own "don't invent unseen context" rule;
+     verdict: no policy change, still report-only. item 3 — re-measured round 35's own +62-line
+     growth: mostly a report→block relocation of the secret scanner (net wash), not padding;
+     scanned all 25 check_* functions for a low-value candidate to cut, found none, no deletion
+     proposed. Full detail: wiki/rule-archive.md "Round 37" — not re-narrated here per this
+     file's own "current-state only" role (see banner).
 막힘: none.
-다음: none planned by this round. Round 32's own open items (#4/12, #6/38, #47, #50 — see table
-     below) are UNCHANGED by round 36 (out of scope). Round 35's undocumented-handoff gap (above)
-     is still open if a future session wants to close it.
+다음: Opus's own suggested close-out condition — build one real project end-to-end with this
+     harness (item 4/aider-polyglot-full-6-language and item 5/layer-2-slot-contention are
+     explicitly optional per HANDOFF.md section 4, not required for that condition). Round 32's
+     own open items (#4/12, #6/38, #47, #50 — see table below) are UNCHANGED by round 37 (out of
+     scope). Round 35's undocumented-handoff gap (still open, see rule-archive.md "Round 36" closing
+     note) is unrelated to round 37 and still open if a future session wants to close it.
 ```
 
 ## Final state — every FEEDBACK row (`FEEDBACK_PENDING.md`)
@@ -91,6 +94,8 @@ content). Round 34 made no change to any row above.
   crossed** — PRUNE proactively (self-harness.md step 4), move old sections to `-archive.md`.
 - **`scripts/check-secrets.sh` hard-blocks a commit with a possible secret staged** (round 35
   item 1) — bypass `SKIP_SECRET_CHECK=1` (always logged, never silent).
+- **`--bootstrap-check` now also fails on a stale installed hook**, not just a missing one (round
+  37 item 1) — `diff`s `.git/hooks/{pre,post}-commit` against its source script every run.
 - **`scripts/subtask-report.sh`/`scripts/post-commit-subtask-report`** — fires automatically on
   a commit touching this file; every check inside is optional, stated when skipped. Never trust
   the model's own "완료"/"PASS" claim over this report's output.
