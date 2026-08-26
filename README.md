@@ -173,6 +173,17 @@ Then, by hand:
    rather than assuming it works from the docs alone the first time you use this.
 7. First real session: `design` your first real piece of work before touching any code.
 
+**One prompting rule worth keeping.** End every sub-task prompt with an *acceptance line*: what
+you will open, click, or run yourself, and what you should see if it worked (`open index.html,
+click an empty cell, a square appears`). The sub-task report already closes with a "needs a human
+call" section, but that section only lists what the *tools* could not decide — it cannot tell you
+what "working" looks like for this particular step, so without that line a step can pass every
+check and still be wrong. Write it at `design` time, not after the model reports done: a failed
+acceptance check handed back as plain text is the one repair loop this project has actually
+measured (give the model the failing output and it fixes itself — 3 of 9 Aider passes came from
+exactly that retry). Do not have the local model invent the line from the diff; that is the
+39% autonomous-design band, not the 90% specified-step band.
+
 ## Preconditions
 
 - Must be a git repository — "commit every sub-task" underpins the whole protocol.
