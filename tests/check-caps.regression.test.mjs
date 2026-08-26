@@ -203,6 +203,50 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // --- Round 37 item 1: installed hook staleness ---
+  // Round 36's live session hit this for real: the pre-commit hook installed at bootstrap time
+  // predated scripts/pre-commit-check-caps growing a check-secrets.sh call, so the secret scan
+  // silently never ran despite SESSION_PRIMER.md claiming it did -- check_bootstrap_hook_installed
+  // only checked -x existence, never content. Reproduces that exact shape: install a hook, then
+  // mutate the source script the way a real feature addition would, and confirm the now-stale
+  // installed copy is caught.
+  {
+    const dir = mkdtempSync(join(tmpdir(), "checkcaps-regress-stalehook-"))
+    execFileSync("git", ["init", "-q"], { cwd: dir })
+    execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-q", "-m", "bootstrap: soulmate-4 harness"], { cwd: dir })
+    mkdirSync(join(dir, "scripts"), { recursive: true })
+    copyFileSync(join(REPO_ROOT, "scripts", "check-caps.sh"), join(dir, "scripts", "check-caps.sh"))
+    copyFileSync(join(REPO_ROOT, "scripts", "pre-commit-check-caps"), join(dir, "scripts", "pre-commit-check-caps"))
+    mkdirSync(join(dir, ".git", "hooks"), { recursive: true })
+    const hookPath = join(dir, ".git", "hooks", "pre-commit")
+    copyFileSync(join(REPO_ROOT, "scripts", "pre-commit-check-caps"), hookPath)
+    chmodSync(hookPath, 0o755)
+
+    let { output } = run(dir, ["--bootstrap-check"])
+    expectContains("T-stalehook-a freshly installed, matches source -> ok", output,
+      "ok: bootstrap — pre-commit hook installed (.git/hooks/pre-commit)")
+
+    // Simulate what actually happened live: the source script gains a line (e.g. a new
+    // check-secrets.sh call) after the hook copy was already made.
+    writeFileSync(join(dir, "scripts", "pre-commit-check-caps"),
+      readFileSync(join(dir, "scripts", "pre-commit-check-caps"), "utf8") + "\n# round 37: new line the installed hook never got\n")
+    ;({ output } = run(dir, ["--bootstrap-check"]))
+    expectContains("T-stalehook-b source script edited after install -> BOOTSTRAP FAIL, specific message", output,
+      "BOOTSTRAP FAIL: .git/hooks/pre-commit is installed but stale (its content no longer matches scripts/pre-commit-check-caps)")
+    expectNotContains("T-stalehook-c stale-but-present is a different failure than missing entirely", output,
+      "BOOTSTRAP FAIL: .git/hooks/pre-commit missing or not executable")
+
+    // Re-copying (what the fix message tells you to run) clears it -- negative case proving this
+    // doesn't false-positive forever once you've actually fixed it.
+    copyFileSync(join(dir, "scripts", "pre-commit-check-caps"), hookPath)
+    chmodSync(hookPath, 0o755)
+    ;({ output } = run(dir, ["--bootstrap-check"]))
+    expectContains("T-stalehook-d re-copied source over the stale hook -> ok again", output,
+      "ok: bootstrap — pre-commit hook installed (.git/hooks/pre-commit)")
+
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   // --- Round 33 item 1: rule-archive.md / SESSION_MASTER.md WATCH -> hard cap ---
   // The finding that motivated this: soft WATCH was obeyed 0% of the time (rule-archive.md grew
   // 408->1153 lines across 4 rounds with a WATCH firing on every single commit). Proves the new

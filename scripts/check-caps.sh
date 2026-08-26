@@ -463,12 +463,23 @@ check_bootstrap_hook_installed() {
   if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
     return
   fi
-  if [ -x ".git/hooks/$hook" ]; then
-    echo "ok: bootstrap — $hook hook installed (.git/hooks/$hook)"
-  else
+  if [ ! -x ".git/hooks/$hook" ]; then
     echo "BOOTSTRAP FAIL: .git/hooks/$hook missing or not executable — $what_it_protects scripts/bootstrap.sh installs this automatically; if you bootstrapped manually, run: cp $src_script .git/hooks/$hook && chmod +x .git/hooks/$hook"
     status=1
+    return
   fi
+  # Round 37 item 1: existence alone isn't enough -- .git/hooks/$hook is a byte-for-byte copy
+  # made once by scripts/bootstrap.sh (or by hand), so a later edit to $src_script (e.g. adding
+  # check-secrets.sh) never reaches an already-installed hook. Found live: the pre-commit hook
+  # installed at project bootstrap predated check-secrets.sh being added to
+  # scripts/pre-commit-check-caps, so the secret scan silently never ran despite
+  # SESSION_PRIMER.md claiming it did.
+  if [ -f "$src_script" ] && ! diff -q ".git/hooks/$hook" "$src_script" >/dev/null 2>&1; then
+    echo "BOOTSTRAP FAIL: .git/hooks/$hook is installed but stale (its content no longer matches $src_script) — $what_it_protects re-run: cp $src_script .git/hooks/$hook && chmod +x .git/hooks/$hook"
+    status=1
+    return
+  fi
+  echo "ok: bootstrap — $hook hook installed (.git/hooks/$hook)"
 }
 
 # Advisory only (never sets status=1 — must not block per-file commits mid-sub-task, which
