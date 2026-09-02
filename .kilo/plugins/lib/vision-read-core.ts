@@ -81,11 +81,20 @@ export async function visionReadCore(
       // paragraphs on a real screenshot (not the synthetic swatches used in this repo's own
       // tests) -- repeat_penalty alone (still temperature 0, so still deterministic) stopped the
       // loop in the same live test; raising temperature was tried first and only added answer
-      // variance without being needed to fix the loop, so it stays at 0. Still measured to
-      // hallucinate specific content (a fabricated game title) on that same screenshot -- this is
-      // the resident 4B checkpoint's real scene-understanding ceiling, not a decoding artifact
-      // this tool can fix. Treat vision_read's answers as a starting read, not ground truth, for
-      // content this small a model wasn't confident about.
+      // variance without being needed to fix the loop, so it stays at 0.
+      //
+      // Round 43: the resident checkpoint was swapped 4B -> 8B after round 42's own live use
+      // (real Hermes machine, kilo.db session ses_f9db4cd0cffeKdsrXfO3Apxo9B) measured the 4B
+      // hallucinating a different fabricated game title on every single call against a real
+      // screenshot -- 8B correctly read actual in-image text (a Japanese save-dialog string) and
+      // named the real game where 4B invented one, but STILL hallucinates a plausible-sounding
+      // wrong game when no title text is visible in frame at all (a second real screenshot,
+      // same session). That second case isn't a bug this tool can fix: identifying an obscure,
+      // undocumented game from visual style alone with no legible identifying text is outside
+      // what any locally-hosted model this size can be expected to know -- it never had it in
+      // training data. Treat vision_read's answers as reliable for what's actually legible in the
+      // image (text, numbers, UI labels) and unreliable for open-ended "what is this" guesses
+      // when nothing in frame names it.
       temperature: 0,
       repeat_penalty: 1.15,
       max_tokens: 512,
