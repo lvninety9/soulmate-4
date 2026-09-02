@@ -53,7 +53,17 @@ export async function visionReadCore(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: modelID,
+      // temperature 0 (pure greedy) with no repeat_penalty was measured to loop into repeated
+      // paragraphs on a real screenshot (not the synthetic swatches used in this repo's own
+      // tests) -- repeat_penalty alone (still temperature 0, so still deterministic) stopped the
+      // loop in the same live test; raising temperature was tried first and only added answer
+      // variance without being needed to fix the loop, so it stays at 0. Still measured to
+      // hallucinate specific content (a fabricated game title) on that same screenshot -- this is
+      // the resident 4B checkpoint's real scene-understanding ceiling, not a decoding artifact
+      // this tool can fix. Treat vision_read's answers as a starting read, not ground truth, for
+      // content this small a model wasn't confident about.
       temperature: 0,
+      repeat_penalty: 1.15,
       max_tokens: 512,
       messages: [
         {
