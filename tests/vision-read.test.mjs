@@ -85,13 +85,15 @@ async function main() {
       console.log(`skip: T4 live vision answer -- no server reachable at ${VISION_BASE_URL} (this is a skip, not a pass)`)
     } else {
       // 200x200 solid red square, generated once and embedded as base64 so this test has no
-      // image-library dependency. NOT arbitrarily sized: a 4x4/8x8/16x16/32x32/64x64 version of
-      // this exact same solid-color image was measured to consistently misread as "흰색" (white)
-      // on the resident 4B model+vision-encoder (patch_size 16, expects ~1024 image tokens per
-      // its own load-time hint) -- too small to carry a real signal through the patch embedding,
-      // not a decoding issue. 200x200 was the smallest size checked that answered correctly, both
-      // as this solid color and as vision-read-core.ts's own real-screenshot smoke test. Treat any
-      // image under roughly 200px as unreliable input to this tool, not just a test-sizing detail.
+      // image-library dependency. Chosen size has history, not arbitrary: on the round-40/41
+      // resident 4B checkpoint, a 4x4/8x8/16x16/32x32/64x64 version of this exact solid color
+      // consistently misread as "흰색" (white) -- 200x200 was the smallest size that answered
+      // correctly there. Round 43 (after the resident checkpoint moved to 8B): re-measured the
+      // same 4x4..64x64 sizes and all answered correctly on 8B, so that floor was specific to
+      // the smaller checkpoint's vision encoder, not a property of this tool. Kept at 200x200
+      // anyway -- a real screenshot is never this size, and the point of T4 is a smoke test
+      // against whatever's actually resident, not a size-floor regression check (that claim now
+      // lives as a dated note here, not as a test assertion).
       const REDSQUARE_PNG_B64 =
         "iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAIAAAAiOjnJAAACEUlEQVR4nO3SQQkAIADAQLV/Zy3hEOQuwR6be8B963UAfzIWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTiKPQKPgJNL4wAAAABJRU5ErkJggg=="
       const p = join(dir, "red.png")
