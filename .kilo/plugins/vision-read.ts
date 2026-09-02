@@ -26,12 +26,21 @@
 // Logic lives in lib/vision-read-core.ts (zero dependency on @kilocode/plugin) so
 // tests/vision-read.test.mjs can import it directly without Kilo's own node_modules resolvable —
 // same shape as scripts/lib/subtask-range.sh's precedent. This file is only the thin tool()
-// registration Kilo actually loads.
+// registration Kilo actually loads, plus (round 42) a `tool.execute.before` hook -- the same
+// mechanism subtask-gate.ts already uses for its own blocks, applied here to a different problem:
+// see lib/vision-read-core.ts's imageReadBlockMessage() for why a documentation row alone (round
+// 40's AGENTS.md File map entry) wasn't enough to stop the model reaching for `read` on an image
+// first.
 
 import { tool } from "@kilocode/plugin"
-import { visionReadCore } from "./lib/vision-read-core.ts"
+import { visionReadCore, imageReadBlockMessage } from "./lib/vision-read-core.ts"
 
 export const VisionRead = async (_ctx: any = {}) => ({
+  "tool.execute.before": async (input: any, output: any) => {
+    if (input?.tool !== "read") return
+    const msg = imageReadBlockMessage(output?.args?.filePath)
+    if (msg) throw new Error(msg)
+  },
   tool: {
     vision_read: tool({
       description:
