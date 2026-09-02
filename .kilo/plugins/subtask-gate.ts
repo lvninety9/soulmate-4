@@ -380,6 +380,30 @@ const BLOCK_MESSAGE_COMMIT =
   "sub-task. Per AGENTS.md, STOP now: do not start the next sub-task or run any further tool " +
   "call. Summarize what was just done and ask the user whether to continue."
 
+// Round 44 (live, warms-mobile ses_f9d4e1792ffeIM9vhmzmTIXpoJ, 09-03 00:30:33-00:33:31): the
+// primer block fired six times inside one turn with a byte-identical message, and the transcript
+// shows the model never understood it had been refused — at 00:33:22 it concluded "게이트가 매번
+// edit를 커밋으로 인식하는 것 같습니다. 이미 커밋된 상태라 에디트가 실패하고 있습니다", i.e. it
+// read the block as the *edit* failing because the file was already committed, and retried.
+//
+// That misreading is earned, not defiance: BLOCK_MESSAGE_COMMIT says the primer "was just
+// committed", which was true at attempt 1 and six minutes plus an entire user turn stale by
+// attempt 6, and it never states that the refused call did not execute. This suffix corrects
+// both facts. It is deliberately NOT a re-persuasion of the same claim (this project's 0/2
+// wording-rewrite record is about writing the same instruction more forcefully); it is the same
+// species as round 43's stale tool-description claims — a message asserting something no longer
+// true, with the model's mis-derivation captured live.
+//
+// Report-only by construction: nothing new is blocked and nothing already blocked is released.
+// The first block of a turn keeps its exact wording (six existing assertions regex it).
+const BLOCK_REPEAT_SUFFIX = (attempt: number) =>
+  ` [repeat] This is blocked attempt ${attempt} in this same turn and it did NOT execute — ` +
+  "nothing was written, nothing ran. This is not the edit or the command itself failing: the " +
+  "call was refused by the gate before it started, because of a commit that landed earlier, and " +
+  "nothing about the repo has changed since the first attempt. Retrying will produce this exact " +
+  "error again every time. Stop calling tools now — reply with a 2-3 line summary of what was " +
+  "already done and wait for the user."
+
 const BLOCK_MESSAGE_ELECTIVE = (n: number) =>
   `[subtask-gate] ${n} commits have landed without any of them touching ` +
   "wiki/handoffs/SESSION_PRIMER.md — a sub-task boundary was never marked, but this many " +
@@ -610,14 +634,23 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
         const preapprovedSha = state.boundaryAtSessionStart[sessionID]
         const cleared = state.acknowledged.includes(boundary.sha) || preapprovedSha === boundary.sha
         if (!cleared) {
+          // Round 44: both signals below are already per-turn, so this adds no state at all.
+          // `lastBlockedSha[sessionID]` is written here and deleted unconditionally by the next
+          // chat.message, so finding it ALREADY equal to this boundary means "this same boundary
+          // already blocked earlier in this same un-acknowledged stretch" — i.e. a retry.
+          // `blockedCallsThisTurn[sessionID]` is likewise emptied every chat.message, so its
+          // length is a truthful count of refusals so far in this turn (all arms, which is what
+          // the wording claims — it does not claim they were all this boundary).
+          const repeatForSameBoundary = state.lastBlockedSha[sessionID] === boundary.sha
+          const attempt = (state.blockedCallsThisTurn[sessionID]?.length ?? 0) + 1
           state.lastBlockedSha[sessionID] = boundary.sha
           recordBlockedCall(state, sessionID, tool, output)
           saveState(state)
-          throw new Error(
+          const base =
             boundary.reason === "primer"
               ? BLOCK_MESSAGE_COMMIT
               : BLOCK_MESSAGE_ELECTIVE(boundary.commitsSincePrimer)
-          )
+          throw new Error(repeatForSameBoundary ? base + BLOCK_REPEAT_SUFFIX(attempt) : base)
         }
       }
     }
