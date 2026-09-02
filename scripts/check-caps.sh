@@ -152,13 +152,39 @@ check_lines_warn() {
   fi
 }
 
+# Round 39: `wc -m` counts CHARACTERS only in a UTF-8 locale; under the POSIX/C locale it counts
+# BYTES, and the two answers differ by ~2.5x on Korean text (a Hangul syllable is 3 bytes). Every
+# cap in this file is a character cap, so the same unchanged file measures differently depending
+# on which shell the commit came from — measured on this repo: required-read 8,370 chars in the
+# desktop session's ko_KR.UTF-8 vs 10,900 under `env -i` (what a cron/ssh-without-login-env
+# invocation actually gets), and wiki/PROJECT_BACKGROUND.md 2,535 vs 4,204, a 66% inflation. That
+# is enough to hard-block a commit purely on where it was typed, and it makes HANDOFF.md's
+# "reproduce the start state" numbers unreproducible across contexts — the exact class of
+# doc-vs-actual mismatch this script exists to prevent. 37 rounds never varied this axis because
+# every trial ran in one interactive desktop shell.
+#
+# Pin the counting locale instead of inheriting it, so the number is a property of the file and
+# nothing else. C.utf8 is the byte-for-byte-portable UTF-8 locale (present here; en_US.utf8 is
+# the fallback). If neither exists we fall back to the inherited locale rather than failing the
+# whole check — a possibly-inflated count still blocks conservatively, it never under-reports.
+if locale -a 2>/dev/null | grep -qx 'C.utf8'; then
+  CHARCOUNT_LOCALE="C.utf8"
+elif locale -a 2>/dev/null | grep -qx 'en_US.utf8'; then
+  CHARCOUNT_LOCALE="en_US.utf8"
+else
+  CHARCOUNT_LOCALE="${LC_ALL:-${LANG:-C}}"
+fi
+count_chars() {
+  LC_ALL="$CHARCOUNT_LOCALE" wc -m < "$1" | tr -d ' '
+}
+
 check_chars() {
   local file="$1" cap="$2" label="$3"
   if [ ! -f "$file" ]; then
     return 0
   fi
   local chars
-  chars=$(wc -m < "$file" | tr -d ' ')
+  chars=$(count_chars "$file")
   if [ "$chars" -gt "$cap" ]; then
     echo "OVER CAP: $label char count ($file) is $chars chars, cap $cap — a low line/row count" \
          "can hide a runaway character total (a few bloated lines or table cells); prune the" \
@@ -178,7 +204,7 @@ check_required_read_total() {
   local files=("$@") total=0 f chars
   for f in "${files[@]}"; do
     if [ -f "$f" ]; then
-      chars=$(wc -m < "$f" | tr -d ' ')
+      chars=$(count_chars "$f")
       total=$((total + chars))
     fi
   done
