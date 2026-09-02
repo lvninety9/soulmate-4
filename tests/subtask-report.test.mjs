@@ -400,5 +400,85 @@ process.exitCode = 1
   rmSync(dir, { recursive: true, force: true })
 }
 
+// T20 (round 46): a `progress:` commit message that NAMES a file the commit does not contain.
+// This is the report's founding premise -- never trust what the model says it did -- applied to
+// the last place it was still taking the model's word. Live origin: warms-mobile b462450, subject
+// "progress: [sub-task 2] — TurnManager.ts, SESSION_PRIMER.md", diffstat TurnManager.ts only. The
+// unstaged primer is what manufactured round 46's entire incident (no primer touch -> no sub-task
+// boundary -> commits pile up -> elective arm fires -> the remedy has to be a standalone
+// primer-only commit, which arms a fresh primer boundary mid-turn).
+//
+// T20c/T20d/T20e are the load-bearing NEGATIVES: measured on 321 real commits, an unscoped
+// version of this check flags 12.6% of the template's history, every one of them a subject naming
+// a topic rather than a manifest. The check must apply ONLY to build.md step 3's own mandated
+// `progress: [sub-task] — [file]` format.
+{
+  // T20a: the exact live shape.
+  const dir = freshRepo()
+  mkdirSync(join(dir, "src"), { recursive: true })
+  mkdirSync(join(dir, "wiki", "handoffs"), { recursive: true })
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "before\n")
+  commitAll(dir, "seed")
+  writeFileSync(join(dir, "src", "TurnManager.ts"), "export const x = 1\n")
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "after — but never staged\n")
+  git(dir, ["add", "src/TurnManager.ts"])          // the primer is edited but NOT staged
+  git(dir, ["commit", "-q", "-m", "progress: [sub-task 2] — TurnManager.ts, SESSION_PRIMER.md"])
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectContains("T20a a named-but-unstaged file is reported", output, "SESSION_PRIMER.md but that file is not in the commit")
+  expectContains("T20a the finding lands in the human-attention section", output, "## 확인이 필요한 것")
+  expectNotContains("T20a the file that WAS committed is not reported missing", output, "TurnManager.ts but that file is not in the commit")
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T20b (negative): same subject, both files actually staged -- the correct build.md shape.
+  const dir = freshRepo()
+  mkdirSync(join(dir, "src"), { recursive: true })
+  mkdirSync(join(dir, "wiki", "handoffs"), { recursive: true })
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "before\n")
+  commitAll(dir, "seed")
+  writeFileSync(join(dir, "src", "TurnManager.ts"), "export const x = 1\n")
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "after\n")
+  commitAll(dir, "progress: [sub-task 2] — TurnManager.ts, SESSION_PRIMER.md")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T20b a correctly-staged progress commit is not reported", output, "but that file is not in the commit")
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T20c (negative, SCOPE): a non-`progress:` subject naming a topic file it does not touch --
+  // the 12.6% false-positive class measured on the template's own history.
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "1\n")
+  commitAll(dir, "seed")
+  writeFileSync(join(dir, "a.txt"), "2\n")
+  commitAll(dir, "test: regression net for subtask-report.sh — covers scripts/check-caps.sh too")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T20c a topic-naming non-progress subject is out of scope", output, "but that file is not in the commit")
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T20d (negative, SCOPE): a `progress:` subject with no em/en dash has no file-list slot.
+  const dir = freshRepo()
+  writeFileSync(join(dir, "a.txt"), "1\n")
+  commitAll(dir, "seed")
+  writeFileSync(join(dir, "a.txt"), "2\n")
+  commitAll(dir, "progress: wire up Physics.ts and SESSION_PRIMER.md handling")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T20d a progress subject with no dash separator is out of scope", output, "but that file is not in the commit")
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T20e (negative): a full path in the slot must match the committed path, not be flagged just
+  // because the slot spells it with directories while git reports the same file.
+  const dir = freshRepo()
+  mkdirSync(join(dir, "src", "systems"), { recursive: true })
+  writeFileSync(join(dir, "a.txt"), "1\n")
+  commitAll(dir, "seed")
+  writeFileSync(join(dir, "src", "systems", "Physics.ts"), "export const g = 9.8\n")
+  commitAll(dir, "progress: [sub-task 3] — src/systems/Physics.ts")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T20e a full path that was committed is not reported missing", output, "but that file is not in the commit")
+  rmSync(dir, { recursive: true, force: true })
+}
+
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)
