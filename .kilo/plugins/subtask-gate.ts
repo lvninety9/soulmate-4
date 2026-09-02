@@ -78,6 +78,23 @@
 // carryover warning, no measured improvement). Whether the model actually *heeds* the notice on a
 // live turn is unverified by this round — see wiki/rule-archive.md.
 //
+// Round 39 (the first round opened by real use rather than a blind audit — soulmate-4 went to
+// maintenance mode on 2026-08-26 with "open a round only when a real defect shows up in real
+// use"; this is that): the user reported the harness "structurally only ever allows the next
+// sub-task in sequence and flatly refuses to listen to me." Reproduced from his own live Kilo
+// transcript, not from reading this file — kilo.db session ses_fc421bb0fffe5FU22DG4dgcc00. Two
+// mechanisms, both in chat.message, neither the protocol-read gate (0 of that gate's 78 blocks
+// database-wide were ever in a real project session):
+//   (1) looksAmbiguous()'s anchors are ASCII-punctuation-only and fired on 12 of his 15 real
+//       messages, telling the model to stop and ask questions instead of acting on explicit
+//       instructions. Fixed by scoping the heuristic out of scripts it was never calibrated on.
+//   (2) round 28's fresh-session boundary courtesy assumed one-sub-task-one-session; he runs one
+//       session for days, so it expired permanently and a boundary could then only be cleared by
+//       first spending a visibly-failed tool call. Fixed by re-anchoring the courtesy to "a whole
+//       turn ended without HEAD moving, and a real user message arrived" — which #41's shape can
+//       never satisfy. See both call sites for the measurements and the #41 argument.
+// The primer block itself is NOT relaxed: closing a sub-task still stops the very next call.
+//
 // State is persisted to .subtask-gate-state.json, next to this file. Bun/Node's sync fs/exec
 // calls are fine here: state is a few bytes, one user, no meaningful concurrency to race
 // against.
@@ -392,6 +409,41 @@ const BLOCK_MESSAGE_GIT_ERROR = (command: string) =>
 // solved. "Concrete anchor" = backtick-quoted code, a file-extension-like token, or a quoted
 // string; a message with none of those and more than a greeting's worth of text gets nudged.
 const AMBIGUITY_ANCHOR_PATTERN = /`[^`]+`|\.\w{1,5}\b|"[^"]+"|'[^']+'/
+
+// Round 39 (real-usage maintenance round, opened from warms-mobile — not a new design round):
+// every anchor above is an ASCII-punctuation shape (a backticked span, a `.ext`-like token, a
+// quoted string). That premise — "a concrete ask names its target in ASCII code punctuation" —
+// was only ever exercised against the English trial prompts of rounds 7-8. Replayed against this
+// project's own real production transcript (kilo.db, session ses_fc421bb0fffe5FU22DG4dgcc00,
+// 2026-08-26..29, the only warms-mobile session in the database; its 15 genuine user messages fed
+// through this exact function): **12/15 nudged**, including "좋습니다. 빌드 진행하세요."
+// ("good, go ahead and build") and "내 말을 듣고 있어요? 시스템 구조 확인하라고 했습니다."
+// ("are you listening to me? I told you to check the system structure"). Korean directive prose
+// carries none of these anchors, so essentially every plain-language instruction the user gives
+// is classified as "names no specific file, function, or concrete target" and answered with
+// NUDGE_MESSAGE_POSSIBLY_AMBIGUOUS — whose round-8 rewrite deliberately removed any self-granted
+// opt-out ("STOP before doing anything else... Do not assume an interpretation and proceed").
+// The live trace shows the cost: 08-29 08:55 -> 10:13, the user restated one concrete request
+// three times and got clarifying questions back every time, then wrote "내 말을 듣고 있어요?".
+// This is the mechanism behind his report that the harness refuses to listen to him.
+//
+// The fix is scope, not wording (wording rewrites are 0/2 project-wide): a detector must not fire
+// where it has no signal. Nothing is enumerated — the test is Latin letters vs non-Latin letters
+// via \p{Script=Latin} / \p{L}, so any writing system this heuristic was never calibrated on
+// falls out of scope by construction, the same fail-by-construction shape round 30 used to
+// replace MUTATING_TOOLS' denylist. "Predominantly", not "contains any": a mostly-English message
+// with one foreign word is still judged. Honest cost, stated rather than hidden: a genuinely
+// vague Korean ask is no longer routed to discuss.md by this nudge. Accepted — the nudge never
+// blocked anything, its measured precision on this user's own language is 0/12, and the
+// discuss.md routing still exists in AGENTS.md's protocol table as prose.
+const LATIN_LETTER_PATTERN = /\p{Script=Latin}/gu
+const NON_LATIN_LETTER_PATTERN = /(?!\p{Script=Latin})\p{L}/gu
+function anchorHeuristicApplies(text: string): boolean {
+  const latin = text.match(LATIN_LETTER_PATTERN)?.length ?? 0
+  const nonLatin = text.match(NON_LATIN_LETTER_PATTERN)?.length ?? 0
+  return nonLatin <= latin
+}
+
 function looksAmbiguous(text: string): boolean {
   // live-verified bug (round 7): `kilo run "<message>"` stores the message with a literal
   // wrapping quote pair as part of the text content itself (confirmed via a debug log on the
@@ -403,6 +455,7 @@ function looksAmbiguous(text: string): boolean {
     trimmed = trimmed.slice(1, -1).trim()
   }
   if (trimmed.length < 15) return false // greeting-length messages: not enough signal either way
+  if (!anchorHeuristicApplies(trimmed)) return false // round 39 — out of the anchors' measured domain
   return !AMBIGUITY_ANCHOR_PATTERN.test(trimmed)
 }
 
@@ -685,6 +738,43 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
       turnStartBoundary && "sha" in turnStartBoundary && turnStartBoundary.reason === "elective"
         ? turnStartBoundary.sha
         : ""
+
+    // Round 39 (real-usage maintenance round): round 28's rule (b) courtesy is keyed on a
+    // *session's* first message, on build.md's premise that one sub-task is one fresh session.
+    // Real use disagrees — kilo.db has exactly one warms-mobile session
+    // (ses_fc421bb0fffe5FU22DG4dgcc00) and it ran 2026-08-26 11:20 -> 08-29 10:58 across two
+    // whole sub-tasks and five commits. So in this user's actual workflow the courtesy fires
+    // once, ever, and every resumption after it meets a boundary that no amount of him talking
+    // can clear: `acknowledged` (rule a) requires a block to have already fired for that exact
+    // SHA *before* his message, so an instruction that arrives first is worth nothing. Live
+    // consequence, 08-29 10:21-10:28: six consecutive blocks, four of them `git remote -v`
+    // variants — a read-only diagnostic he had explicitly asked for — then
+    // "제가 어떤 요청을 해도 블락 처리하시는거에요?" ("so whatever I ask, you just block it?").
+    //
+    // Generalize the courtesy from "the session is new" to the fact it was standing in for: HEAD
+    // did not move for the whole turn that just ended, and a genuinely new user message has now
+    // arrived. That means this boundary is not one the model produced in the turn it is trying to
+    // continue past — a completed turn and a real human reply have already passed over it. Reuses
+    // `acknowledged` and the already-tracked `priorHead`; no new state, no new git call.
+    //
+    // Does NOT reopen FEEDBACK #41, and this is the load-bearing part: #41's shape is "primer
+    // commit lands mid-turn, turn ends, next message" — there HEAD moved *during* the turn that
+    // just ended, so priorHead !== the boundary's sha and this exemption cannot apply (T12
+    // asserts exactly that, unchanged; T23b asserts it again inside a long-lived session). Round
+    // 30's acceptance criterion B is intact too: a freshly-crossed primer boundary still blocks
+    // the very next mutating call. The model cannot self-trigger this either — it requires a real
+    // user message (the idle-nudge guard at the top of this hook already excludes the only
+    // message this plugin can author) *and* a turn in which it moved nothing.
+    if (
+      priorHead !== undefined &&
+      turnStartBoundary &&
+      "sha" in turnStartBoundary &&
+      turnStartBoundary.sha === priorHead &&
+      !state.acknowledged.includes(turnStartBoundary.sha)
+    ) {
+      state.acknowledged.unshift(turnStartBoundary.sha)
+      state.acknowledged = state.acknowledged.slice(0, ACKNOWLEDGED_HISTORY_LIMIT)
+    }
 
     // Round 28 (#41 redesign, rule a): this replaces FEEDBACK #3's (round 8) unconditional
     // clear-on-any-message with one anchored to a fact: a block only gets acknowledged if it
