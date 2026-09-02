@@ -70,16 +70,21 @@ async function main() {
     if (!reachable) {
       console.log(`skip: T4 live vision answer -- no server reachable at ${VISION_BASE_URL} (this is a skip, not a pass)`)
     } else {
-      // Minimal real PNG: 4x4 solid red square, generated once and embedded as base64 so this
-      // test has no image-library dependency.
+      // 200x200 solid red square, generated once and embedded as base64 so this test has no
+      // image-library dependency. NOT arbitrarily sized: a 4x4/8x8/16x16/32x32/64x64 version of
+      // this exact same solid-color image was measured to consistently misread as "흰색" (white)
+      // on the resident 4B model+vision-encoder (patch_size 16, expects ~1024 image tokens per
+      // its own load-time hint) -- too small to carry a real signal through the patch embedding,
+      // not a decoding issue. 200x200 was the smallest size checked that answered correctly, both
+      // as this solid color and as vision-read-core.ts's own real-screenshot smoke test. Treat any
+      // image under roughly 200px as unreliable input to this tool, not just a test-sizing detail.
       const REDSQUARE_PNG_B64 =
-        "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGP8z4AATAxEcQAz0QEHOoQ+" +
-        "uAAAAABJRU5ErkJggg=="
+        "iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAIAAAAiOjnJAAACEUlEQVR4nO3SQQkAIADAQLV/Zy3hEOQuwR6be8B963UAfzIWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTAWCWORMBYJY5EwFgljkTiKPQKPgJNL4wAAAABJRU5ErkJggg=="
       const p = join(dir, "red.png")
       writeFileSync(p, Buffer.from(REDSQUARE_PNG_B64, "base64"))
       const out = await visionReadCore(dir, "red.png", "이 이미지의 배경색이 뭐야? 색깔 이름 하나로만 답해줘.")
       console.log(`(live) T4 answer: ${out}`)
-      const okAnswer = ["red", "빨강", "빨간"].some((w) => out.toLowerCase().includes(w))
+      const okAnswer = ["red", "빨강", "빨간", "scarlet", "crimson"].some((w) => out.toLowerCase().includes(w))
       if (okAnswer) {
         console.log("ok: T4 live server names the actual color (red/빨강/빨간)")
       } else {
