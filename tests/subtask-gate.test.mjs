@@ -1018,6 +1018,115 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 24 (round 44, live: warms-mobile session ses_f9d4e1792ffeIM9vhmzmTIXpoJ, 09-03
+  // 00:30:33-00:33:31). The primer block fired SIX times inside one turn with a byte-identical
+  // message and the model never understood it had been refused: at 00:33:22 it wrote
+  // "게이트가 매번 edit를 커밋으로 인식하는 것 같습니다. 이미 커밋된 상태라 에디트가 실패하고
+  // 있습니다" — i.e. it read the block as the *edit* failing because the file was already
+  // committed, and kept retrying. T9b already proves a same-turn retry stays BLOCKED; nothing
+  // proved anything about what the retry is TOLD, and the identical text is what earned the
+  // misreading ("was just committed" was true at attempt 1 and six minutes plus a whole user
+  // turn stale by attempt 6, and the message never says the call did not execute).
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    async function assertBlockMessage(label, want, unwanted, fn) {
+      try {
+        await fn()
+        console.log(`FAIL: ${label} — expected throw, none happened`)
+        failures++
+      } catch (e) {
+        const msg = String(e.message || e)
+        if (!want.test(msg)) {
+          console.log(`FAIL: ${label} — message missing ${want}: ${msg}`)
+          failures++
+        } else if (unwanted && unwanted.test(msg)) {
+          console.log(`FAIL: ${label} — message unexpectedly matched ${unwanted}: ${msg}`)
+          failures++
+        } else {
+          console.log(`ok: ${label}`)
+        }
+      }
+    }
+    // Same shape as T9: satisfy L09 first, never call chat.message, so the fresh-session
+    // courtesy (boundaryAtSessionStart) is undefined and only the primer arm is under test.
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s24" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+
+    await assertBlockMessage(
+      "T24a first block of the turn — unchanged wording, no repeat notice",
+      /SESSION_PRIMER\.md was just committed/,
+      /\[repeat\]/,
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "edit", sessionID: "s24" },
+          { args: { filePath: join(dir, "wiki", "handoffs", "SESSION_PRIMER.md") } }
+        )
+      }
+    )
+    await assertBlockMessage(
+      "T24b verbatim retry, same turn — told it is attempt 2 and that the call did NOT execute",
+      /\[repeat\] This is blocked attempt 2 in this same turn and it did NOT execute/,
+      null,
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "edit", sessionID: "s24" },
+          { args: { filePath: join(dir, "wiki", "handoffs", "SESSION_PRIMER.md") } }
+        )
+      }
+    )
+    // The live misreading was specifically "the edit is failing because the file is already
+    // committed" — the repeat notice has to deny that reading explicitly, not just scold louder.
+    await assertBlockMessage(
+      "T24c a DIFFERENT mutating call, same turn — attempt 3, and the notice denies the 'the call itself failed' reading",
+      /blocked attempt 3 in this same turn[\s\S]*refused by the gate before it started/,
+      null,
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "bash", sessionID: "s24" },
+          { args: { command: "git status" } }
+        )
+      }
+    )
+    // A real new user message ends the turn: it acknowledges this boundary AND resets the
+    // per-turn counter. The next boundary must start over at the plain first-block wording —
+    // otherwise the notice would leak across turns and start lying about the attempt number.
+    await hooks["chat.message"](
+      { sessionID: "s24" },
+      { message: { id: "m1" }, parts: [{ type: "text", text: "프롬프트 제공하세요. 새 세션에서 이어서 진행하게." }] }
+    )
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated twice\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer2", { cwd: dir })
+    await assertBlockMessage(
+      "T24d new turn, new boundary — counter reset, plain first-block wording again",
+      /SESSION_PRIMER\.md was just committed/,
+      /\[repeat\]/,
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s24" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
+    await assertBlockMessage(
+      "T24e ...and the repeat notice re-arms for the new boundary",
+      /\[repeat\] This is blocked attempt 2 in this same turn/,
+      null,
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "write", sessionID: "s24" },
+          { args: { filePath: join(dir, "foo.py") } }
+        )
+      }
+    )
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
