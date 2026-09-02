@@ -717,6 +717,26 @@ check_stale_language() {
   local patterns=(
     "hasn't yet been" "has not yet been" "not yet verified"
     "hasn't been independently verified" "unpatched" "still unpatched"
+    # Round 39: the six phrases above are English, and rounds 13-28 poured their entire effort
+    # into the SCANNER (awk region handling, HTML-comment pairing, backtick spans, fence parity,
+    # archive exemptions, a 42-assertion fuzz suite) while never once varying the VOCABULARY.
+    # Measured: this repo's own docs — SESSION_PRIMER.md, PROJECT_BACKGROUND.md,
+    # FEEDBACK_PENDING.md, session-log.md — are written in Korean, and all six phrases score 0
+    # hits across all three live deployments. The sweep was reporting "ok: no possibly-stale
+    # mechanism-state claims" vacuously: not because the docs were clean, but because the check
+    # could not read them. This is the same species as the round 39 ambiguity-anchor finding, in
+    # the opposite direction — there a detector fired where it had no signal, here one stayed
+    # silent where it had no vocabulary.
+    #
+    # The phrase this check exists for is HANDOFF.md 3-2's real incident: a doc asserting a
+    # mechanism was live when the installed hook was old. The Korean phrases below are the direct
+    # equivalents of the English six and are deliberately kept just as narrow — this is a HARD
+    # block, and round 13's own comment warns that a false positive here lands on Jay's routine
+    # edits. Each was measured at 0 current hits across warms-mobile, the soulmate-4 template
+    # (263 commits) and toss-in-app-mario-kart before being added, so adding them blocks nothing
+    # that exists today. Note "아직 없음"/"아직 시작 전" (table placeholders this repo really does
+    # use) deliberately do NOT match any of them.
+    "미검증" "아직 검증" "검증되지 않" "미반영" "아직 반영" "아직 확인"
   )
   # Files whose entire purpose is to narrate what used to be true (this repo's own 4-tier doc
   # role separation, see AGENTS.md) — a stale-sounding phrase describing a past round here is
