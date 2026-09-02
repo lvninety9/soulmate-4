@@ -9,7 +9,7 @@ import { writeFileSync, mkdtempSync, rmSync } from "fs"
 import { tmpdir } from "os"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
-import { visionReadCore, residentModelID, VISION_BASE_URL } from "../.kilo/plugins/lib/vision-read-core.ts"
+import { visionReadCore, residentModelID, VISION_BASE_URL, imageReadBlockMessage } from "../.kilo/plugins/lib/vision-read-core.ts"
 
 let failures = 0
 function expectEquals(label, actual, want) {
@@ -31,6 +31,20 @@ function expectContains(label, actual, needle) {
 
 async function main() {
   const dir = mkdtempSync(join(tmpdir(), "vread-"))
+
+  // --- T0 (round 42): imageReadBlockMessage, the check behind vision-read.ts's
+  // tool.execute.before block on `read` reaching an image first ---
+  {
+    const msg = imageReadBlockMessage("/some/path/screenshot.png")
+    expectContains("T0a image path blocked, names the file", msg, "screenshot.png")
+    expectContains("T0b block message points at vision_read", msg, "vision_read")
+  }
+  {
+    expectEquals("T0c non-image path is not blocked (null, not a message)", imageReadBlockMessage("/some/path/main.js"), null)
+  }
+  {
+    expectEquals("T0d undefined path is not blocked", imageReadBlockMessage(undefined), null)
+  }
 
   // --- T1: missing file ---
   {
