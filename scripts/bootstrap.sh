@@ -49,8 +49,14 @@ if [ -d "$TARGET/.git" ]; then
   exit 1
 fi
 
-mkdir -p "$TARGET/.kilo/plugins" "$TARGET/wiki/handoffs" "$TARGET/wiki/protocols"
+mkdir -p "$TARGET/.kilo/plugins/lib" "$TARGET/wiki/handoffs" "$TARGET/wiki/protocols"
 cp "$SELF_DIR/.kilo/plugins/subtask-gate.ts" "$TARGET/.kilo/plugins/subtask-gate.ts"
+# round 40: the vision bridge tool -- lets the (non-multimodal) coding session call the resident
+# local vision model as a tool instead of attaching an image to the chat directly, which either
+# the provider can't interpret or (live-reproduced) opencode's own size-limit guard silently
+# strips. See .kilo/plugins/vision-read.ts's own header for the full incident.
+cp "$SELF_DIR/.kilo/plugins/vision-read.ts" "$TARGET/.kilo/plugins/vision-read.ts"
+cp "$SELF_DIR/.kilo/plugins/lib/vision-read-core.ts" "$TARGET/.kilo/plugins/lib/vision-read-core.ts"
 cp -r "$SELF_DIR/scripts" "$TARGET/"
 # round 6: the plugin's own test file, so a fresh project inherits a real, deterministic
 # regression check for the exact plugin file it just got — not just prose claims about it.
@@ -65,6 +71,12 @@ fi
 if [ -f "$SELF_DIR/tests/stale-language.fuzz.test.mjs" ]; then
   mkdir -p "$TARGET/tests"
   cp "$SELF_DIR/tests/stale-language.fuzz.test.mjs" "$TARGET/tests/"
+fi
+# round 40: same rationale -- a fresh project inherits vision-read-core.ts's own regression test,
+# not just the tool with no net under it.
+if [ -f "$SELF_DIR/tests/vision-read.test.mjs" ]; then
+  mkdir -p "$TARGET/tests"
+  cp "$SELF_DIR/tests/vision-read.test.mjs" "$TARGET/tests/"
 fi
 cp "$SELF_DIR/wiki/protocols/"*.md "$TARGET/wiki/protocols/"
 cp "$SELF_DIR/templates/AGENTS.md.template" "$TARGET/AGENTS.md"
