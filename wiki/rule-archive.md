@@ -398,3 +398,53 @@ burned a second refusal. It now announces it on round 27's synthetic-part surfac
 predicate `tool.execute.before` applies moments later; no new state. And `BLOCK_MESSAGE_ELECTIVE`
 stopped ordering the model to edit and commit SESSION_PRIMER.md — the same arm refuses exactly that,
 and 01:30:05 shows it obeying that into round 44's attempt-2 suffix. T25a-f; defects planted one at a time (old wording → T25d; guard removed → T25e; notice removed → T25b; restored → 0).
+
+## Round 46 — "the user authorized clearing AND proceeding in one breath" — no gate change; the checkpoint was manufactured upstream
+
+**The ask** (live, `ses_f9d0dfa4bffeTLzGAKjOA3a0st`, 09-03 02:56:32): with an elective boundary
+standing, Jay sent *"gate 풀고 서브타스트 3 진행하세요."* — explicit consent to clear **and** an
+explicit directive to proceed, in one message. The gate honored the first half (round 28 rule (a): a
+block had fired for `e04deaf` at 02:19:52); the model then correctly committed `SESSION_PRIMER.md`
+(`75a00c9`, 02:57:34), which — being primer-touching — armed a **new** boundary that refused
+sub-task 3. Round 44's `[repeat]` suffix held: 2 attempts, then it stopped.
+
+**Round 30's criterion B does not decide this, and is not what protects the primer arm.** Criterion
+B ("a freshly-crossed primer boundary still blocks the very next mutating call, no exceptions") was
+written in round 30's *work order* as a scope limiter on item 3 — the fix for the **elective** arm
+misfiring mid-turn, `#46`/`#47`'s common root — i.e. "do not let this deferral leak into the primer
+half." It is a guard rail, not an incident; the incident-derived rule for the primer arm is
+**`#41`**. **Round 46 is `#41`'s shape with consent moved earlier, i.e. strictly weaker**: `#41` is
+"primer commit lands mid-turn → turn ends → next message waves it past," where the user at least saw
+the turn end. Here `turnStartHead` was `e04deaf` while the blocking boundary was `75a00c9`, **created
+62s after his message** — a SHA that did not exist when he wrote it, so he cannot have consented to
+it. Narrowing B here reopens `#41` rather than narrowing it.
+
+**The structural candidate has no mechanical signal.** "Exempt a boundary created *during* this
+turn by a call the user's own message authorized" reduces, once text judgment is removed, to "an
+in-turn primer boundary does not block" — satisfied identically by **08-29 09:45→09:59**, where the
+model was asked to *check whether the harness matched the template* and instead built a sub-task and
+closed it with a primer commit on its own. `turnStartHead != boundary.sha` in both; the only
+difference is what the message said — round 45's measured 6.0%-precision axis. Reproduced offline
+against the live plugin (ordering A = the incident verbatim; counterexample C = 08-29 still blocking).
+
+**The checkpoint was manufactured two hours upstream, by a commit message that lied.** `b462450`
+(01:28:24) reads `progress: [sub-task 2] — TurnManager.ts, SESSION_PRIMER.md`; its diffstat is
+`src/systems/TurnManager.ts` alone. build.md step 3 requires the primer to be staged *with* the
+sub-task's last file. Named, never staged — so no boundary armed, commits piled to 6, the elective
+arm fired, and its only accepted remedy forced a standalone primer-only commit (the "two steps"
+build.md forbids), which is what collided with his directive. **Had `b462450` been what it said, the
+boundary would have armed at 01:28:24, the model would have stopped (step 6), and his next message
+would have opened sub-task 3 cleanly.**
+
+**Shipped** (report-only, enforcement untouched to the bit): `subtask-report.sh` flags a
+`progress:` commit whose file-list slot names a file the commit does not contain — the report's
+founding premise ("never trust what the model says it did") applied to the last place it still took
+the model's word. **Scope is the fix, not the wording**: unscoped it flags **12.6% of the template's
+293 commits**, all subjects naming a topic; scoped to build.md step 3's format, warms-mobile 1/2
+qualifying (the true positive) and template 0/1. T20a-e, defects planted one at a time (scope guard →
+T20c; dash → T20d; basename → T20b; restored → 0). Surfaces at the **next** boundary report, not
+instantly — the hook fires only on primer commits by design (T7), a trigger left untouched.
+
+**Also measured, needs no code**: his compound directive already completes in **one turn** today if
+the work precedes the primer commit — replayed live: write `Physics.ts`, commit it (the re-crossed
+elective boundary defers mid-turn, round 30 item 3), stage the primer last — **nothing blocks**. Ordering A blocks, B does not — B is build.md's own shape.
