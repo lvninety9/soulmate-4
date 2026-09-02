@@ -404,12 +404,25 @@ const BLOCK_REPEAT_SUFFIX = (attempt: number) =>
   "error again every time. Stop calling tools now — reply with a 2-3 line summary of what was " +
   "already done and wait for the user."
 
+// Round 45 (live, warms-mobile ses_f9d0dfa4bffeTLzGAKjOA3a0st, 09-03 01:29:55 / 01:30:05): the
+// remedy this message prescribed could not be executed at the moment it was printed. It says
+// "update SESSION_PRIMER.md's Current sub-task block, commit it" — but the arm that threw it
+// blocks every mutating call, `edit` on SESSION_PRIMER.md itself included, so the instruction is
+// unreachable by construction for as long as the message is being shown. The transcript shows the
+// model obey it literally: blocked on `git log --oneline -3`, then `read` the primer (never
+// blocked), then `edit` the primer at 01:30:05 — straight into round 44's attempt-2 suffix, whose
+// "Stop calling tools now" directly contradicts the sentence above it. Same species as round 44
+// and round 43: a message asserting something that is not true, with the mis-derivation captured
+// live — not a re-persuasion of the same instruction (this project's 0/2 wording-rewrite record).
+// The primer twin (BLOCK_MESSAGE_COMMIT) never had this defect: it only ever says stop and report.
 const BLOCK_MESSAGE_ELECTIVE = (n: number) =>
   `[subtask-gate] ${n} commits have landed without any of them touching ` +
   "wiki/handoffs/SESSION_PRIMER.md — a sub-task boundary was never marked, but this many " +
-  "commits in a row almost certainly means one was crossed anyway. Per AGENTS.md, STOP now: " +
-  "update wiki/handoffs/SESSION_PRIMER.md's Current sub-task block, commit it, then ask the " +
-  "user whether to continue."
+  "commits in a row almost certainly means one was crossed anyway. Per AGENTS.md, STOP now: do " +
+  "not run any further tool call — every mutating call, including editing " +
+  "wiki/handoffs/SESSION_PRIMER.md itself, stays refused until the user has replied. Summarize " +
+  "what was just done and ask the user whether to continue; update SESSION_PRIMER.md's Current " +
+  "sub-task block after that reply, not now."
 
 // Round 29 (FEEDBACK #46): fires when a repo is confirmed present but computeBoundary couldn't
 // safely determine whether a boundary is open (git command failure — corrupt repo, mid-rebase,
@@ -502,6 +515,31 @@ const BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER = (files: string[]) =>
   `message started (${files.length} path(s): ${files.slice(0, 5).join(", ")}` +
   `${files.length > 5 ? ", ..." : ""}). Per AGENTS.md's "commit per file, always" rule, commit ` +
   "or explicitly decide what to do with these before starting any new work this turn."
+
+// Round 45 (the same live turn, 09-03 01:27:03-01:30:46). The user asked whether sub-task 2 was
+// actually finished; the model's first tool call of that turn — `git log --oneline -3`, a
+// read-only diagnostic that would have answered him — was refused, it then invented a wrong
+// theory out loud ("subtask-gate가 SESSION_PRIMER.md 업데이트를 감지하지 못한 것 같습니다"),
+// burned a second refused call, and only then reported. Every fact needed to say so up front was
+// already computed one hook earlier: `chat.message` derives `turnStartBoundary` on every message
+// (it has to, to snapshot electiveBoundaryAtTurnStart) and then discards it. This says it out
+// loud instead, on the same synthetic-part surface round 27 already uses for the uncommitted-
+// carryover notice.
+//
+// Report-only, and deliberately NOT an answer to "can a substantive user message pre-clear a
+// boundary" (round 45 measured that and refused to build it — see wiki/rule-archive.md). Nothing
+// here is blocked or released: the acknowledgment rules (round 28 rule a/b, round 39's quiet-turn
+// generalization) are untouched to the bit. It fires at most once per boundary in practice — a
+// boundary's identity is HEAD, so if the model commits nothing this turn, the next chat.message
+// acknowledges this exact SHA via round 39's rule and there is nothing left to announce; if it
+// does commit, the new SHA is a genuinely new boundary worth announcing again.
+const NOTICE_BOUNDARY_PENDING = (sha: string, reason: ArmReason, n: number) =>
+  "[subtask-gate] A sub-task checkpoint is already open before this turn starts " +
+  `(${reason === "primer" ? "wiki/handoffs/SESSION_PRIMER.md was committed at" : `${n} commits without a SESSION_PRIMER.md update, HEAD`} ` +
+  `${sha.slice(0, 7)}). Every mutating tool call this turn — write, edit, bash, commit, ` +
+  "SESSION_PRIMER.md itself — will be refused before it runs, so do not start one to find out. " +
+  "Tell the user now what has already landed and what is still open, and wait. This checkpoint " +
+  "clears on their next message provided nothing new is committed before it."
 
 const BLOCK_MESSAGE_NO_PROTOCOL_READ =
   "[subtask-gate] No wiki/protocols/*.md file has been read yet this session, and mutating " +
@@ -841,6 +879,28 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
         synthetic: true,
         text: BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER(dirty),
       })
+    }
+
+    // Round 45: emitted AFTER the two acknowledgment updates above, so a message that actually
+    // clears this boundary produces no notice — the predicate is the same one tool.execute.before
+    // will apply on this turn's first mutating call, read off the same `state` object. An elective
+    // boundary present here is by definition not the deferred mid-turn kind (round 30 item 3):
+    // electiveBoundaryAtTurnStart was just set to this same SHA a few lines up. A GitFailure has
+    // no SHA and is skipped — it is not a boundary, and its own fail-closed block carries a
+    // different, more urgent message.
+    if (turnStartBoundary && "sha" in turnStartBoundary) {
+      const preapproved = state.boundaryAtSessionStart[sessionID]
+      const cleared = state.acknowledged.includes(turnStartBoundary.sha) || preapproved === turnStartBoundary.sha
+      if (!cleared) {
+        output.parts.unshift({
+          id: `prt_gatepending${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
+          sessionID,
+          messageID: output?.message?.id ?? input?.messageID ?? "",
+          type: "text",
+          synthetic: true,
+          text: NOTICE_BOUNDARY_PENDING(turnStartBoundary.sha, turnStartBoundary.reason, turnStartBoundary.commitsSincePrimer),
+        })
+      }
     }
 
     // Round 7 (FEEDBACK #4/#12): a second, independent check in the same hook (chat.message is
