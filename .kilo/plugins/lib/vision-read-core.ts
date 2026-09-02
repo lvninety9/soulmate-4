@@ -17,6 +17,30 @@ export const MIME_BY_EXT: Record<string, string> = {
   ".webp": "image/webp",
 }
 
+// Round 42: live-reproduced (kilo.db session ses_f9dce0c3dffe9q1vYlHueG2gJw, real
+// toss-in-app-warms-mobile use, day after round 40 shipped) -- the coding model was given an
+// image path directly in the user's message, AGENTS.md's File map row telling it to use
+// vision_read was already auto-loaded in context (confirmed: it's there, round 40's own row),
+// and it still called the built-in `read` tool on the image first. `read` returned a useless
+// "Image read successfully" stub (no real content), and the model then honestly reported "이미지
+// 분석 기능을 현재 사용할 수 없어서 스크린샷을 직접 볼 수 없습니다" -- not a lie, just never
+// having tried the tool that could actually answer. Same lesson this whole project is built on,
+// recurring in a new place: a documentation row a 35B local model has to actively cross-reference
+// against an "obvious enough" competing tool does not reliably change which tool gets picked.
+// vision-read.ts's own `tool.execute.before` hook uses this to block `read` on an image path
+// outright, same mechanical-refusal shape as subtask-gate.ts's own throws -- kept here (not
+// duplicated in vision-read.ts) so it can be tested without @kilocode/plugin resolvable.
+export function imageReadBlockMessage(filePath: string | undefined): string | null {
+  if (!filePath) return null
+  const ext = extname(filePath).toLowerCase()
+  if (!(ext in MIME_BY_EXT)) return null
+  return (
+    `[vision-read] '${filePath}' is an image -- the \`read\` tool cannot see image content, only ` +
+    "confirm the file exists. Use `vision_read` instead (args: path, question) to actually get " +
+    "an answer about it."
+  )
+}
+
 export async function residentModelID(baseURL: string = VISION_BASE_URL): Promise<string> {
   const res = await fetch(`${baseURL}/v1/models`)
   if (!res.ok) throw new Error(`vision server at ${baseURL} returned HTTP ${res.status}`)
