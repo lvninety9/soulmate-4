@@ -869,6 +869,155 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 22 (round 39, real-usage maintenance round): the ambiguity nudge's anchors are all
+  // ASCII-punctuation shapes, so Korean directive prose — which is what this project's user
+  // actually types — carries none of them and gets told to stop and ask questions instead of
+  // acting. Measured on his real transcript (kilo.db ses_fc421bb0fffe5FU22DG4dgcc00, 15 genuine
+  // user messages): 12/15 nudged. Both strings below are verbatim from that session. The pair of
+  // negative cases underneath is the point of the test — the fix must scope the heuristic out of
+  // an uncalibrated script, NOT quietly disable it, so the round-7 English trial prompt must
+  // still nudge exactly as before.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    const nudged = (o) => o.parts.some((p) => p.synthetic && /discuss\.md/.test(p.text))
+
+    // verbatim, 2026-08-26 11:26:59 — "Good. Go ahead and build." Maximally directive.
+    const directive = { message: { id: "m22a" }, parts: [{ type: "text", text: "좋습니다. 빌드 진행하세요. 지금 바로 시작해주세요." }] }
+    await hooks["chat.message"]({ sessionID: "s22a" }, directive)
+    if (!nudged(directive)) {
+      console.log("ok: T22a a concrete Korean directive is not nudged toward discuss.md")
+    } else {
+      console.log("FAIL: T22a a Korean directive was nudged as ambiguous:", JSON.stringify(directive.parts))
+      failures++
+    }
+
+    // verbatim, 2026-08-29 10:13:37 — "Are you listening to me? I told you to check the system
+    // structure. Don't do development." The message that immediately preceded his complaint.
+    const restated = { message: { id: "m22b" }, parts: [{ type: "text", text: "내 말을 듣고 있어요? 시스템 구조 확인하라고 했습니다. 개발 진행 하지마시구요.." }] }
+    await hooks["chat.message"]({ sessionID: "s22b" }, restated)
+    if (!nudged(restated)) {
+      console.log("ok: T22b the live-transcript message that preceded the user's complaint is not nudged")
+    } else {
+      console.log("FAIL: T22b live-transcript restatement was nudged as ambiguous:", JSON.stringify(restated.parts))
+      failures++
+    }
+
+    // negative case 1: round 7's own English trial prompt must still nudge — proves the fix
+    // narrowed the heuristic's domain rather than turning it off.
+    const englishVague = { message: { id: "m22c" }, parts: [{ type: "text", text: "this feels slow when I use it a lot, can you help?" }] }
+    await hooks["chat.message"]({ sessionID: "s22c" }, englishVague)
+    if (nudged(englishVague)) {
+      console.log("ok: T22c round 7's English trial prompt still nudged — heuristic narrowed, not disabled")
+    } else {
+      console.log("FAIL: T22c the English ambiguous prompt stopped being nudged — the fix disabled the heuristic instead of scoping it:", JSON.stringify(englishVague.parts))
+      failures++
+    }
+
+    // negative case 2: "predominantly non-Latin", not "contains any non-Latin" — a mostly-English
+    // vague message with one Korean word must still be judged by the anchors.
+    const mostlyEnglish = { message: { id: "m22d" }, parts: [{ type: "text", text: "this whole thing feels 느림 when I run it a lot, can you take a look and help out" }] }
+    await hooks["chat.message"]({ sessionID: "s22d" }, mostlyEnglish)
+    if (nudged(mostlyEnglish)) {
+      console.log("ok: T22d a mostly-English vague message with one foreign word is still judged (predominance, not presence)")
+    } else {
+      console.log("FAIL: T22d a mostly-English vague message escaped the nudge — the script guard is triggering on mere presence:", JSON.stringify(mostlyEnglish.parts))
+      failures++
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 23 (round 39): round 28's boundary courtesy is keyed on a session's FIRST message, on
+  // build.md's one-sub-task-one-session premise. Real use (kilo.db: one warms-mobile session,
+  // 2026-08-26 -> 08-29, two sub-tasks, five commits) keeps a single session open for days, so
+  // after that first message a boundary can only ever be cleared by first spending a
+  // visibly-failed tool call — an instruction the user gives BEFORE any block is worth nothing.
+  // The fix re-anchors the courtesy to "HEAD did not move for the whole turn that just ended and
+  // a real new user message arrived." T23b is the load-bearing negative case: FEEDBACK #41's own
+  // shape must still block, inside this same long-lived-session setup.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s23" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    // Turn 1 of a long-lived session — no boundary yet, so the fresh-session courtesy records
+    // nothing and cannot be what clears anything later.
+    await hooks["chat.message"]({ sessionID: "s23" }, { message: { id: "m23a" }, parts: [{ type: "text", text: "start the sub-task" }] })
+    // The sub-task closes out: SESSION_PRIMER.md is committed, opening a primer boundary.
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    // Turn 2's message arrives. HEAD MOVED during turn 1 (the primer commit), so this is exactly
+    // FEEDBACK #41's shape and must still block — the round 39 exemption must not reach it.
+    await hooks["chat.message"]({ sessionID: "s23" }, { message: { id: "m23b" }, parts: [{ type: "text", text: "continue" }] })
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "write", sessionID: "s23" },
+        { args: { filePath: join(dir, "foo.py") } }
+      )
+      console.log("FAIL: T23b round 39's exemption reopened FEEDBACK #41 — a boundary created during the turn that just ended went unblocked")
+      failures++
+    } catch (e) {
+      if (/SESSION_PRIMER\.md was just committed/.test(String(e.message || e))) {
+        console.log("ok: T23b FEEDBACK #41 preserved in a long-lived session — boundary created during the previous turn still blocks")
+      } else {
+        console.log("FAIL: T23b blocked, but for the wrong reason:", e.message)
+        failures++
+      }
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s23p" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    await hooks["chat.message"]({ sessionID: "s23p" }, { message: { id: "m1" }, parts: [{ type: "text", text: "start the sub-task" }] })
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+    // Turn 2: the model does what build.md step 6 tells it to — reports and ends its turn,
+    // making NO tool call. So no block ever fires and `acknowledged` can never be earned.
+    await hooks["chat.message"]({ sessionID: "s23p" }, { message: { id: "m2" }, parts: [{ type: "text", text: "continue" }] })
+    // Turn 3: the user speaks again. A whole turn has now ended with HEAD unmoved and the human
+    // has replied twice since the boundary landed — this is the checkpoint the block exists to
+    // force, and it has demonstrably happened. His next instruction must be actionable.
+    await hooks["chat.message"]({ sessionID: "s23p" }, { message: { id: "m3" }, parts: [{ type: "text", text: "no, check the git remote first instead" }] })
+    await assertNoThrow(
+      "T23a long-lived session: boundary survived a full completed turn plus a real user message — the user's next instruction is actionable",
+      async () => {
+        await hooks["tool.execute.before"](
+          { tool: "bash", sessionID: "s23p" },
+          { args: { command: "git remote -v" } }
+        )
+      }
+    )
+    // ...and the model still cannot walk itself past a NEW boundary it creates afterwards.
+    writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated again\n")
+    execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer2", { cwd: dir })
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "write", sessionID: "s23p" },
+        { args: { filePath: join(dir, "foo.py") } }
+      )
+      console.log("FAIL: T23c a NEW primer boundary crossed mid-turn went unblocked after the round 39 exemption cleared the previous one")
+      failures++
+    } catch (e) {
+      if (/SESSION_PRIMER\.md was just committed/.test(String(e.message || e))) {
+        console.log("ok: T23c the exemption is per-SHA — a newly crossed primer boundary blocks immediately, mid-turn, same as always")
+      } else {
+        console.log("FAIL: T23c blocked, but for the wrong reason:", e.message)
+        failures++
+      }
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
