@@ -248,10 +248,15 @@ async function main() {
     const output2 = { message: { id: "msg_test2" }, parts: [{ type: "text", text: "hi" }] }
     execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m wip", { cwd: dir })
     await hooks["chat.message"]({ sessionID: "s7" }, output2)
-    if (output2.parts.length === 1) {
-      console.log("ok: T7b clean tree -> no injection")
+    // Round 45: narrowed from "no parts were added at all" to this test's actual subject, the
+    // carryover notice. The commit above is what makes the tree clean and it touches
+    // SESSION_PRIMER.md, so from round 45 on this same message legitimately carries a
+    // pending-checkpoint notice — asserting a raw part count here would make T7b fail on a
+    // different notice's existence rather than on the carryover behavior it was written for.
+    if (!output2.parts.some((p) => /Uncommitted changes/.test(p?.text ?? ""))) {
+      console.log("ok: T7b clean tree -> no carryover injection")
     } else {
-      console.log("FAIL: T7b clean tree still got an injection:", JSON.stringify(output2.parts))
+      console.log("FAIL: T7b clean tree still got a carryover injection:", JSON.stringify(output2.parts))
       failures++
     }
     rmSync(dir, { recursive: true, force: true })
@@ -1122,6 +1127,100 @@ async function main() {
           { tool: "write", sessionID: "s24" },
           { args: { filePath: join(dir, "foo.py") } }
         )
+      }
+    )
+    rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 25 (round 45, live: warms-mobile session ses_f9d0dfa4bffeTLzGAKjOA3a0st, 09-03
+  // 01:27:03-01:30:46). Replays that turn's exact shape. The user asked "sub-task 2 가 완료된건가요?
+  // 아니면 브리핑만 하신건가요?" at 01:29:28 with an elective boundary already standing; the gate
+  // knew that at chat.message time and said nothing, so the model discovered it by having
+  // `git log --oneline -3` refused at 01:29:55, published a wrong theory, and burned a second
+  // refused call at 01:30:05 — an `edit` of SESSION_PRIMER.md, which is exactly what the elective
+  // block message told it to do.
+  //
+  // Two separate claims under test: (1) chat.message announces a standing boundary before the
+  // turn's first tool call, and stays silent once that boundary is cleared; (2) the elective block
+  // no longer prescribes a remedy the same arm forbids. Nothing about what blocks may move.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    const hasPending = (parts) => parts.some((p) => /A sub-task checkpoint is already open/.test(p?.text ?? ""))
+
+    const t1 = { message: { id: "m25a" }, parts: [{ type: "text", text: "현재 상태: 서브태스크 1 완료. build.md 프로토콜 따릅니다." }] }
+    await hooks["chat.message"]({ sessionID: "s25" }, t1)
+    if (!hasPending(t1.parts)) {
+      console.log("ok: T25a no boundary open at session start — no pending-checkpoint notice")
+    } else {
+      console.log("FAIL: T25a announced a checkpoint that does not exist:", JSON.stringify(t1.parts))
+      failures++
+    }
+    await hooks["tool.execute.before"](
+      { tool: "read", sessionID: "s25" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+    )
+    // Same construction as T19: cross COMMITS_WITHOUT_PRIMER_THRESHOLD mid-turn, `git add <file>`
+    // so freshRepo()'s untracked SESSION_PRIMER.md is not swept in and turned into a primer touch.
+    for (const f of ["a.txt", "b.txt", "c.txt"]) {
+      writeFileSync(join(dir, f), "x")
+      execSync(`git add ${f} && git -c user.email=t@t -c user.name=t commit -q -m ${f}`, { cwd: dir })
+    }
+    const head = execSync("git rev-parse HEAD", { cwd: dir }).toString().trim()
+
+    // 01:29:28 — his real message, verbatim from the transcript.
+    const t2 = { message: { id: "m25b" }, parts: [{ type: "text", text: "sub-task 2 가 완료된건가요? 아니면 브리핑만 하신건가요? 지금 5183 포트 접속해서 확인해서 볼게 있나요?" }] }
+    await hooks["chat.message"]({ sessionID: "s25" }, t2)
+    const notice = t2.parts.find((p) => /A sub-task checkpoint is already open/.test(p?.text ?? ""))
+    if (notice?.synthetic === true && notice.text.includes(head.slice(0, 7)) && /will be refused before it runs/.test(notice.text)) {
+      console.log("ok: T25b a boundary standing at turn start is announced on the message itself, naming the SHA")
+    } else {
+      console.log("FAIL: T25b expected a pending-checkpoint notice naming " + head.slice(0, 7) + ", got:", JSON.stringify(t2.parts))
+      failures++
+    }
+    // Report-only: the notice must not release anything. 01:29:55's own refused call.
+    await assertThrows(
+      "T25c the announced boundary still blocks the turn's first mutating call — nothing was released",
+      async () => {
+        await hooks["tool.execute.before"]({ tool: "bash", sessionID: "s25" }, { args: { command: "git log --oneline -3" } })
+      }
+    )
+    // 01:30:05: the model obeyed "update SESSION_PRIMER.md's Current sub-task block, commit it"
+    // and was refused for it. The message must no longer prescribe that.
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "edit", sessionID: "s25" },
+        { args: { filePath: join(dir, "wiki", "handoffs", "SESSION_PRIMER.md") } }
+      )
+      console.log("FAIL: T25d expected the elective arm to refuse an edit of SESSION_PRIMER.md")
+      failures++
+    } catch (e) {
+      const msg = String(e.message || e)
+      const saysRefused = /every mutating call, including editing wiki\/handoffs\/SESSION_PRIMER\.md itself, stays refused/.test(msg)
+      const stillPrescribes = /commit it, then ask the user/.test(msg)
+      if (saysRefused && !stillPrescribes) {
+        console.log("ok: T25d the elective block says the primer edit is refused too, instead of ordering it")
+      } else {
+        console.log(`FAIL: T25d elective wording wrong (saysRefused=${saysRefused} stillPrescribes=${stillPrescribes}): ${msg}`)
+        failures++
+      }
+    }
+    // Round 39's quiet-turn rule already clears a boundary with no block required, one turn later:
+    // HEAD did not move across the turn that just ended and a real message arrived. The notice
+    // must go quiet for exactly the same boundary it announced a moment ago.
+    const t3 = { message: { id: "m25c" }, parts: [{ type: "text", text: "네, 그럼 문서부터 업데이트하고 이어서 진행하세요." }] }
+    await hooks["chat.message"]({ sessionID: "s25" }, t3)
+    if (!hasPending(t3.parts)) {
+      console.log("ok: T25e once the boundary is acknowledged, the notice stops — it tracks the real predicate, not 'a boundary exists'")
+    } else {
+      console.log("FAIL: T25e kept announcing an already-cleared checkpoint:", JSON.stringify(t3.parts))
+      failures++
+    }
+    await assertNoThrow(
+      "T25f ...and that acknowledged boundary lets the next mutating call through, same as before round 45",
+      async () => {
+        await hooks["tool.execute.before"]({ tool: "write", sessionID: "s25" }, { args: { filePath: join(dir, "foo.py") } })
       }
     )
     rmSync(dir, { recursive: true, force: true })
