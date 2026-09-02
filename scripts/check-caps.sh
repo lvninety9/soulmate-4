@@ -900,6 +900,42 @@ check_stale_language() {
   fi
 }
 
+# Round 41 (Jay's own observation, not an audit): real dev work accumulates scratch/dummy/stale
+# artifacts with nothing ever prompting a look back at them — a build dir cloned "-new" and never
+# reconciled with the original, a leftover test script, a duplicated directory. Concrete instance
+# on this project's own machine: llama.cpp-new, cloned at some point, never actually needed
+# (round 41 measured the original build already loads/serves the exact model+mmproj that
+# "required" the new clone), sitting untouched until today. That's outside this repo's own scope
+# to fix (a sibling directory, not a git-tracked file here) — what IS in scope is making sure a
+# NEW instance of the same pattern, inside a project this harness governs, doesn't just
+# accumulate silently the same way.
+#
+# Non-blocking, same criterion as every other soft check in this file: annoying if wrong, never
+# dangerous, so WATCH not a hard fail — this is a fresh, unaudited mechanism, and round 39's own
+# lesson (a detector calibrated on the wrong vocabulary can run "clean" for 16 rounds while
+# actually blind) argues for starting conservative, not confident. Matches names, not content —
+# deliberately narrow to avoid false positives on this project's own real files: tests/*.test.mjs,
+# wiki/*-archive.md, and templates/*.template are the established, intentional naming conventions
+# for those roles and must not match. Live-tested against this repo's own full tracked+untracked
+# listing before shipping: 0 hits (see wiki/rule-archive.md Round 41 for the positive-case table
+# that proves the pattern isn't just tautologically empty).
+check_artifact_sweep() {
+  local pattern='(^|/)([A-Za-z0-9_.]*[-_](new|old|bak|backup|copy)|scratch[-_A-Za-z0-9]*|tmp[-_A-Za-z0-9]*|dummy[-_A-Za-z0-9]*)($|/|\.[A-Za-z0-9]+$)'
+  local hits
+  hits=$( { { git ls-files; git ls-files --others --exclude-standard; } 2>/dev/null \
+    | grep -viE '\.test\.mjs$|-archive\.md$|\.template$' \
+    | grep -iE "$pattern" | sort -u; } || true )
+  if [ -n "$hits" ]; then
+    local n first
+    n=$(echo "$hits" | wc -l | tr -d ' ')
+    first=$(echo "$hits" | head -3 | tr '\n' ' ')
+    notice "WATCH: $n path(s) look like scratch/dummy/stale artifacts by name" \
+           "(matched -new/-old/-backup/-copy/scratch*/tmp*/dummy*, e.g. $first) — review at" \
+           "wiki/protocols/self-harness.md's PRUNE step: delete it, or promote it (real name +" \
+           "a commit explaining why it's staying)"
+  fi
+}
+
 run_bootstrap_checks() {
   check_bootstrap_is_repo_root
   check_bootstrap_not_in_tmp
@@ -981,6 +1017,7 @@ check_watch_size ".kilo/plugins/subtask-gate.ts" 400 \
 check_watch_size "scripts/check-caps.sh" 600 \
 "this script itself has never been pruned in 28 rounds of additions — during self-harness's PRUNE step, check whether any closed-out finding's fix (e.g. a narrowly-scoped one-round check) can be merged into a more general one instead of living forever as its own function"
 check_stale_language
+check_artifact_sweep
 
 shopt -s nullglob
 feedback_files=(wiki/handoffs/FEEDBACK_PENDING*.md)
