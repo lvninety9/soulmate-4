@@ -363,3 +363,38 @@ commit). No `kilo run`/Cursor/`kilo serve` call made — item 2's local-model ca
 `http://127.0.0.1:8080/v1`, the same server `kilo run` shares, sequential (`-np 1`), never
 concurrent with anything. `~/.hermes/longform/.render.lock` checked empty before and clear after.
 `llama.service`/`kilo.jsonc` untouched.
+
+
+## Round 45 — "can a substantive user message pre-clear a boundary?" — measured, refused
+
+**The ask** (live, `ses_f9d0dfa4bffeTLzGAKjOA3a0st`, 09-03 01:29:28): with an elective boundary
+standing, the user asked *"sub-task 2 가 완료된건가요? 아니면 브리핑만 하신건가요?"* — specific,
+on-topic, engaged — and it cleared nothing (round 28 rule (a) wants a block fired for that SHA
+first). **Prior art**: `looksAmbiguous()` is this repo's only content-judgment heuristic; round 39
+measured it on this same user's 15 real messages (**12/15 misfired**) and disabled it outside Latin
+script — a substantiveness detector is that species with the failure direction inverted (that one
+only added a nudge; this one would open a gate). **Measurement**: 84 real user messages (`kilo.db`,
+every warms-mobile session 08-25..09-03), ground truth = the message shows he knew a checkpoint was
+pending (**5/84 = 6.0% base rate**; an omitted length+stoplist+word-count combination scored 6.3%).
+
+| detector | judged "substantive" | precision vs. real awareness | the 01:29 message |
+|---|---|---|---|
+| anchor heuristic (round 39-scoped) | 13/84 | 2/13 = 15.4% | **rejected** |
+| length ≥ 15 | 81/84 | 5/81 = 6.2% | accepted |
+
+Everything accepting that message scores 6.0-7.7% against a 6.0% base rate — indistinguishable from
+"any message clears," round 8's rule that FEEDBACK #41 was filed against (`"좋습니다. 빌드
+진행하세요."` passes all of them); what beats the base rate rejects it and most of his Korean too.
+**Stronger than the numbers**: it is a *question asking whether the sub-task was finished*, i.e.
+proof he did **not** know the state — substantiveness measures engagement, round 28 needs informed
+consent, and here they point opposite ways. **No detector shipped.** Premise also
+corrected: "it must block once more first" is a one-turn cost, not a rule — round 39's quiet-turn
+clause already clears a boundary with **no block at all**, and the live state file shows
+`turnStartHead` == boundary SHA. **Shipped instead** (report-only, enforcement untouched to the
+bit): `chat.message` already computes the boundary every message — for `electiveBoundaryAtTurnStart`
+— and threw it away, so the model learned of it only by having `git log --oneline -3` (a read-only
+diagnostic answering the user's own question) refused at 01:29:55, published a wrong theory, then
+burned a second refusal. It now announces it on round 27's synthetic-part surface, guarded by the
+predicate `tool.execute.before` applies moments later; no new state. And `BLOCK_MESSAGE_ELECTIVE`
+stopped ordering the model to edit and commit SESSION_PRIMER.md — the same arm refuses exactly that,
+and 01:30:05 shows it obeying that into round 44's attempt-2 suffix. T25a-f; defects planted one at a time (old wording → T25d; guard removed → T25e; notice removed → T25b; restored → 0).
