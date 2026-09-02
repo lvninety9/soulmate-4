@@ -1600,3 +1600,88 @@ which brought it to 23,904/27,800, still comfortably under cap). No LLM calls ma
 (a foreign benchmark process held the only local llama-server slot for the round's duration);
 `~/aider-bench/` was not touched.
 
+
+## Round 34 — Deliverable 1 (universal sub-task report generator) + Deliverable 2 (evergreen local-model capability numbers)
+
+**Starting-state re-verification (fresh clone, per L13), before any work**: `HEAD d8622fb`, 221
+commits — matched. `subtask-gate.test.mjs`: 39 `ok:` lines (21 distinct `T<N>` cases, some with
+`a/b/c` sub-labels — matches "39 assertions/35 cases" on the assertion count). `stale-language.
+fuzz.test.mjs`: `ALL PASS (42/42)`. `check-caps.regression.test.mjs`: 60 `ok:` lines, `ALL PASS`.
+`check-caps.sh`: exit 0, `(4 non-blocking notice(s) suppressed...)` — matches "EXIT=0 quieted"
+exactly. No mismatch.
+
+**Deliverable 1 — `scripts/subtask-report.sh` + `scripts/post-commit-subtask-report`.**
+
+*Why the report is evidence-only, not model-summarized*: this week's local-model measurement (see
+below) is the direct motivation — 18 consecutive turns claiming `tools/wordcount_core.py 생성
+완료`/`커밋 완료`/`테스트 결과: 모든 테스트 PASS` while every tool call was blocked and `tools/`
+never existed on disk. Summarizing a fixed evidence bundle is a stateless transformation (the
+shape the model measurably handles, see the aider-polyglot pass list below); recalling its own
+actions is the shape it fails at — so the script never asks the model anything; every line it
+prints traces to a real command's real exit code/stdout.
+
+*Trigger, reusing (not inventing) the existing boundary*: `subtask-gate.ts`'s `computeBoundary()`
+treats a commit touching `wiki/handoffs/SESSION_PRIMER.md` as a "primer" boundary — the exact
+definition the spec named. `scripts/post-commit-subtask-report` checks `git diff-tree
+--no-commit-id --name-only -r --root HEAD` for that path and fires only then; every other commit
+is silent. `scripts/subtask-report.sh` derives the same boundary fresh from git on every
+invocation (`git log -1 --format=%H <target>^ -- wiki/handoffs/SESSION_PRIMER.md`, empty-tree
+fallback) — no state file, fully re-runnable by hand (`[<target>] [--since <sha>]`), and avoids
+the exact staleness class `computeBoundary()`'s own round-28 comment warns a persisted flag risks.
+
+*Checks, each detect-then-maybe-run*: tests (package.json/pytest/go/cargo/make, or bare
+`tests|test/*.test.mjs` via `node --experimental-strip-types` — this repo's own no-package.json
+pattern) — leftovers (TODO/FIXME/XXX, console.log/debugger/pdb.set_trace/`print(`, mock/dummy/
+fixture keywords outside test-ish paths, scoped to *added* diff lines only) — secrets/security
+(gitleaks, npm audit, bandit, pip-audit, semgrep) — lint/dead-code (eslint via `npx --no-install`,
+ruff, ts-prune, vulture) — CSS design consistency (distinct `font-size`/color literal counts) —
+coverage delta (cached to `.subtask-reports/.coverage-baseline`, gitignored). Every branch is
+optional; an unavailable tool is named under "Skipped checks," never silently treated as clean.
+The script itself never exits nonzero in a way that could block a caller (`set -uo pipefail`, not
+`-e`); the hook wraps it with `set +e` besides.
+
+*Proof this repo's own dogfood run is real, not staged*: `bash scripts/subtask-report.sh` against
+this checkout's own last 6 commits (round 33) correctly auto-detected the bare-node-test pattern
+with zero config and reproduced the exact assertion counts from the manual re-verification above
+(60/42/39), and flagged 3 added TODO markers + 4 added "mock"-keyword lines from round 33's own
+prose (e.g. "3 real git-failure tests, not mocks") under 확인이 필요한 것 — a real false-positive-
+shaped finding surfaced honestly for a human to dismiss, not hidden.
+
+*Proof of graceful degradation on a different stack (spec's own acceptance bar)*: two synthetic
+throwaway repos outside this checkout (`testproj-python`, `testproj-node`, neither committed
+here). Python/pytest: a broken import genuinely `FAIL (exit 2)` with real traceback tail, then a
+`conftest.py` fix made it genuinely `PASS (exit 0)` — proves no fabricated success. Node/`npm
+test`: same FAIL-then-PASS proof, plus `npm audit` "0 vulnerabilities" and a CSS file with 11
+distinct font-sizes/11 colors correctly flagged. An `.eslintrc.json` with no eslint installed
+initially mis-reported as "findings" (npx's missing-package message swallowed in) — fixed by
+probing `npx --no-install eslint --version` first, now correctly routed to "Skipped checks."
+
+*Regression tests*: `tests/subtask-report.test.mjs`, 18 assertions/8 synthetic-repo cases (no-
+runner honesty, bare-node PASS/FAIL with exact counts, exact TODO count, boundary resolution incl.
+`--since`, hook silence-vs-fire) — fresh throwaway repos, not a copy of this project. Caught a
+real bug on first run: `git diff-tree --no-commit-id --name-only -r HEAD` prints nothing for a
+repo's root commit without `--root` (confirmed live) — would have made a fresh repo's first
+commit (plausibly the one seeding `SESSION_PRIMER.md`) silently never fire the report. Fixed;
+`ALL PASS (18 assertions)` after.
+
+**Deliverable 2 — this week's measured numbers, recorded as evergreen reference (not round
+narrative)**: full numbers live in `wiki/PROJECT_BACKGROUND.md`'s "Local model capability"
+section (a standing fact about the model, not this round's narrative — updated in place as new
+measurements land). Raw source: complexity ladder N=5/level (own scale) 5/5→4/5→2/4→1/2→0/1.
+Aider polyglot, Python subset, `Qwen3.6-35B-A3B-UD-Q4_K_M`, `--edit-format whole`, aider 0.86.2,
+2-attempt protocol, seed 1234, n=23/25 (2 unrun on deadline): 9/23=39.1%; passes =
+`list-ops`/`pig-latin`/`proverb`/`grep`/`bottle-song`/`zebra-puzzle`; failures =
+`forth`/`paasio`/`simple-linked-list`/`bowling`/`hangman`/`pov`; not comparable to the public
+6-language leaderboard figure, n=23 → roughly ±20pp CI. 3/9 passes landed only on a 2nd attempt.
+**Operational traps** (cross-referenced from `SESSION_PRIMER.md`'s Hard constraints):
+`.kilo/plugins/*.ts` loads once at `kilo serve` daemon start (verified via
+`.subtask-gate-state.json`'s key set — reconfirms round 32 Finding B independently). A
+stale/wrong Kilo-saved model name surfaces in the CLI as **exit 0, zero stdout, no error** —
+related to but distinct from #50's still-open hang mystery (round 30 ruled out a *stale default*
+on scripts already passing `-m` correctly; this is an *explicitly wrong* `-m`), so #50's row is
+left unchanged, not merged.
+
+**No `kilo run`/LLM/GPU call made this round** — every number above is prior measurement being
+recorded, not re-run. `~/aider-bench/`, `~/sm4-plugin-test/`, `llama.service`,
+`/media/jay/D/llama.cpp/llama.env`, `~/.config/kilo/kilo.jsonc` untouched, no process killed,
+every commit through the real `.git/hooks/pre-commit` (`pre-commit-check-caps`, not bypassed).
