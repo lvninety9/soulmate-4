@@ -264,5 +264,31 @@ expect("KNOWN GAP (accepted, not a bug to fix): a backtick span wrapped across a
     "This claim has not yet been independently verified.\n\n" +
     "Unrelated closer appears later: -->\n"), false)
 
+// --- round 39: vocabulary dimension (never varied in rounds 12-28) ---
+// Every fixture above this line presents one of the same six ENGLISH phrases in a new shape.
+// The scanner got 42 assertions; the phrase list got none. Meanwhile this repo's own required-read
+// docs are Korean, so on the real corpus the sweep matched nothing and reported clean — the same
+// blind spot as round 39's ambiguity anchors, mirrored. These fixtures assert the Korean half of
+// the vocabulary, and re-assert that it composes with the scanner machinery (wrap, comment,
+// fence, indent) rather than being a special case bolted on beside it.
+expect("KO: bare stale claim in Korean prose",
+  withAppend("\n이 안전장치는 아직 검증 단계를 거치지 않았습니다.\n"), true)
+expect("KO: 미검증 as a standalone marker",
+  withAppend("\n현재 상태: 미검증 — 다음 라운드에서 확인 예정.\n"), true)
+expect("KO: line-wrap split mid-phrase (the round 12 gap, in Korean)",
+  withAppend("\n이 기능은 실제 세션에서 아직\n반영 여부를 알 수 없습니다.\n"), true)
+expect("KO: mixed Korean prose with an English-named mechanism still matches",
+  withAppend("\n`check-secrets.sh` 훅은 설치돼 있으나 실제 동작은 검증되지 않았습니다.\n"), true)
+// negatives — these must NOT block, or the check becomes a false-positive machine on Jay's own
+// routine doc edits (round 13's explicit worry, now with a Korean corpus to trip over)
+expect("KO negative: '아직 없음' table placeholder is not a staleness claim",
+  withAppend("\n| — | 아직 없음 | — |\n"), false)
+expect("KO negative: '아직 시작 전' status line is not a staleness claim",
+  withAppend("\n# SESSION PRIMER — session 4 (아직 시작 전)\n"), false)
+expect("KO negative: a Korean stale claim inside a fenced code block is still exempt",
+  withAppend("\n```\n이 기능은 아직 검증 전입니다\n```\n"), false)
+expect("KO negative: a Korean stale claim inside an HTML comment is still exempt",
+  withAppend("\n<!-- 메모: 이 부분은 미검증 상태 -->\n"), false)
+
 console.log(failures === 0 ? `\nALL PASS (${total}/${total})` : `\n${failures}/${total} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)
