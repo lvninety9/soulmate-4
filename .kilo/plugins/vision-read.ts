@@ -38,7 +38,9 @@ export const VisionRead = async (_ctx: any = {}) => ({
         "Read an image file using the resident local vision model and answer a question about " +
         "it (screenshot, diagram, asset, UI mock, error dialog). Use this whenever you need to " +
         "see an image — never ask the user to paste it into chat, and never attempt to read " +
-        "image bytes with the `read` tool. Returns a text answer only.",
+        "image bytes with the `read` tool. Returns a text answer only. Images under roughly " +
+        "200px on a side are unreliable (measured: a solid-color 64x64 test image was " +
+        "misread) — don't trust an answer about a very small or heavily downscaled image.",
       args: {
         path: tool.schema
           .string()
