@@ -36,6 +36,10 @@ Method:
    one per file. The `-archive.md` companions themselves stay uncapped on purpose — they're never
    auto-loaded either, so there's no token-budget reason to cap them, and doing so would just
    force yet another archive tier for no benefit.
+   Round 41: the same `--verbose` run also surfaces `check_artifact_sweep`'s WATCH, if
+   any file/dir looks throwaway by name (`-new`/`-old`/`-backup`/`-copy`/`scratch*`/`tmp*`/
+   `dummy*`). This isn't a doc to archive — for each one, either delete it, or promote it (a real
+   name + a commit explaining why it's staying). Don't leave it renamed-but-undecided.
 5. LOG: append one line to `wiki/session-log.md`.
 6. COMMIT: update `AGENTS.md` (Learned/Fixed Rules, if any changed) + `SESSION_PRIMER.md`, then
    commit. Expect the sub-task gate to fire on this commit if it touches SESSION_PRIMER.md —
