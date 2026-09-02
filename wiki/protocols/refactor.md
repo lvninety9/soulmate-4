@@ -72,3 +72,10 @@ large: orphaned files nothing imports/references anymore, test fixtures/dummies 
 an approach that was later replaced, paths that moved but left an old copy behind. Record what
 was found and removed as a normal commit, not a special one — the same per-unit verify-and-ask
 loop above still applies to deletions.
+
+Round 41: this used to be pure prose, which this project's own history says doesn't reliably
+survive ("a prompt reminder doesn't stick" — this whole harness's founding premise).
+`check-caps.sh`'s `check_artifact_sweep` now surfaces this mechanically (a WATCH notice naming
+any file/dir whose name itself looks throwaway —
+`-new`/`-old`/`-backup`/`-copy`/`scratch*`/`tmp*`/`dummy*`) — `self-harness.md`'s PRUNE step is
+where that notice actually gets acted on, same as every other WATCH in this file.
