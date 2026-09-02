@@ -391,6 +391,44 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // --- Round 41: check_artifact_sweep ---
+  {
+    // Clean fixture (the real repo's own tracked files) must never trigger this -- it's the
+    // false-positive-only bar every other soft check here already holds itself to.
+    const dir = freshFixture()
+    const { output, status } = run(dir)
+    expectNotContains("T16a clean repo -- no artifact-sweep WATCH", output, "look like scratch/dummy/stale")
+    expectStatus("T16b clean repo still exits 0", status, 0)
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    // A planted throwaway-looking directory (this project's own real trigger, llama.cpp-new,
+    // was a sibling dir outside any repo -- this is the in-repo equivalent shape).
+    const dir = freshFixture()
+    mkdirSync(join(dir, "build-new"), { recursive: true })
+    writeFileSync(join(dir, "build-new", "output.txt"), "x")
+    // Round 33 quiet-by-default: this WATCH is non-blocking, so --verbose is what surfaces it
+    // (same reason T3/T14 use it) -- exit status stays 0 either way, asserted below.
+    const { output, status } = run(dir, ["--verbose"])
+    expectContains("T17a planted '-new' dir is caught", output, "build-new/output.txt")
+    expectContains("T17b names the review step", output, "self-harness.md's PRUNE step")
+    expectStatus("T17c WATCH-tier -- never blocks the commit", status, 0)
+    rmSync(dir, { recursive: true, force: true })
+  }
+  {
+    // Negative case for the exclusions this check deliberately carves out -- this project's own
+    // real, intentional naming conventions must never be flagged.
+    const dir = freshFixture()
+    mkdirSync(join(dir, "tests"), { recursive: true })
+    writeFileSync(join(dir, "tests", "scratch-something.test.mjs"), "// real test file")
+    writeFileSync(join(dir, "wiki", "rule-archive-archive.md"), "# archived\n")
+    const { output } = run(dir)
+    expectNotContains("T18a *.test.mjs exemption holds even with 'scratch' in the name", output,
+      "scratch-something.test.mjs")
+    expectNotContains("T18b *-archive.md exemption holds", output, "rule-archive-archive.md")
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
