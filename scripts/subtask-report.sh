@@ -115,6 +115,42 @@ echo
 CHANGED_FILES=()
 while IFS= read -r f; do [ -n "$f" ] && CHANGED_FILES+=("$f"); done < <(git -c core.quotepath=false diff --name-only "$RANGE" 2>/dev/null)  # -c core.quotepath=false: round 34 finding -- a non-ASCII filename (e.g. Korean) otherwise comes back C-quoted/octal-escaped, which then fails every downstream [ -f "$f" ]/git-diff-per-file lookup, silently dropping that file from the mock/CSS-literal scans
 
+# --- 1b. commit-message file claims vs. what the commit actually contains (round 46) -----------
+# WHY: this is the same species as this script's founding premise above -- never trust what the
+# model SAYS it did -- applied to the one place the report was still taking the model's word: the
+# commit message. Live root cause, warms-mobile b462450 (2026-09-03 01:28:24), subject
+# "progress: [sub-task 2] — TurnManager.ts, SESSION_PRIMER.md", actual diffstat
+# "src/systems/TurnManager.ts | 65 +" and nothing else. The primer was named and never staged.
+# That single unstaged file is what produced round 46's whole incident: no primer touch means no
+# sub-task boundary, so commits kept accumulating until the elective arm fired, and the eventual
+# remedy had to be a standalone primer-only commit -- exactly the "two steps" build.md forbids --
+# which then armed a fresh primer boundary in the middle of a turn the user had just authorized.
+#
+# SCOPE IS THE POINT, not the wording (round 39's lesson: narrow what a detector APPLIES to).
+# Only `progress:` subjects, and only the text after an em/en dash -- build.md step 3 fixes that
+# format as `progress: [sub-task] — [file]`, so that slot is a manifest, not prose. Measured on
+# both repos' full history (321 commits): scanning every subject flags 12.6% of the template,
+# all false positives naming a topic (`test: regression net for subtask-report.sh`); scanning
+# commit BODIES additionally flags round 45's own two commits, which discuss SESSION_PRIMER.md
+# in prose. Scoped as below: warms-mobile 1 flagged of 2 qualifying (b462450, the true positive),
+# template 0 of 1. Report-only -- it cannot fail this script or the calling hook.
+while IFS= read -r sha; do
+  [ -n "$sha" ] || continue
+  CLAIM_SUBJ="$(git log -1 --format='%s' "$sha" 2>/dev/null)"
+  case "$CLAIM_SUBJ" in progress:*) ;; *) continue ;; esac
+  CLAIM_SLOT="${CLAIM_SUBJ#*—}"
+  [ "$CLAIM_SLOT" = "$CLAIM_SUBJ" ] && CLAIM_SLOT="${CLAIM_SUBJ#*–}"
+  [ "$CLAIM_SLOT" = "$CLAIM_SUBJ" ] && continue   # no dash separator: no file-list slot to check
+  CLAIM_TOUCHED="$(git show --name-only --format= "$sha" 2>/dev/null)"
+  CLAIM_MISSING=""
+  for tok in $(printf '%s' "$CLAIM_SLOT" | grep -oE '[A-Za-z0-9_./-]*[A-Za-z0-9_-]\.[A-Za-z][A-Za-z0-9]{0,4}' || true); do
+    printf '%s\n' "$CLAIM_TOUCHED" | grep -qxF "$tok" && continue
+    printf '%s\n' "$CLAIM_TOUCHED" | sed 's#.*/##' | grep -qxF "${tok##*/}" && continue
+    CLAIM_MISSING="$CLAIM_MISSING $tok"
+  done
+  [ -n "$CLAIM_MISSING" ] && note_needs_human "commit ${sha:0:7} says it contains$CLAIM_MISSING but that file is not in the commit — the change was named and never staged; re-check whether that work actually landed"
+done < <(git rev-list "$RANGE" 2>/dev/null)
+
 # --- 2. tests ----------------------------------------------------------------------------------
 echo "## Tests"
 shopt -s nullglob
