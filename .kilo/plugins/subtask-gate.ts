@@ -533,13 +533,34 @@ const BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER = (files: string[]) =>
 // boundary's identity is HEAD, so if the model commits nothing this turn, the next chat.message
 // acknowledges this exact SHA via round 39's rule and there is nothing left to announce; if it
 // does commit, the new SHA is a genuinely new boundary worth announcing again.
+// Round 47: the literal the user types to waive the one checkpoint standing in front of their
+// message. Full reasoning at the acknowledgment site in chat.message — in short, round 45 measured
+// that *judging user text* for awareness tops out at 6.0-7.7% precision, so nothing here judges
+// text: this is an exact substring match on a string that occurs 0 times in all 457 genuine user
+// messages in kilo.db, the same species of test as isMutating()'s tool-name match. Case-insensitive
+// so a message typed in caps still counts — still an exact literal, not a classifier.
+const GATE_OVERRIDE_TOKEN = "[gate-ok]"
+function hasOverrideToken(text: string): boolean {
+  return text.toLowerCase().includes(GATE_OVERRIDE_TOKEN)
+}
+
+// Round 47 adds the last two sentences, and they are the ONLY place this plugin ever names the
+// token. That is deliberate scope, not shyness: this notice fires exactly when a boundary is
+// standing as of the start of a turn, which is exactly (and only) when the token can do anything.
+// The block messages are left byte-identical — a boundary crossed mid-turn cannot be waived by a
+// message that predates it, so advertising the token there would offer a remedy that does not work
+// at the moment it is read (round 45's own finding about BLOCK_MESSAGE_ELECTIVE, not repeated).
 const NOTICE_BOUNDARY_PENDING = (sha: string, reason: ArmReason, n: number) =>
   "[subtask-gate] A sub-task checkpoint is already open before this turn starts " +
   `(${reason === "primer" ? "wiki/handoffs/SESSION_PRIMER.md was committed at" : `${n} commits without a SESSION_PRIMER.md update, HEAD`} ` +
   `${sha.slice(0, 7)}). Every mutating tool call this turn — write, edit, bash, commit, ` +
   "SESSION_PRIMER.md itself — will be refused before it runs, so do not start one to find out. " +
   "Tell the user now what has already landed and what is still open, and wait. This checkpoint " +
-  "clears on their next message provided nothing new is committed before it."
+  "clears on their next message provided nothing new is committed before it. " +
+  `If they would rather this turn proceed, tell them they can include the exact text ` +
+  `${GATE_OVERRIDE_TOKEN} in a message and it waives this one checkpoint for that message. Only ` +
+  "they can type it: quote it to them, never write it yourself, and never proceed as if it had " +
+  "been given."
 
 const BLOCK_MESSAGE_NO_PROTOCOL_READ =
   "[subtask-gate] No wiki/protocols/*.md file has been read yet this session, and mutating " +
@@ -747,6 +768,16 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
       return
     }
 
+    // Round 7 read this off output.parts at the very bottom of this hook; round 47 needs the same
+    // string earlier (the override check below runs before the notice that would otherwise
+    // announce a checkpoint the user just waived). Reading it here is equivalent, not a behaviour
+    // change: every part this hook adds in between is `synthetic: true` and this filter drops
+    // exactly those. Computed once now and reused by the ambiguity nudge at the bottom.
+    const userText = output.parts
+      .filter((p: any) => p?.type === "text" && !p?.synthetic)
+      .map((p: any) => p?.text ?? "")
+      .join(" ")
+
     const state = loadState()
 
     // Final round (contradiction injection, FEEDBACK #6): decide whether to inject BEFORE
@@ -847,6 +878,54 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
       state.acknowledged = state.acknowledged.slice(0, ACKNOWLEDGED_HISTORY_LIMIT)
     }
 
+    // Round 47 (rule c — live: warms-mobile ses_f9d0dfa4bffeTLzGAKjOA3a0st, 09-04 00:05:33 and
+    // 00:46:49, plus 8 more like them). Measured cost of the rules above, over every genuine user
+    // message in that project's whole kilo.db history: **11 of 95 user turns (11.6%) began with a
+    // checkpoint standing and ended with zero mutating calls executed** — the user's actual request
+    // that turn was simply not served. The last one is the clearest: a long, carefully written
+    // handoff request ("각 문서 2차 검증하고 ... 인계 프롬프트까지") arrived one commit after
+    // `bffac84` closed sub-task 5, and produced nothing but a status report.
+    //
+    // The load-bearing observation is that **this was never a turn the harness refused — only one
+    // it postponed.** Rule (a) and round 39's quiet-turn rule both clear on the NEXT message no
+    // matter what it says: at 00:05:33 the boundary held, at 00:09:35 he wrote one more line and
+    // the identical work went straight through. So the standing price of a checkpoint is one
+    // wasted round trip, not a decision — and "any second message" is a *weaker* signal of a
+    // deliberate human decision than a token the user had to type on purpose.
+    //
+    // So: a boundary that is already standing when a genuine user message arrives is acknowledged
+    // if that message contains GATE_OVERRIDE_TOKEN. Round 45 killed the obvious alternative with
+    // data — every text-judging detector that would have passed the real messages scored 6.0-7.7%
+    // precision against a 6.0% base rate, i.e. statistically "let anything through", which is
+    // FEEDBACK #41 itself. Nothing here judges text: it is an exact literal, 0 hits across all 457
+    // genuine user messages in kilo.db (the bare words "gate"/"게이트" appear 23 times, which is
+    // precisely why the bracketed literal and not the word is the signal).
+    //
+    // Scope is the whole safety argument, and it is one sentence: this can only acknowledge a SHA
+    // that already existed when the user typed. It therefore cannot pre-approve anything.
+    //   - FEEDBACK #41 stays closed: "continue" is not this token, and T12 asserts that unchanged.
+    //   - Round 30's acceptance criterion B stays intact: a primer boundary crossed mid-turn has a
+    //     SHA that did not exist at chat.message time, so no message can have waived it (round 46's
+    //     own argument — you cannot consent to something that does not exist yet). T23c/T26e.
+    //   - The model cannot self-grant: `userText` excludes every synthetic part (the only kind this
+    //     plugin can author) and the idle-nudge messageID guard above already drops the one message
+    //     it can send. It has no way to produce a non-synthetic user text part.
+    //   - Per-SHA, never per-session: the next boundary needs its own token. No new state field —
+    //     this writes to the same `acknowledged` list as rules (a) and (b).
+    // Honest cost, stated rather than hidden: a user who types this every turn has turned the
+    // primer checkpoint off for themselves. That is a real erosion path and it is why the token is
+    // per-message, per-SHA, and never persisted — but it is a choice a human now makes explicitly
+    // instead of one they make by reflex with a throwaway "네 진행하세요".
+    if (
+      hasOverrideToken(userText) &&
+      turnStartBoundary &&
+      "sha" in turnStartBoundary &&
+      !state.acknowledged.includes(turnStartBoundary.sha)
+    ) {
+      state.acknowledged.unshift(turnStartBoundary.sha)
+      state.acknowledged = state.acknowledged.slice(0, ACKNOWLEDGED_HISTORY_LIMIT)
+    }
+
     // Round 28 (#41 redesign, rule a): this replaces FEEDBACK #3's (round 8) unconditional
     // clear-on-any-message with one anchored to a fact: a block only gets acknowledged if it
     // actually fired (recorded in tool.execute.before, at the exact `throw` site) for this
@@ -906,11 +985,7 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     // Round 7 (FEEDBACK #4/#12): a second, independent check in the same hook (chat.message is
     // the only surface available before the model responds — see the block above's own comment
     // on why no other hook can reach discuss.md). Reads the real user text already in
-    // output.parts for this message.
-    const userText = output.parts
-      .filter((p: any) => p?.type === "text" && !p?.synthetic)
-      .map((p: any) => p?.text ?? "")
-      .join(" ")
+    // output.parts for this message — hoisted to the top of this hook by round 47, same value.
     if (userText && looksAmbiguous(userText)) {
       output.parts.push({
         id: `prt_gateambig${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
