@@ -54,6 +54,20 @@ history for the evidence trail. What's still genuinely open: `discuss.md` self-s
 state (#6), and `discuss.md` has no mechanical backstop at all since it produces zero tool calls
 (#12) — see `wiki/handoffs/FEEDBACK_PENDING.md` for current status on all of these.
 
+### Waiving a checkpoint you are already looking at
+
+Closing a sub-task arms a checkpoint, and the next turn's mutating calls are refused. That is the
+point of the gate, but it used to cost a whole round trip even when you knew exactly what you were
+asking for: 11 of one real project's 95 user turns began with a checkpoint standing and ended with
+nothing done, and the *next* message — any next message — let the identical work through.
+
+Include the exact text `[gate-ok]` anywhere in a message and it waives the one checkpoint that was
+already standing when you sent it. Nothing else: it cannot pre-approve a checkpoint the model
+creates later in that same turn, it does not carry to the next one, and the model cannot type it for
+itself. Leave it out and the gate behaves exactly as it always has. The plugin tells you about it in
+the standing-checkpoint notice, so you do not have to remember it — but every use is a deliberate
+decision to skip a stop you asked for, so use it when you mean it, not by reflex.
+
 ## File tree
 
 ```
