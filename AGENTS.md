@@ -33,6 +33,7 @@ exists for any of these (see "Known gap") — read the matching doc yourself, ev
 Continue): blocks every mutation until a `wiki/protocols/*.md` doc is read; blocks once
 on a primer-touch/N-commit-elective trigger; warns on carried-over uncommitted work at the next
 message — verified live, see `wiki/rule-archive.md` for this project's own evidence.
+Only the user waives a standing checkpoint: the exact text `[gate-ok]` in their own message.
 
 ## Known gap
 Custom slash commands (`.kilo/commands/*.md`) don't work yet (canary-tested) — protocol
