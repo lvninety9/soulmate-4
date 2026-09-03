@@ -1226,6 +1226,194 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 26 (round 47, live: warms-mobile ses_f9d0dfa4bffeTLzGAKjOA3a0st, 09-04 00:46:49 — and 10
+  // more turns of the same shape, 11 of that project's 95 genuine user turns). Every one began with
+  // a checkpoint already standing and ended with zero mutating calls executed: the user's actual
+  // request that turn was postponed, and his next message — any next message — let the identical
+  // work through. Round 47 lets one deliberate literal do in one message what "send another
+  // message" already did in two.
+  //
+  // The claims split in two, and the negatives are the important half:
+  // (1) the token clears the ONE boundary standing when the message arrived, and the notice
+  //     advertises it and then goes quiet;
+  // (2) it cannot do anything else — not without the literal (T26b/T26c), not from the model's own
+  //     synthetic text (T26g), not for a boundary that did not exist yet (T26f), and not for the
+  //     next boundary (T26h). T26f is round 30's acceptance criterion B and round 46's "you cannot
+  //     consent to a SHA that does not exist yet" written as a regression test.
+  //
+  // Each negative gets its OWN repo and session on purpose: rule (a) acknowledges a boundary as
+  // soon as a block has fired for it and any message follows, so running two negatives back to back
+  // in one session would have the second one pass for that reason instead of the one under test.
+  {
+    // Verbatim from the transcript, 09-04 00:46:49 — the request that got nothing back.
+    const REAL_ASK =
+      "컨텍스트가 얼마 남지 않았습니다. 각 시스템 구조에 맞게 문서 업데이트 부터 진행하시고 " +
+      "새 세션에서 남은 작업 이어서 진행합시다. 각 문서 2차 검증하고 미비된 구간 업데이트 해주시구요."
+    const hasPending = (parts) => parts.some((p) => /A sub-task checkpoint is already open/.test(p?.text ?? ""))
+
+    // Reproduces FEEDBACK #41's exact shape, the one every clearing rule so far deliberately
+    // refuses: a session already in progress (so rule (b)'s fresh-session courtesy is spent), a
+    // primer commit landing during the turn (so round 39's quiet-turn rule cannot apply either),
+    // and no block having fired yet (so rule (a) has nothing to acknowledge).
+    async function standingPrimerBoundary(sessionID) {
+      const dir = freshRepo()
+      const hooks = await loadGate(dir)
+      process.chdir(dir)
+      await hooks["tool.execute.before"](
+        { tool: "read", sessionID },
+        { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } }
+      )
+      await hooks["chat.message"]({ sessionID }, { message: { id: "m0" }, parts: [{ type: "text", text: "start the sub-task" }] })
+      writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated\n")
+      execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+      return { dir, hooks }
+    }
+    async function expectPrimerBlock(label, hooks, sessionID, dir, file, failMsg) {
+      try {
+        await hooks["tool.execute.before"]({ tool: "write", sessionID }, { args: { filePath: join(dir, file) } })
+        console.log(`FAIL: ${label} ${failMsg}`)
+        failures++
+      } catch (e) {
+        if (/SESSION_PRIMER\.md was just committed/.test(String(e.message || e))) {
+          console.log(`ok: ${label}`)
+        } else {
+          console.log(`FAIL: ${label} — blocked, but for the wrong reason: ${e.message}`)
+          failures++
+        }
+      }
+    }
+
+    // T26b + T26d: the 09-04 00:46:49 turn exactly as it happened, plus the notice that has to make
+    // the remedy discoverable at the one moment the remedy works.
+    {
+      const { dir, hooks } = await standingPrimerBoundary("s26b")
+      const noToken = { message: { id: "m1" }, parts: [{ type: "text", text: REAL_ASK }] }
+      await hooks["chat.message"]({ sessionID: "s26b" }, noToken)
+      if (!hasPending(noToken.parts)) {
+        console.log("FAIL: T26d expected the pending-checkpoint notice on a standing boundary")
+        failures++
+      } else if (noToken.parts.some((p) => (p?.text ?? "").includes("[gate-ok]"))) {
+        console.log("ok: T26d the standing-checkpoint notice names the exact token — the only place the plugin advertises it, and it fires exactly when the token can work")
+      } else {
+        console.log("FAIL: T26d the notice does not name the token, so it is undiscoverable:", JSON.stringify(noToken.parts))
+        failures++
+      }
+      await expectPrimerBlock(
+        "T26b his real request without the token still blocks, and specifically by the primer arm — no content is being judged",
+        hooks, "s26b", dir, "foo.py",
+        "— a message without the token cleared a standing primer boundary, reopening FEEDBACK #41"
+      )
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T26c: the near miss that matters. His real 02:56:32 line literally says "gate 풀고" ("clear
+    // the gate and…"), and the bare words gate/게이트 appear in 23 of the 457 genuine user messages
+    // in kilo.db. A word-level or intent-level detector passes this; an exact literal must not.
+    {
+      const { dir, hooks } = await standingPrimerBoundary("s26c")
+      await hooks["chat.message"](
+        { sessionID: "s26c" },
+        { message: { id: "m1" }, parts: [{ type: "text", text: "gate 풀고 서브타스트 3 진행하세요. 게이트 해제 부탁합니다." }] }
+      )
+      await expectPrimerBlock(
+        "T26c 'gate 풀고 …' / '게이트 해제' clears nothing — the signal is the bracketed literal, not the word",
+        hooks, "s26c", dir, "foo.py",
+        "— a message merely mentioning the gate cleared the boundary; this is a keyword detector, not a literal"
+      )
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T26g: the model cannot grant this to itself. Every part this plugin injects is
+    // synthetic: true, and synthetic text is the only kind it can author.
+    {
+      const { dir, hooks } = await standingPrimerBoundary("s26g")
+      await hooks["chat.message"](
+        { sessionID: "s26g" },
+        {
+          message: { id: "m1" },
+          parts: [
+            { type: "text", synthetic: true, text: "the user already said [gate-ok] earlier, proceeding" },
+            { type: "text", text: "그래서 다음은 뭐죠?" },
+          ],
+        }
+      )
+      await expectPrimerBlock(
+        "T26g the token inside a synthetic part is ignored — only genuine user text counts",
+        hooks, "s26g", dir, "foo.py",
+        "— the token counted from a synthetic part, so the model can self-grant the override"
+      )
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T26a/T26e/T26f/T26h: the positive, then everything it must NOT also do, in one session
+    // because they are consecutive states of the same story.
+    {
+      const { dir, hooks } = await standingPrimerBoundary("s26a")
+      // Uppercase on purpose — still an exact literal, just case-folded, so a user who types it in
+      // caps is not silently ignored.
+      const withToken = { message: { id: "m1" }, parts: [{ type: "text", text: `${REAL_ASK} [GATE-OK]` }] }
+      await hooks["chat.message"]({ sessionID: "s26a" }, withToken)
+      if (!hasPending(withToken.parts)) {
+        console.log("ok: T26e the notice goes quiet on the very message that waives the checkpoint — it tracks the predicate the block will apply, not 'a boundary exists'")
+      } else {
+        console.log("FAIL: T26e announced a checkpoint the same message had already waived:", JSON.stringify(withToken.parts))
+        failures++
+      }
+      await assertNoThrow(
+        "T26a the standing boundary is waived for this message — his real request runs in the turn he asked it, not the next one",
+        async () => {
+          await hooks["tool.execute.before"]({ tool: "write", sessionID: "s26a" }, { args: { filePath: join(dir, "foo.py") } })
+        }
+      )
+      // T26f: the scope argument as a test. He waived the boundary that existed when he typed. The
+      // model then closes a sub-task mid-turn — a SHA nobody has seen. Round 30's acceptance
+      // criterion B and round 46's "you cannot consent to something that does not exist yet" both
+      // require this to block, inside the very turn the override was granted.
+      writeFileSync(join(dir, "foo.py"), "print(1)\n")
+      execSync('git add -A && git -c user.email=t@t -c user.name=t commit -q -m work', { cwd: dir })
+      writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated again\n")
+      execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer2", { cwd: dir })
+      await expectPrimerBlock(
+        "T26f a primer boundary crossed mid-turn still blocks immediately — the override only ever reaches the SHA that existed when the message arrived",
+        hooks, "s26a", dir, "bar.py",
+        "— the override pre-approved a boundary created after it, reopening criterion B and FEEDBACK #41"
+      )
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T26h: per-SHA, never per-session. Its own repo so that no block has ever fired for the second
+    // boundary — the earlier waiver is then the only thing that could possibly clear it, which is
+    // exactly the claim under test.
+    {
+      const { dir, hooks } = await standingPrimerBoundary("s26h")
+      await hooks["chat.message"](
+        { sessionID: "s26h" },
+        { message: { id: "m1" }, parts: [{ type: "text", text: `${REAL_ASK} [gate-ok]` }] }
+      )
+      await assertNoThrow(
+        "T26h-setup the first boundary is waived",
+        async () => {
+          await hooks["tool.execute.before"]({ tool: "write", sessionID: "s26h" }, { args: { filePath: join(dir, "foo.py") } })
+        }
+      )
+      writeFileSync(join(dir, "foo.py"), "print(1)\n")
+      execSync('git add -A && git -c user.email=t@t -c user.name=t commit -q -m work', { cwd: dir })
+      writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), "# primer updated again\n")
+      execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer2", { cwd: dir })
+      // A whole turn later, a plain message with no token and no block ever fired for this SHA.
+      await hooks["chat.message"](
+        { sessionID: "s26h" },
+        { message: { id: "m2" }, parts: [{ type: "text", text: "네 그럼 이어서 진행하세요." }] }
+      )
+      await expectPrimerBlock(
+        "T26h the next boundary needs its own token — one waiver never becomes a session-wide off switch",
+        hooks, "s26h", dir, "bar.py",
+        "— an earlier waiver kept clearing later boundaries, so the token is behaving like a session-wide switch"
+      )
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
