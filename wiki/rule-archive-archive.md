@@ -1685,3 +1685,131 @@ left unchanged, not merged.
 recorded, not re-run. `~/aider-bench/`, `~/sm4-plugin-test/`, `llama.service`,
 `/media/jay/D/llama.cpp/llama.env`, `~/.config/kilo/kilo.jsonc` untouched, no process killed,
 every commit through the real `.git/hooks/pre-commit` (`pre-commit-check-caps`, not bypassed).
+
+---
+
+## Round 36 — layer 2: local-model diff review, report-only, added alongside layer 1's tool-only report
+
+**Housekeeping first**: `rule-archive.md` was already at 400/450 (this file's own WARN
+threshold) before this round's write-up. Moved Round 31's full section (106 lines) to
+`wiki/rule-archive-archive.md`, same PRUNE convention round 34 already used for rounds 5-30 —
+left a pointer line, nothing deleted. 305/450 after, before this section was even written. This
+round's own write-up (below) then pushed it back to 415/450 (WARN again) — moved Round 32's full
+section (72 lines) out the same way once that was written, landing at 354/450, clean. Same
+discipline round 33 itself established: don't let a soft WARN linger just because it isn't a hard
+block yet.
+
+**Ask (Jay)**: add a second verification layer — a local-model call that reads a sub-task's diff
+and points out concrete issues, on top of layer 1 (`subtask-report.sh`, deliberately tool-only per
+this repo's own README: *"검증은 필수. 다만 LLM으로 하면 안 됩니다 — 대부분은 판단이 아니라 도구
+문제"*). Layer 2 exists only for the residual class layer 1 structurally can't cover — a flipped
+comparison, a requirement mismatch, an ignored argument — things no deterministic tool checks for.
+
+**Why this doesn't contradict the README's own "LLM으로 하면 안 됩니다" stance**: that line is
+about secrets/tests/lint/mocks, all genuine tool problems with free deterministic tools already
+covering them (still true, layer 1 untouched). Layer 2's failure-mode class has no such tool. Two
+things from this week's own measured local-model data (`PROJECT_BACKGROUND.md`) make it safe to
+add anyway: (1) reading a fixed diff and emitting a bounded `{file, line, issue}` list is a
+**stateless transformation** — the shape the model is measurably good at (aider-polyglot
+transformation-class exercises all passed), not the "design/remember state" shape it fails at
+(0/1 on multi-sub-task chaining, the 18-turn fabrication incident). (2) every call is a brand-new,
+context-free HTTP request — no Kilo session, nothing to derail — the strongest possible form of
+`verify.md`'s own "cold, new-session read" mitigation.
+
+**What was built**:
+- `scripts/lib/subtask-range.sh` — `resolve_ref()`/`compute_subtask_range()` extracted verbatim
+  from `subtask-report.sh`'s inline boundary resolution (unchanged behavior, incl. the round-34
+  bad-ref-echo fix), now sourced by both report scripts. `subtask-report.sh` itself shrank by ~30
+  lines to a single `source` + one call. Done specifically because `subtask-report.sh`'s own
+  header already warns against "a second, invented boundary definition" — duplicating the ~30
+  lines into the new script would have been exactly that.
+- `scripts/subtask-review-llm.sh` — same CLI shape as layer 1 (`[<target-sha>] [--since <sha>]`),
+  same boundary (via the shared lib). Builds a fixed prompt (diff verbatim, rules: cite exact
+  file+line, empty array allowed and expected when nothing's wrong, JSON-only output, cap 10
+  items), POSTs to `$SUBTASK_REVIEW_API_BASE/chat/completions` (default
+  `http://127.0.0.1:8080/v1`, this project's own llama-server), parses `choices[0].message.content`
+  defensively (markdown-fence stripped, `JSON.parse` — not a regex/prose heuristic, the thing that
+  failed 13 rounds elsewhere in this project as `check_stale_language()`). A parse failure is its
+  own explicit finding with the raw text attached, **never** folded into "0 issues found" — the
+  single most dangerous failure shape here, since it would be indistinguishable from a genuinely
+  clean review. Config via env (`SUBTASK_REVIEW_API_BASE`/`_MODEL`/`_TIMEOUT_S`/
+  `_DIFF_CHAR_CAP`/`_LLM_DISABLE`), same override convention as `SUBTASK_REPORT_TIMEOUT_S`. A
+  diff over the char cap (default 20000) is **skipped, not truncated-and-reviewed** — a partial
+  diff reviewed as if complete is worse than an honest skip.
+- `scripts/post-commit-subtask-report` — now also fires `subtask-review-llm.sh` after layer 1,
+  appending to the same `.subtask-reports/<sha>.md` (`tee -a`), same never-blocks/never-silent
+  guarantee. Guarded on the script existing+executable so an older checkout without layer 2 still
+  works.
+- `AGENTS.md`/`templates/AGENTS.md.template` File map row updated to cover both layers in one row
+  (kept byte-identical per `check_template_drift()`; a first pass split it into two rows, which
+  pushed `AGENTS.md` from 81 to 82 lines and broke two hardcoded-line-count assertions in
+  `tests/check-caps.regression.test.mjs` (T9a/T14a) that this repo's own real state feeds — merged
+  back into one row instead of updating those tests, since a merged row loses no information and
+  is the smaller diff; re-ran `check-caps.sh --verbose` after, drift check still `ok`, AGENTS.md
+  back at its original 81/85). `README.md` file tree updated to match, same round-34 precedent.
+- `scripts/bootstrap.sh` — explicit `chmod +x` added for `subtask-review-llm.sh` (the recursive
+  `cp -r "$SELF_DIR/scripts"` already copies `lib/` and the new script into a fresh project
+  without any bootstrap change; the chmod is belt-and-suspenders, matching this script's own
+  existing redundant chmod calls for the same reason).
+
+**Trust level, stated explicitly, not implied**: layer 2's own report section header reads "모델
+판단 — 도구 판정 아님, 사람 확인 전 신뢰하지 말 것." Every finding is also pushed into
+확인이 필요한 것 tagged `[layer2/local-llm, unverified]` — visually distinct from layer 1's
+untagged (deterministic-tool) findings in the same list, so a human scanning one combined report
+can't mistake a probabilistic finding for a tool-certain one. Non-blocking by construction, per
+this project's own admission bar ("(a) irreversible or (b) proven ignored → block; else report")
+— zero rounds of evidence yet exist on whether this layer's findings get ignored; promote a
+specific class to a blocker only once that's actually measured, not guessed.
+
+**Live proof, not simulated** (this project's own "plant a defect, verify it's caught"
+methodology, round 34/35, applied to an LLM instead of a shell tool): real `llama-server` on this
+machine (`Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`, confirmed via `/v1/models` and `systemctl status
+llama`), called directly, no mock.
+- Planted bug: `clamp(value, lo, hi)` with `if value < hi: return hi` (should be `>`, returns `hi`
+  for an in-range value). Model returned exactly one item, `{"file":"clamp.py","line":6,"issue":
+  "The condition 'value < hi' incorrectly returns 'hi' when the value is less than the upper
+  bound..."}` — correct file, correct line, correct mechanism, first call (45.8s — cold; the
+  model's own `predicted_ms`/`prompt_ms` timing fields summed to ~3.5s of that, the rest was one-
+  off request/queue overhead not reproduced on the next call).
+  `completion_tokens: 67`.
+- Clean diff (`def add(a,b): return a+b`): returned `[]`, `completion_tokens: 2`, 6.6s — confirms
+  the model doesn't invent an issue to have something to say when there genuinely isn't one.
+- Mismatched `"model"` field (`"totally-wrong-model-name"`) — server answered 200 anyway; this
+  llama-server build ignores the field for its one loaded model. `SUBTASK_REVIEW_MODEL` defaults
+  to a generic placeholder (`local`) rather than hardcoding this machine's `.gguf` filename into a
+  template meant to bootstrap onto other machines/providers.
+
+**Regression tests**: `tests/subtask-review-llm.test.mjs`, 26 assertions, T1-T11 — disable flag
+skips without a network call (T1), empty-diff range states itself explicitly rather than "0
+issues" (T2), unreachable server is a stated skip, never a clean pass, fast/real (closed port,
+short timeout, T3), oversized diff skips honestly rather than truncating (T4), valid-JSON findings
+shown + tagged `[layer2/local-llm, unverified]` distinct from layer 1 (T5, mocked), markdown-
+fenced JSON still parses (T6, mocked), empty array is a real "0 issues," distinct from a parse
+failure (T7, mocked), unparseable content is its own explicit finding with raw text attached, never
+silently "0 issues" (T8, mocked — the single scenario this design is most defensive about), over-
+cap item count truncates the display but states the true count (T9, mocked), root-commit range
+resolution matches layer 1's own `(repo start)..` behavior via the shared lib (T10). **T11 is the
+one real, non-mocked call** — plants the same `clamp()` bug fresh in a throwaway repo, does a
+quick `curl .../health` probe first, and either asserts the live model cites `clamp.py:5` or
+prints an informational skip (not a FAIL) if the server didn't answer — same acceptance standard
+round 33 already set ("no LLM calls made, server busy" is a legitimate outcome, not a defect).
+All 26 passed, including T11 live. Existing suites re-run clean after every edit here:
+`subtask-report.test.mjs` (18/18, unaffected by the `lib/subtask-range.sh` extraction),
+`subtask-gate.test.mjs`, `check-secrets.test.mjs` — no regression. `check-caps.sh --verbose`:
+`ok` throughout, template-drift check still `ok`, no OVER CAP.
+
+**Left alone, out of scope for this round**: Round 35's own commits (secret scan moved to
+pre-commit, report gaps 3/4 fixed, `SESSION_PRIMER.md` compressed — all visible in `git log`,
+`18071a1`..`a9bba1c`) never got a "Round 35" write-up here or a `SESSION_PRIMER.md`/
+`session-log.md` handoff of their own — `SESSION_PRIMER.md`'s header still reads "round 34
+complete." Noticed, not fixed here — Jay's ask was specifically layer 2, and reconstructing
+someone else's undocumented round from the outside risks getting the narrative wrong; flagged in
+`session-log.md`'s row for this round instead of silently absorbed or silently ignored.
+
+**Also found, also left alone**: this checkout's installed `.git/hooks/pre-commit` predates round
+35's secret-scan addition (`diff .git/hooks/pre-commit scripts/pre-commit-check-caps` shows the
+installed copy is missing the whole `check-secrets.sh` block) — this repo's own commits are
+currently going through cap-checking only, not the secret block `SESSION_PRIMER.md`'s Hard
+constraints describes as active. Not reinstalled here (git-hooks changes are outside this round's
+ask); worth a `cp scripts/pre-commit-check-caps .git/hooks/pre-commit` the moment someone's
+actually in round 35's scope.
