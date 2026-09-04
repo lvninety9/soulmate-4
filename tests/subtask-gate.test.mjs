@@ -1626,6 +1626,43 @@ async function main() {
     }
   }
 
+  // Test 29 (round 49): the uncommitted-carryover notice is the idle nudge's twin and had none of
+  // its round-27 dedup, so an unresolved path repeated it verbatim on every message — measured
+  // across kilo.db: 93 notices, 54 distinct, worst case 12 identical repeats in one session over
+  // one screenshot file. Same rule as the idle nudge, keyed on the dirty signature rather than the
+  // session, so a genuinely different dirty path still speaks up.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    const carried = (o) => o.parts.filter((p) => p.synthetic && /Uncommitted changes are already/.test(p.text)).length
+    writeFileSync(join(dir, "screenshot.png"), "x")
+
+    const first = { message: { id: "m1" }, parts: [{ type: "text", text: "이어서 진행하세요." }] }
+    await hooks["chat.message"]({ sessionID: "s29" }, first)
+    const second = { message: { id: "m2" }, parts: [{ type: "text", text: "네 계속하세요." }] }
+    await hooks["chat.message"]({ sessionID: "s29" }, second)
+    if (carried(first) === 1 && carried(second) === 0) {
+      console.log("ok: T29a the carryover notice is said once, not on every message about the same file")
+    } else {
+      console.log(`FAIL: T29a expected 1 then 0 carryover notices, got ${carried(first)} then ${carried(second)}`)
+      failures++
+    }
+
+    // negative: a genuinely different uncommitted path must re-fire — dedup on the signature, not
+    // on the session, or an unresolved warning silently swallows the next real one.
+    writeFileSync(join(dir, "another.txt"), "y")
+    const third = { message: { id: "m3" }, parts: [{ type: "text", text: "그럼 다음으로." }] }
+    await hooks["chat.message"]({ sessionID: "s29" }, third)
+    if (carried(third) === 1) {
+      console.log("ok: T29b a new uncommitted path re-fires the notice — dedup is on the file set, not the session")
+    } else {
+      console.log(`FAIL: T29b a new dirty path was swallowed by the dedup, got ${carried(third)}`)
+      failures++
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
