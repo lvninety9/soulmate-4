@@ -1663,6 +1663,219 @@ async function main() {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  // Test 30 (round 50): the in-turn uncommitted-run notice, on tool.execute.after. Live case is
+  // warms-mobile ses_f92a556e4ffepjAjQkfai9H6fN (09-05 01:57-02:02): four files written, every
+  // write successful, nothing blocked, nothing committed, "모든 작업 완료" reported. Nothing in
+  // this plugin counted, because everything it had ran either before a call or between turns.
+  {
+    const primer = join("wiki", "handoffs", "SESSION_PRIMER.md")
+    // Drives one successful write end to end: the before-hook (so the session is in the same
+    // state a real call leaves it in), the file actually changing, then the after-hook.
+    async function write(hooks, dir, sessionID, rel, tool = "write") {
+      const args = { filePath: join(dir, rel) }
+      try {
+        await hooks["tool.execute.before"]({ sessionID, tool }, { args })
+      } catch {
+        return null
+      }
+      mkdirSync(dirname(join(dir, rel)), { recursive: true })
+      writeFileSync(join(dir, rel), `${rel} ${Date.now()} ${Math.random()}\n`)
+      const out = { title: rel, output: "<file>\nok\n</file>", metadata: {} }
+      await hooks["tool.execute.after"]({ sessionID, tool, args }, out)
+      return out
+    }
+    const noticed = (out) => !!out && /files have now been changed this turn with nothing committed/.test(out.output)
+
+    async function opened(sessionID) {
+      const dir = freshRepo()
+      const hooks = await loadGate(dir)
+      process.chdir(dir)
+      await hooks["chat.message"]({ sessionID }, { message: { id: "m1" }, parts: [{ type: "text", text: "이어서 진행하세요." }] })
+      await hooks["tool.execute.before"]({ sessionID, tool: "read" }, { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } })
+      return { dir, hooks }
+    }
+
+    // T30a — the live shape: three distinct paths dirty in one turn with no commit. Fires on the
+    // third, naming all three; the first two are silent because two paths can still be build.md
+    // step 3's one sanctioned pair.
+    {
+      const { dir, hooks } = await opened("s30a")
+      const first = await write(hooks, dir, "s30a", "a.txt")
+      const second = await write(hooks, dir, "s30a", "b.txt")
+      const third = await write(hooks, dir, "s30a", "c.txt")
+      if (!noticed(first) && !noticed(second) && noticed(third) && /a\.txt/.test(third.output) && /c\.txt/.test(third.output)) {
+        console.log("ok: T30a three uncommitted paths in one turn are named on the third write, not before")
+      } else {
+        console.log(`FAIL: T30a expected silence, silence, notice — got ${noticed(first)}, ${noticed(second)}, ${noticed(third)}`)
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T30b — said once per accumulation, not once per call. This is the noisiest surface in the
+    // plugin (it rides on every tool result the model reads), so it gets the smallest dose.
+    {
+      const { dir, hooks } = await opened("s30b")
+      await write(hooks, dir, "s30b", "a.txt")
+      await write(hooks, dir, "s30b", "b.txt")
+      const third = await write(hooks, dir, "s30b", "c.txt")
+      const fourth = await write(hooks, dir, "s30b", "d.txt")
+      const fifth = await write(hooks, dir, "s30b", "e.txt")
+      if (noticed(third) && !noticed(fourth) && !noticed(fifth)) {
+        console.log("ok: T30b the notice is said once per accumulation, not on every later write")
+      } else {
+        console.log(`FAIL: T30b expected one notice then silence — got ${noticed(third)}, ${noticed(fourth)}, ${noticed(fifth)}`)
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T30c — committing is what clears it, and nothing else. After the count falls back under the
+    // threshold there is no separate reset step: git's own answer is the counter.
+    {
+      const { dir, hooks } = await opened("s30c")
+      await write(hooks, dir, "s30c", "a.txt")
+      await write(hooks, dir, "s30c", "b.txt")
+      const third = await write(hooks, dir, "s30c", "c.txt")
+      // exactly the three, and nothing else — staging the (still untracked) primer here would
+      // raise a real primer boundary and block the writes below for an unrelated reason
+      execSync("git add a.txt b.txt c.txt && git -c user.email=t@t -c user.name=t commit -q -m batch", { cwd: dir })
+      const afterCommit = await write(hooks, dir, "s30c", "d.txt")
+      const e = await write(hooks, dir, "s30c", "e.txt")
+      const f = await write(hooks, dir, "s30c", "f.txt")
+      if (noticed(third) && !noticed(afterCommit) && !noticed(e) && noticed(f)) {
+        console.log("ok: T30c a commit clears the run, and a fresh accumulation speaks up again")
+      } else {
+        console.log(`FAIL: T30c expected notice, clear, clear, notice — got ${noticed(third)}, ${noticed(afterCommit)}, ${noticed(e)}, ${noticed(f)}`)
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T30d (negative) — the count is against THIS turn's starting tree, never the whole working
+    // tree. A repo the user keeps permanently dirty is the false-positive class that would
+    // otherwise make this fire on every write of every turn forever.
+    {
+      const dir = freshRepo()
+      const hooks = await loadGate(dir)
+      process.chdir(dir)
+      for (const f of ["stale1.txt", "stale2.txt", "stale3.txt", "stale4.txt"]) writeFileSync(join(dir, f), "left over\n")
+      await hooks["chat.message"]({ sessionID: "s30d" }, { message: { id: "m1" }, parts: [{ type: "text", text: "이어서 진행하세요." }] })
+      await hooks["tool.execute.before"]({ sessionID: "s30d", tool: "read" }, { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } })
+      const only = await write(hooks, dir, "s30d", "new.txt")
+      if (!noticed(only)) {
+        console.log("ok: T30d pre-existing dirt is not this turn's doing — one new path stays silent under four stale ones")
+      } else {
+        console.log("FAIL: T30d a permanently-dirty repo tripped the notice on a single write")
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T30e — but a new turn starting on top of that same uncommitted work must still be able to
+    // speak: the suppression belongs to the turn, not to the session.
+    {
+      const { dir, hooks } = await opened("s30e")
+      await write(hooks, dir, "s30e", "a.txt")
+      await write(hooks, dir, "s30e", "b.txt")
+      const third = await write(hooks, dir, "s30e", "c.txt")
+      await hooks["chat.message"]({ sessionID: "s30e" }, { message: { id: "m2" }, parts: [{ type: "text", text: "네 계속하세요." }] })
+      // The new turn's very first write already lands on three fresh paths, because two of them
+      // appeared without a tool call of ours (a build step, the user's own editor). The count
+      // therefore never passes back under the threshold inside this turn, so the per-write reset
+      // cannot clear the previous turn's suppression — only the turn boundary can.
+      writeFileSync(join(dir, "d.txt"), "made outside the model's tool calls\n")
+      writeFileSync(join(dir, "e.txt"), "made outside the model's tool calls\n")
+      const sixth = await write(hooks, dir, "s30e", "f.txt")
+      if (noticed(third) && noticed(sixth)) {
+        console.log("ok: T30e the next turn is counted on its own, not silenced by the previous turn's notice")
+      } else {
+        console.log(`FAIL: T30e expected a notice in each turn — got ${noticed(third)}, ${noticed(sixth)}`)
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T30f (negative) — bash is excluded by construction. It is the tool that commits; annotating
+    // its result would be commenting on the fix instead of the problem, and its "args" carry a
+    // command, not a path (round 45's rejected free-text axis, round 49's same exclusion).
+    {
+      const { dir, hooks } = await opened("s30f")
+      await write(hooks, dir, "s30f", "a.txt")
+      await write(hooks, dir, "s30f", "b.txt")
+      writeFileSync(join(dir, "c.txt"), "made by a shell command\n")
+      const out = { title: "bash", output: "done", metadata: {} }
+      await hooks["tool.execute.after"]({ sessionID: "s30f", tool: "bash", args: { command: "touch c.txt" } }, out)
+      if (!noticed(out)) {
+        console.log("ok: T30f bash results are never annotated — the notice rides on write/edit only")
+      } else {
+        console.log("FAIL: T30f a bash result was annotated")
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T30g (negative) — a turn the plugin has never seen the start of has nothing to measure
+    // against, and stays quiet rather than blaming this turn for the whole tree.
+    {
+      const dir = freshRepo()
+      const hooks = await loadGate(dir)
+      process.chdir(dir)
+      for (const f of ["x.txt", "y.txt", "z.txt"]) writeFileSync(join(dir, f), "pre-existing\n")
+      const args = { filePath: join(dir, "z.txt") }
+      const out = { title: "z.txt", output: "<file>ok</file>", metadata: {} }
+      await hooks["tool.execute.after"]({ sessionID: "s30g", tool: "write", args }, out)
+      if (!noticed(out)) {
+        console.log("ok: T30g with no turn-start snapshot for this session the hook says nothing")
+      } else {
+        console.log("FAIL: T30g the hook spoke without a turn to measure against")
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T30h (negative) — the sanctioned pair from build.md step 3 (a sub-task's last file staged
+    // together with SESSION_PRIMER.md) is exactly two paths, and must never be reported. This is
+    // where the threshold comes from; it is not a tuned number.
+    {
+      const { dir, hooks } = await opened("s30h")
+      const a = await write(hooks, dir, "s30h", join("src", "thing.ts"))
+      const b = await write(hooks, dir, "s30h", primer, "edit")
+      if (!noticed(a) && !noticed(b)) {
+        console.log("ok: T30h build.md step 3's sanctioned last-file + primer pair is never reported")
+      } else {
+        console.log(`FAIL: T30h the sanctioned two-file pair was reported — ${noticed(a)}, ${noticed(b)}`)
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // T30i — report-only in the strongest sense available: the call already succeeded, so there is
+    // nothing to refuse, and the gate's own decisions must be untouched. Same repo, same session:
+    // a primer commit right after the notice still blocks the very next call exactly as before.
+    {
+      const { dir, hooks } = await opened("s30i")
+      await write(hooks, dir, "s30i", "a.txt")
+      await write(hooks, dir, "s30i", "b.txt")
+      const third = await write(hooks, dir, "s30i", "c.txt")
+      writeFileSync(join(dir, primer), "# primer moved\n")
+      execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+      let blocked = false
+      try {
+        await hooks["tool.execute.before"]({ sessionID: "s30i", tool: "write" }, { args: { filePath: join(dir, "d.txt") } })
+      } catch {
+        blocked = true
+      }
+      if (noticed(third) && blocked) {
+        console.log("ok: T30i the notice changes nothing about the gate — a fresh primer boundary still blocks")
+      } else {
+        console.log(`FAIL: T30i notice=${noticed(third)} primerStillBlocks=${blocked}`)
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
