@@ -480,5 +480,132 @@ process.exitCode = 1
   rmSync(dir, { recursive: true, force: true })
 }
 
+// T21 (round 48): the sub-task NUMBER in a `progress: [sub-task N]` subject vs. the path the
+// primer's own plan puts on line N. A different axis from T20: T20 asks "does the commit contain
+// what its subject names," T21 asks "is N the N the plan means." Live origin, warms-mobile
+// 2026-09-04: told only "continue," the model committed "[subtask 7] — GameScene.ts" and
+// "[subtask 8] — main.ts" while the plan put 7 at src/systems/AI.ts and 8 at src/ui/. It had
+// asked to re-order once before and been refused (404fd8a); this time it re-ordered silently.
+// T20 stayed quiet (the named files WERE in the commits) and so did the gate (no primer touch,
+// so no boundary ever armed) -- a human found it by hand.
+//
+// T21c/d/f/g/h are the load-bearing NEGATIVES. Measured on both repos' full history (345
+// commits) the check as scoped below flags exactly 2, both true positives; each negative below
+// pins one of the guards that keeps it there.
+const PLAN = [
+  "## 서브태스크 목록",
+  "6. 무기 시스템 — src/entities/Projectile.ts (폭탄 발사, 궤적, 폭발) (small)",
+  "7. AI — src/systems/AI.ts (조준 계산, 바람 보정) (medium)",
+  "8. UI — src/ui/ (HP바, 바람 표시) (medium)",
+  "9. 씬 연결 — GameScene.ts (Boot → Game → Result) (medium)",
+  "10. 모바일 최적화 — 터치 조작, 반응형 스케일링 (small)",
+  "",
+].join("\n")
+const MISMATCH = "but touched none of the paths the primer's own plan lists for item"
+function planRepo(primerBody = PLAN) {
+  const dir = freshRepo()
+  mkdirSync(join(dir, "wiki", "handoffs"), { recursive: true })
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), primerBody)
+  writeFileSync(join(dir, "a.txt"), "1\n")
+  commitAll(dir, "seed")
+  return dir
+}
+function addFile(dir, rel, msg) {
+  mkdirSync(join(dir, dirname(rel)), { recursive: true })
+  writeFileSync(join(dir, rel), "export const x = 1\n")
+  commitAll(dir, msg)
+}
+{
+  // T21a: the exact live shape -- [subtask 7] while plan item 7 is src/systems/AI.ts.
+  const dir = planRepo()
+  addFile(dir, "src/scenes/GameScene.ts", "progress: [subtask 7] — GameScene.ts, Projectile.ts draw 수정")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectContains("T21a a re-pointed sub-task number is reported", output, `says [sub-task 7] ${MISMATCH} 7 (src/systems/AI.ts )`)
+  expectContains("T21a the finding lands in the human-attention section", output, "## 확인이 필요한 것")
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T21b (negative): the number and the plan agree -- the normal, correct case.
+  const dir = planRepo()
+  addFile(dir, "src/entities/Projectile.ts", "progress: [subtask 6] — Projectile.ts")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T21b a number matching its plan path is not reported", output, MISMATCH)
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T21c (negative, SCOPE): a plan line whose path is a DIRECTORY (`src/ui/`) must match any file
+  // under it -- without prefix matching every legitimate `src/ui/` commit would be flagged.
+  const dir = planRepo()
+  addFile(dir, "src/ui/HpBar.ts", "progress: [subtask 8] — HpBar.ts")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T21c a file under a planned directory is not reported", output, MISMATCH)
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T21d (negative, SCOPE): a `progress:` subject with no bracketed [sub-task N] claims no
+  // number, so there is nothing to check it against. Live shape: warms-mobile 404fd8a.
+  const dir = planRepo()
+  addFile(dir, "src/scenes/GameScene.ts", "progress: revert to original order, sub-task 7 — GameScene.ts")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T21d a subject with no bracketed number is out of scope", output, MISMATCH)
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T21e (negative, SCOPE): a plan line may spell a bare filename (`GameScene.ts`) where git
+  // reports the full path -- build.md's own message format does exactly that. Matching on the
+  // basename too is what keeps that from reading as a mismatch.
+  const dir = planRepo()
+  addFile(dir, "src/scenes/GameScene.ts", "progress: [subtask 9] — GameScene.ts")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T21e a bare filename in the plan matches the committed full path", output, MISMATCH)
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T21f (negative): a sub-task legitimately touches files beyond the one the plan names. Only
+  // "nothing the commit touched is on the plan line" is the signal -- "some planned path missing"
+  // is normal work and must stay silent.
+  const dir = planRepo()
+  mkdirSync(join(dir, "src", "entities"), { recursive: true })
+  mkdirSync(join(dir, "src", "util"), { recursive: true })
+  writeFileSync(join(dir, "src", "entities", "Projectile.ts"), "export const x = 1\n")
+  writeFileSync(join(dir, "src", "util", "vec.ts"), "export const y = 2\n")
+  commitAll(dir, "progress: [subtask 6] — Projectile.ts, vec.ts")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T21f an extra unplanned file alongside the planned one is not reported", output, MISMATCH)
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T21g (negative, SCOPE): plan line 10 names no path at all -- nothing machine-checkable, so
+  // the check must stay silent AND say out loud that it did not run (this script's own rule:
+  // silence must never read as checked-and-clean).
+  const dir = planRepo()
+  addFile(dir, "src/main.ts", "progress: [subtask 10] — main.ts")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T21g a plan line naming no path is not reported as a mismatch", output, MISMATCH)
+  expectContains("T21g an unverifiable number is declared skipped, not silently passed", output, "sub-task number vs. plan check:")
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T21h (negative): a commit that touches only SESSION_PRIMER.md has no work file to compare,
+  // and every sub-task's closing handoff passes through that shape.
+  const dir = planRepo()
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), PLAN + "\n서브태스크 6 완료\n")
+  commitAll(dir, "progress: [subtask 6] — SESSION_PRIMER.md")
+  const { output } = runReport(dir, ["--since", "HEAD~1"])
+  expectNotContains("T21h a primer-only commit is not reported", output, MISMATCH)
+  rmSync(dir, { recursive: true, force: true })
+}
+{
+  // T21i: the plan is read from the primer AS OF THAT COMMIT, not the working tree -- a report
+  // run weeks later must judge the commit against the plan it was actually written against.
+  const dir = planRepo()
+  addFile(dir, "src/scenes/GameScene.ts", "progress: [subtask 7] — GameScene.ts")
+  writeFileSync(join(dir, "wiki", "handoffs", "SESSION_PRIMER.md"), PLAN.replace("7. AI — src/systems/AI.ts", "7. 씬 — src/scenes/GameScene.ts"))
+  commitAll(dir, "docs: rewrite the plan after the fact")
+  const { output } = runReport(dir, ["--since", "HEAD~2"])
+  expectContains("T21i the plan as of that commit is what the number is judged against", output, `says [sub-task 7] ${MISMATCH} 7 (src/systems/AI.ts )`)
+  rmSync(dir, { recursive: true, force: true })
+}
+
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)
