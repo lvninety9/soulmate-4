@@ -126,6 +126,15 @@ const COMMITS_WITHOUT_PRIMER_THRESHOLD = 4
 // with recently," never the full project lifetime.
 const ACKNOWLEDGED_HISTORY_LIMIT = 20
 
+// Round 50: how many paths this turn may leave uncommitted before the tool.execute.after hook
+// below says so. NOT a tuned constant — it is derived from build.md, which is what the notice
+// quotes: step 2 makes the commit unit one file, and step 3 names exactly one sanctioned pair
+// (a sub-task's last file staged together with wiki/handoffs/SESSION_PRIMER.md). Two paths can
+// therefore be the protocol running correctly; three cannot be that pair, whatever else it is.
+// build.md step 5's own checkpoint trigger says "2+ files dirty and no commit yet," so this sits
+// one deliberately conservative step above the protocol's own line.
+const UNCOMMITTED_RUN_THRESHOLD = 3
+
 type ArmReason = "primer" | "elective"
 type State = {
   acknowledged: string[]
@@ -149,6 +158,12 @@ type State = {
   // every chat.message) — the ONLY thing the injection decision is based on.
   turnStartHead: Record<string, string>
   turnStartDirtySignature: Record<string, string>
+  // Round 50: how many not-yet-committed paths this turn had already been told about, so the
+  // notice is said once per accumulation and not on every subsequent write. Reset to 0 the moment
+  // the count falls back under the threshold — which in practice only happens by committing, i.e.
+  // by doing the thing the notice asked for. No separate reset logic and no counter of its own:
+  // the count itself is read out of git every time (see newlyDirtyPaths).
+  uncommittedRunNotified: Record<string, number>
 }
 
 function loadState(): State {
@@ -165,6 +180,7 @@ function loadState(): State {
         blockedCallsThisTurn: parsed.blockedCallsThisTurn ?? {},
         turnStartHead: parsed.turnStartHead ?? {},
         turnStartDirtySignature: parsed.turnStartDirtySignature ?? {},
+        uncommittedRunNotified: parsed.uncommittedRunNotified ?? {},
       }
     }
   } catch {
@@ -182,6 +198,7 @@ function loadState(): State {
     blockedCallsThisTurn: {},
     turnStartHead: {},
     turnStartDirtySignature: {},
+    uncommittedRunNotified: {},
   }
 }
 
@@ -272,6 +289,31 @@ function gitPorcelainStatus(): string[] {
   } catch {
     return []
   }
+}
+
+// Round 50: the repo-relative path a `git status --porcelain` line is about. Format is two status
+// characters, a space, then the path; a rename carries both sides as `old -> new` and the side
+// that matters here is the one that exists now. Only ever used to count and to name — nothing
+// downstream feeds it back to a shell (round 49's injection guard is on the other path axis).
+function porcelainPath(line: string): string {
+  const rest = line.slice(3)
+  const arrow = rest.lastIndexOf(" -> ")
+  return arrow === -1 ? rest : rest.slice(arrow + 4)
+}
+
+// Round 50: the paths dirty right now that were NOT dirty when this turn started. Diffing against
+// the turn-start snapshot rather than counting the whole working tree is the entire false-positive
+// argument: a repo the user keeps permanently dirty (a scratch file, a local config) would
+// otherwise trip this on every single write of every turn, forever, and the harness would be
+// nagging about work the model never did. `prior` is `turnStartDirtySignature[sessionID]`, which
+// chat.message already writes on every message — no new state, and no new git call beyond the one
+// porcelain read this needs anyway. A commit removes its paths from the live status, so the count
+// falls on its own with no reset bookkeeping.
+function newlyDirtyPaths(prior: string): string[] {
+  const before = new Set(prior.split("\n").filter(Boolean).map(porcelainPath))
+  return gitPorcelainStatus()
+    .map(porcelainPath)
+    .filter((p) => p && !before.has(p))
 }
 
 // Round 28: SHA of the most recent commit that touched SESSION_PRIMER.md, straight from git —
@@ -528,6 +570,24 @@ const BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER = (files: string[]) =>
   `message started (${files.length} path(s): ${files.slice(0, 5).join(", ")}` +
   `${files.length > 5 ? ", ..." : ""}). Per AGENTS.md's "commit per file, always" rule, commit ` +
   "or explicitly decide what to do with these before starting any new work this turn."
+
+// Round 50 (live: warms-mobile ses_f92a556e4ffepjAjQkfai9H6fN, 09-05 01:57-02:02). One turn wrote
+// four files — a new ResultScene.ts, GameScene.ts, FEEDBACK_PENDING.md, SESSION_PRIMER.md — every
+// write succeeded, nothing was blocked, and it committed none of them before summarising with
+// "모든 작업 완료". build.md's per-file commit rule existed only as prose; nothing counted. The
+// existing twins both fired afterwards and both were correct — the idle nudge 4 seconds later
+// (noReply, so nothing acts on it) and the carryover notice on the next message 48 minutes later,
+// by which time the user had already found it by hand. This says the same fact while the turn is
+// still running and something can still be done about it.
+//
+// Report-only in the strongest available sense: it rides on the *result* of a call that already
+// succeeded, so there is no call to refuse and nothing about the block/acknowledge rules
+// (round 28 a/b, round 39's quiet turn, round 47's token) changes by a bit.
+const NOTICE_UNCOMMITTED_RUN = (paths: string[]) =>
+  `\n\n[subtask-gate] ${paths.length} files have now been changed this turn with nothing committed ` +
+  `(${paths.slice(0, 5).join(", ")}${paths.length > 5 ? ", ..." : ""}). build.md step 2 makes the ` +
+  "commit unit one file, not one sub-task: commit what is already finished now, before writing " +
+  "anything else. If the session ends here, none of this is saved."
 
 // Round 45 (the same live turn, 09-03 01:27:03-01:30:46). The user asked whether sub-task 2 was
 // actually finished; the model's first tool call of that turn — `git log --oneline -3`, a
@@ -824,6 +884,61 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     if (dirty) saveState(state)
   },
 
+  // Round 50. Round 44 recorded that "the only lever this layer has is the message it throws" —
+  // that was true of `tool.execute.before` and was never checked against the other half. It is
+  // wrong for `tool.execute.after`, and the check is the same L01 discipline this file uses
+  // everywhere else: read the binary that is actually running, not the assumed docs. In
+  // @kilocode/plugin's own types the hook is `(input, output: { title, output, metadata })`, and
+  // in kilo 7.5.9's built-in tool path the trigger is
+  //   `if (yield* _.trigger("tool.execute.after", {...}, r), c.abortSignal?.aborted) ...; return r`
+  // — the object handed to the hook is the object returned to the model, after the hook has run.
+  // So this layer does have a non-blocking channel: appending to `output.output` reaches the model
+  // inside the turn without refusing anything.
+  //
+  // Scope is the whole safety argument, as in rounds 39/46/48/49:
+  //   - `write`/`edit` only. bash is excluded by construction — it is the tool that *commits*, and
+  //     annotating its result would be commenting on the fix rather than the problem.
+  //   - counted against this turn's own starting working tree, never the whole tree (see
+  //     newlyDirtyPaths), so a permanently-dirty repo cannot make this fire.
+  //   - said once per accumulation, not per call, and the count that clears it is git's, not a
+  //     tally of our own.
+  //   - every branch is inside one try/catch that swallows everything, and the only mutation is a
+  //     text append. The strictly-worst outcome of this hook is that it says nothing.
+  // Measured over every real-project turn in kilo.db (236 turns, 85 of them with at least one
+  // successful write): 9 turns fire, 10 notices in total, and all ten are a true statement of a
+  // build.md step-2 violation. 3 of the 9 are turns that went on to commit nothing at all.
+  "tool.execute.after": async (input: any, output: any) => {
+    try {
+      const sessionID = input?.sessionID
+      if (!sessionID) return
+      if (input?.tool !== "write" && input?.tool !== "edit") return
+      if (typeof output?.output !== "string") return
+
+      const state = loadState()
+      const prior = state.turnStartDirtySignature[sessionID]
+      // Undefined means chat.message has not run for this session yet, so there is no turn to
+      // measure against — stay quiet rather than treat the whole tree as this turn's doing.
+      if (prior === undefined) return
+
+      const paths = newlyDirtyPaths(prior)
+      const already = state.uncommittedRunNotified[sessionID] ?? 0
+      if (paths.length < UNCOMMITTED_RUN_THRESHOLD) {
+        if (already !== 0) {
+          state.uncommittedRunNotified[sessionID] = 0
+          saveState(state)
+        }
+        return
+      }
+      if (already >= UNCOMMITTED_RUN_THRESHOLD) return
+
+      state.uncommittedRunNotified[sessionID] = paths.length
+      saveState(state)
+      output.output += NOTICE_UNCOMMITTED_RUN(paths.sort())
+    } catch {
+      // Never let a report-only observation break a tool call that already succeeded.
+    }
+  },
+
   // Round 5, after an independent objective audit's highest-priority finding: a live session
   // wrote and manually tested a real file, then simply stopped — no further tool call, no
   // commit, and nothing above could catch it, because every check so far only fires inside
@@ -917,6 +1032,12 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     state.blockedCallsThisTurn[sessionID] = []
     state.turnStartHead[sessionID] = currentHeadSafe() ?? ""
     state.turnStartDirtySignature[sessionID] = dirtySignature(gitPorcelainStatus())
+    // Round 50: cleared here for the same reason the two lines above are rewritten here — what
+    // tool.execute.after counts is "paths THIS turn has left uncommitted," so the record of having
+    // said so belongs to the turn too. Without this, a turn that legitimately starts on top of an
+    // earlier turn's uncommitted work would inherit the previous turn's suppression and stay
+    // silent no matter how much it added.
+    state.uncommittedRunNotified[sessionID] = 0
 
     // Round 30 item 3: computed once per message and reused below for two different snapshots —
     // boundaryAtSessionStart (set once, first message only, unchanged from round 28) and
