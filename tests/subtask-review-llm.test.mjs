@@ -11,7 +11,7 @@
 //
 // Run: node --experimental-strip-types tests/subtask-review-llm.test.mjs
 import { execFileSync } from "child_process"
-import { mkdtempSync, writeFileSync, rmSync } from "fs"
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs"
 import { tmpdir } from "os"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
@@ -238,6 +238,61 @@ function expectEqual(label, got, want) {
     expectEqual("T11 live call exits 0", status, 0)
     expectContains("T11 live model catches the planted flipped-comparison bug with a line citation", output, "clamp.py:5")
   }
+  rmSync(dir, { recursive: true, force: true })
+}
+
+// T12 (round 49): the model has a training cutoff, this project runs current toolchains, and so
+// it reports newer-than-itself dependency versions as typos. Measured on the only two
+// warms-mobile reports that carried layer-2 findings at all: 14 findings, 0 true positives, and 5
+// of them were exactly this -- typescript ^7.0.2, vite ^8.2.2, @types/node ^26.4.1 and Phaser 4
+// declared not to exist, while node_modules held all four at precisely those versions. All five
+// strings below are verbatim from those reports.
+//
+// Three conditions must all hold before a finding is dropped, and the negatives below are each
+// one of them missing: an installed package (T12c), a declaration in package.json (T12d), a
+// version in the claim (T12e). T12f is the outcome that matters most -- a real defect is not
+// touched by any of this.
+{
+  const dir = freshRepo()
+  mkdirSync(join(dir, "node_modules", "typescript"), { recursive: true })
+  mkdirSync(join(dir, "node_modules", "phaser"), { recursive: true })
+  mkdirSync(join(dir, "node_modules", "vite"), { recursive: true })
+  // installed as a transitive, deliberately NOT in package.json -- its name is an ordinary
+  // English word, the exact collision the "declared" half of the condition exists to prevent
+  mkdirSync(join(dir, "node_modules", "debug"), { recursive: true })
+  writeFileSync(join(dir, "node_modules", "typescript", "package.json"), JSON.stringify({ name: "typescript", version: "7.0.2" }))
+  writeFileSync(join(dir, "node_modules", "phaser", "package.json"), JSON.stringify({ name: "phaser", version: "4.2.1" }))
+  writeFileSync(join(dir, "node_modules", "vite", "package.json"), JSON.stringify({ name: "vite", version: "8.2.2" }))
+  writeFileSync(join(dir, "node_modules", "debug", "package.json"), JSON.stringify({ name: "debug", version: "4.3.4" }))
+  writeFileSync(join(dir, "package.json"), JSON.stringify({
+    dependencies: { phaser: "^4.2.1", vite: "^8.2.2" },
+    devDependencies: { typescript: "^7.0.2", lodash: "^99.0.0" },
+  }, null, 2))
+  writeFileSync(join(dir, "app.ts"), "export const x = 1\n")
+  commitAll(dir, "base")
+  writeFileSync(join(dir, "app.ts"), "export const x = 2\n")
+  commitAll(dir, "change")
+
+  const findings = [
+    { file: "package.json", line: 15, issue: "The dependency version for 'typescript' is '^7.0.2', which does not exist as a stable release (current latest is 5.x), indicating a likely typo or invalid version constraint." },
+    { file: "wiki/PROJECT_BACKGROUND.md", line: 14, issue: "The diff claims the framework is Phaser 4, but Phaser 4 does not exist (current stable is Phaser 3), indicating a likely factual error or typo." },
+    { file: "package.json", line: 20, issue: "The dependency version for 'lodash' is '^99.0.0', which does not exist as a stable release." },
+    { file: "package.json", line: 21, issue: "vite is a build tool and does not exist as a backend runtime, which is a category error." },
+    { file: "app.ts", line: 1, issue: "The comparison uses <= where the comment above says it must be strictly less than, an off-by-one." },
+    { file: "package.json", line: 16, issue: "vite 8.2.2 is pinned with a caret, which allows minor upgrades that can break the build without warning." },
+    { file: "app.ts", line: 4, issue: "The debug option does not exist in version 2.0 of this config schema, so the field is ignored." },
+  ]
+  const { output } = run(dir, [], { SUBTASK_REVIEW_MOCK_CONTENT: JSON.stringify(findings) })
+
+  expectContains("T12a a version the repo has installed is dropped, naming the installed version", output, "[dropped: this repo has typescript@7.0.2 installed")
+  expectNotContains("T12b and it does not reach the human-attention channel", output, "[layer2/local-llm, unverified] package.json:15")
+  expectContains("T12c a bare major ('Phaser 4') is caught too -- the corpus shape with no dots", output, "[dropped: this repo has phaser@4.2.1 installed")
+  expectContains("T12d a version the repo does NOT have installed still reaches the human", output, "[layer2/local-llm, unverified] package.json:20")
+  expectContains("T12e a nonexistence claim with no version in it is a category argument, not this filter's business", output, "[layer2/local-llm, unverified] package.json:21")
+  expectContains("T12f an ordinary defect finding is untouched", output, "[layer2/local-llm, unverified] app.ts:1")
+  expectContains("T12g the count of dropped findings is stated out loud, never silent", output, "were dropped against node_modules")
+  expectContains("T12h a finding that names an installed package and its version but claims nothing about existence survives", output, "[layer2/local-llm, unverified] package.json:16")
+  expectContains("T12i an installed-but-undeclared transitive whose name is an English word does not sweep findings up", output, "[layer2/local-llm, unverified] app.ts:4")
   rmSync(dir, { recursive: true, force: true })
 }
 
