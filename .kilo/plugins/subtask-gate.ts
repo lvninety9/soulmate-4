@@ -1054,8 +1054,15 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
 
     saveState(state)
 
+    // Round 49: the same dedup the idle nudge has had since round 27, applied to its twin. This
+    // notice had none, so an unresolved path repeated it verbatim on every message — measured
+    // across kilo.db: 93 carryover notices, 54 distinct, worst case 12 identical repeats in one
+    // session (a screenshot the user did not intend to commit). Same rule as the idle nudge's, so
+    // a genuinely new dirty path still re-fires: compare against the previous turn's signature,
+    // which this hook already had in hand as `priorDirty` — no new state field, no new git call.
+    // Deliberately not "once per session": that would go quiet on a different file appearing.
     const dirty = gitPorcelainStatus()
-    if (dirty.length > 0) {
+    if (dirty.length > 0 && dirtySignature(dirty) !== priorDirty) {
       output.parts.unshift({
         // opencode validates part IDs strictly (must start with "prt" — confirmed live: a
         // non-conforming ID crashed the whole request with a hard server error, not a soft
