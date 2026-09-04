@@ -9,7 +9,7 @@
 // wiki/rule-archive.md ("10/10 unit tests") with no actual committed artifact — every round had
 // to re-derive and re-run it from scratch, live, against the model. Committing it fixes that.
 import { execSync } from "child_process"
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from "fs"
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, existsSync } from "fs"
 import { tmpdir } from "os"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
@@ -1471,6 +1471,159 @@ async function main() {
       failures++
     }
     rmSync(dir, { recursive: true, force: true })
+  }
+
+  // Test 28 (round 49, live: warms-mobile ses_f97ad8de5ffetACPSexiPxvuhV, 09-04 22:29-22:42 —
+  // the first recorded false completion claim that survived FEEDBACK #6's fact check). One turn
+  // committed SESSION_PRIMER.md for real (2394aa1) and had its PROJECT_BACKGROUND.md write
+  // refused, then reported the second one done. The whole-turn predicate ("HEAD and the dirty
+  // signature both unmoved") went silent because the turn was not empty, and the user caught the
+  // lie by hand an hour later. Mixed turns need the question asked per blocked call.
+  //
+  // The negatives are where the scope lives: a blocked target that later did move, a blocked call
+  // with no exact path (bash), and the all-quiet turn whose original notice must stay byte-exact.
+  {
+    const primerPath = join("wiki", "handoffs", "SESSION_PRIMER.md")
+    const factCheck = (o) => o.parts.filter((p) => p.synthetic && /fact check/.test(p.text)).map((p) => p.text)
+
+    // Drives one mixed turn: a commit lands, `blockedFile` is refused, then a new user message.
+    // `after` runs between the block and that message, standing in for the rest of the turn.
+    const mixedTurn = async (sid, blockedRel, after) => {
+      const dir = freshRepo()
+      const hooks = await loadGate(dir)
+      process.chdir(dir)
+      // turn starts: snapshot HEAD/dirty, and clear the protocol-read gate the way real use does
+      await hooks["chat.message"]({ sessionID: sid }, { message: { id: "m1" }, parts: [{ type: "text", text: "이어서 진행하세요." }] })
+      await hooks["tool.execute.before"]({ sessionID: sid, tool: "read" }, { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } })
+      // something real lands mid-turn — this is what made the old check go quiet
+      writeFileSync(join(dir, primerPath), "# primer, updated for real\n")
+      execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+      // and the model's next write is refused by the boundary that commit just created
+      let blocked = false
+      try {
+        await hooks["tool.execute.before"]({ sessionID: sid, tool: "write" }, { args: { filePath: join(dir, blockedRel) } })
+      } catch {
+        blocked = true
+      }
+      if (after) await after(dir)
+      const out = { message: { id: "m2" }, parts: [{ type: "text", text: "그거 됐나요?" }] }
+      await hooks["chat.message"]({ sessionID: sid }, out)
+      return { dir, blocked, notices: factCheck(out) }
+    }
+
+    // positive: exactly the live shape. Fails on the pre-fix plugin, which emits nothing here.
+    {
+      const target = "wiki/PROJECT_BACKGROUND.md"
+      const r = await mixedTurn("s28a", target, null)
+      const hit = r.notices.find((t) => t.includes(target))
+      if (r.blocked && hit && /other work did land/.test(hit)) {
+        console.log("ok: T28a a blocked file that is still unchanged is reported even though the turn committed something else")
+      } else {
+        console.log("FAIL: T28a the mixed turn produced no per-path fact check:", JSON.stringify(r.notices))
+        failures++
+      }
+      rmSync(r.dir, { recursive: true, force: true })
+    }
+
+    // negative 1: the blocked path was written later in the same turn — it IS reflected now, so
+    // reporting it would be the same error in the other direction.
+    {
+      const rel = "wiki/PROJECT_BACKGROUND.md"
+      const r = await mixedTurn("s28b", rel, (dir) => {
+        writeFileSync(join(dir, rel), "# written on the retry\n")
+      })
+      if (!r.notices.some((t) => t.includes(rel))) {
+        console.log("ok: T28b a blocked path that the turn went on to write is not reported")
+      } else {
+        console.log("FAIL: T28b reported a path that did change:", JSON.stringify(r.notices))
+        failures++
+      }
+      rmSync(r.dir, { recursive: true, force: true })
+    }
+
+    // negative 2: same, but the retry also committed — the check reads commits, not just the tree.
+    {
+      const rel = "wiki/PROJECT_BACKGROUND.md"
+      const r = await mixedTurn("s28c", rel, (dir) => {
+        writeFileSync(join(dir, rel), "# written and committed on the retry\n")
+        execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m bg", { cwd: dir })
+      })
+      if (!r.notices.some((t) => t.includes(rel))) {
+        console.log("ok: T28c a blocked path the turn later committed is not reported either")
+      } else {
+        console.log("FAIL: T28c reported a path that landed in a commit:", JSON.stringify(r.notices))
+        failures++
+      }
+      rmSync(r.dir, { recursive: true, force: true })
+    }
+
+    // negative 3: a bash call carries a command, not a path. Parsing one out is the free-text
+    // judging round 45 measured at 6% precision and refused — so bash is out of scope by
+    // construction and this branch must stay silent about it.
+    {
+      const dir = freshRepo()
+      const hooks = await loadGate(dir)
+      process.chdir(dir)
+      await hooks["chat.message"]({ sessionID: "s28d" }, { message: { id: "m1" }, parts: [{ type: "text", text: "이어서 진행하세요." }] })
+      await hooks["tool.execute.before"]({ sessionID: "s28d", tool: "read" }, { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } })
+      writeFileSync(join(dir, primerPath), "# primer, updated for real\n")
+      execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+      try {
+        await hooks["tool.execute.before"]({ sessionID: "s28d", tool: "bash" }, { args: { command: "echo hi > wiki/PROJECT_BACKGROUND.md" } })
+      } catch {}
+      const out = { message: { id: "m2" }, parts: [{ type: "text", text: "그거 됐나요?" }] }
+      await hooks["chat.message"]({ sessionID: "s28d" }, out)
+      if (factCheck(out).length === 0) {
+        console.log("ok: T28d a blocked bash call is not path-checked — no command is parsed for a target")
+      } else {
+        console.log("FAIL: T28d a bash command was treated as a path:", JSON.stringify(factCheck(out)))
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+
+    // negative 4: the recorded path reaches a shell inside gitExec and it came from a tool
+    // argument the model wrote. A path carrying quoting or substitution characters is dropped as
+    // un-checkable rather than escaped, so it produces silence, never an injected command.
+    {
+      const r = await mixedTurn("s28f", 'wiki/$(touch pwned).md', null)
+      const pwned = existsSync(join(r.dir, "pwned"))
+      if (r.notices.length === 0 && !pwned) {
+        console.log("ok: T28f a path carrying shell metacharacters is dropped as un-checkable, not escaped into a command")
+      } else {
+        console.log("FAIL: T28f shell-unsafe path was used:", pwned ? "COMMAND RAN" : JSON.stringify(r.notices))
+        failures++
+      }
+      rmSync(r.dir, { recursive: true, force: true })
+    }
+
+    // negative 5: the all-quiet turn is the other half of the same condition, and its round-31
+    // notice must still be the one that fires, byte-for-byte — the two branches cannot overlap.
+    {
+      const dir = freshRepo()
+      const hooks = await loadGate(dir)
+      process.chdir(dir)
+      await hooks["chat.message"]({ sessionID: "s28e" }, { message: { id: "m1" }, parts: [{ type: "text", text: "시작합니다." }] })
+      await hooks["tool.execute.before"]({ sessionID: "s28e", tool: "read" }, { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } })
+      // the primer commit lands mid-turn, so the boundary it raises is not pre-approved by
+      // round 28's rule (b) and is still standing when the next turn starts
+      writeFileSync(join(dir, primerPath), "# primer committed\n")
+      execSync("git add -A && git -c user.email=t@t -c user.name=t commit -q -m primer", { cwd: dir })
+      await hooks["chat.message"]({ sessionID: "s28e" }, { message: { id: "m2" }, parts: [{ type: "text", text: "이어서 진행하세요." }] })
+      try {
+        await hooks["tool.execute.before"]({ sessionID: "s28e", tool: "write" }, { args: { filePath: join(dir, "wiki/PROJECT_BACKGROUND.md") } })
+      } catch {}
+      const out = { message: { id: "m3" }, parts: [{ type: "text", text: "그거 됐나요?" }] }
+      await hooks["chat.message"]({ sessionID: "s28e" }, out)
+      const n = factCheck(out)
+      if (n.length === 1 && /git confirms nothing landed/.test(n[0]) && !/other work did land/.test(n[0])) {
+        console.log("ok: T28e an all-quiet turn still gets round 31's original whole-turn notice, not the per-path one")
+      } else {
+        console.log("FAIL: T28e the all-quiet notice changed or doubled up:", JSON.stringify(n))
+        failures++
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
   }
 
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
