@@ -30,6 +30,15 @@ Method:
    작업 사이클: <2-4 step loop for this sub-task>
    참고: <constraints, prior decisions, what NOT to redo>
    ```
+   Also write the **whole numbered list** into the primer, one line per sub-task, in exactly
+   this shape — one line, the number first, an em dash, then the path(s) that sub-task touches:
+   ```
+   N. <name> — <path(s) — a file, or a directory ending in /> (small|medium)
+   ```
+   That line is the only record of what number N means. `build.md` step 3 then puts N in the
+   commit subject, and `scripts/subtask-report.sh` machine-checks the two against each other —
+   a `progress: [sub-task N]` commit touching nothing on line N is reported. A line with no
+   path on it can't be checked, and the report says so rather than passing it silently.
 5. Commit this SESSION_PRIMER.md update before doing anything else — remember: as soon as it
    lands, `.kilo/plugins/subtask-gate.ts` will reject your very next mutating tool call once.
    That's expected here — it's the signal to stop and hand off to `build.md` for the first
