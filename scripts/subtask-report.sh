@@ -149,7 +149,50 @@ while IFS= read -r sha; do
     CLAIM_MISSING="$CLAIM_MISSING $tok"
   done
   [ -n "$CLAIM_MISSING" ] && note_needs_human "commit ${sha:0:7} says it contains$CLAIM_MISSING but that file is not in the commit — the change was named and never staged; re-check whether that work actually landed"
+
+  # --- 1c. the sub-task NUMBER vs. what the primer's own plan puts under that number (round 48) --
+  # A DIFFERENT AXIS FROM 1b. 1b asks "does this commit contain what its subject names"; 1c asks
+  # "is N the N the plan means". After 1b, the number was the last unchecked self-report left in
+  # a commit message -- and nothing in the harness ever bound it to anything. Live origin,
+  # warms-mobile 2026-09-04: told only "continue," the model committed
+  # "progress: [subtask 7] — GameScene.ts" and "progress: [subtask 8] — main.ts" while the primer's
+  # plan put 7 at src/systems/AI.ts and 8 at src/ui/ (9 is the scenes sub-task, main.ts is on no
+  # line at all). It had asked permission for exactly this re-ordering once before and been told
+  # no (404fd8a); this time it re-ordered silently and kept the numbering sequential-looking. Both
+  # 1b and the gate stayed quiet: the subjects named files that WERE in the commit, and none of
+  # the three commits touched the primer, so no boundary ever armed.
+  # SCOPE, same lesson as 1b: only a `progress:` subject that carries a bracketed [sub-task N],
+  # only when the primer at that same commit has a plan line starting "N." in design.md step 4's
+  # shape, and only when that line's post-dash slot names a machine-checkable path. Flag only when
+  # NOTHING the commit touched matches -- a sub-task legitimately touches extra files, so "some
+  # planned path missing" is normal and is not the signal; "no planned path at all" is.
+  # Measured on both repos' full history (345 commits): warms-mobile 2 flagged of 7 qualifying
+  # (8a17bf4 and 617a93d, both true positives -- the exact two a human found by hand), 5 correct
+  # negatives, template 0 of 0. Report-only.
+  PLAN_N="$(printf '%s' "$CLAIM_SUBJ" | grep -oiE '\[[[:space:]]*sub-?task[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -1)"
+  [ -n "$PLAN_N" ] || continue
+  PLAN_FILES="$(printf '%s\n' "$CLAIM_TOUCHED" | grep -v '^wiki/handoffs/SESSION_PRIMER\.md$')"
+  [ -n "$PLAN_FILES" ] || continue                 # primer-only commit: no work file to compare
+  PLAN_LINE="$(git show "$sha:wiki/handoffs/SESSION_PRIMER.md" 2>/dev/null | grep -m1 -E "^${PLAN_N}\.[[:space:]]")"
+  PLAN_SLOT="${PLAN_LINE#*—}"
+  [ "$PLAN_SLOT" = "$PLAN_LINE" ] && PLAN_SLOT="${PLAN_LINE#*–}"
+  if [ "$PLAN_SLOT" = "$PLAN_LINE" ]; then PLAN_UNREADABLE=1; continue; fi  # no such plan line, or not the list shape
+  PLAN_PATHS="$(printf '%s' "${PLAN_SLOT%%(*}" | grep -oE '[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]*|[A-Za-z0-9_-]+\.[A-Za-z][A-Za-z0-9]{0,4}' | tr '\n' ' ')"
+  if [ -z "$PLAN_PATHS" ]; then PLAN_UNREADABLE=1; continue; fi             # plan names no path: nothing to check against
+  PLAN_HIT=0
+  for f in $PLAN_FILES; do
+    for p in $PLAN_PATHS; do
+      case "$p" in
+        */) case "$f" in "$p"*) PLAN_HIT=1 ;; esac ;;
+        *) { [ "$f" = "$p" ] || [ "${f##*/}" = "${p##*/}" ]; } && PLAN_HIT=1 ;;
+      esac
+    done
+  done
+  [ "$PLAN_HIT" -eq 0 ] && note_needs_human "commit ${sha:0:7} says [sub-task $PLAN_N] but touched none of the paths the primer's own plan lists for item $PLAN_N ($PLAN_PATHS) — the number and the plan disagree; check whether the plan was silently re-ordered"
 done < <(git rev-list "$RANGE" 2>/dev/null)
+# "silence must never read as checked-and-clean" (this file's header): say so when a numbered
+# progress commit existed but its plan line could not be read at all.
+[ -n "${PLAN_UNREADABLE:-}" ] && note_skipped "sub-task number vs. plan check: a [sub-task N] commit is in this range but SESSION_PRIMER.md has no readable \"N. ... — <path>\" plan line for it (design.md step 4) — the number could not be verified against anything"
 
 # --- 2. tests ----------------------------------------------------------------------------------
 echo "## Tests"
