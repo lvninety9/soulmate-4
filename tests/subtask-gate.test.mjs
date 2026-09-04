@@ -1414,6 +1414,65 @@ async function main() {
     }
   }
 
+  // Test 27 (round 49, live regression: warms-mobile ses_f97ad8de5ffetACPSexiPxvuhV, 09-04
+  // 22:24:44). Round 47's `[gate-ok]` is six Latin letters, so appending it to a short Korean
+  // instruction flipped anchorHeuristicApplies()'s latin-vs-non-latin test back to "in scope" and
+  // re-armed exactly the nudge round 39 had measured out of Korean (12/15 false fires). The DB has
+  // both parts of that turn one millisecond apart: the user's "네, 진행하세요. [gate-ok]" and this
+  // plugin's own "STOP before doing anything else" appended to it. The token is a control signal
+  // to the gate, not a description of the work, so no content judge may count it as content.
+  // The negatives below are the point: stripping the token must not disable the heuristic.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    const nudged = (o) => o.parts.some((p) => p.synthetic && /discuss\.md/.test(p.text))
+
+    // verbatim from the live transcript, 2026-09-04 22:24:44.
+    const withToken = { message: { id: "m27a" }, parts: [{ type: "text", text: "네, 진행하세요. [gate-ok]" }] }
+    await hooks["chat.message"]({ sessionID: "s27a" }, withToken)
+    if (!nudged(withToken)) {
+      console.log("ok: T27a the live Korean message that carried [gate-ok] is no longer nudged")
+    } else {
+      console.log("FAIL: T27a [gate-ok] pushed a Korean message back into the anchor heuristic's scope:", JSON.stringify(withToken.parts))
+      failures++
+    }
+
+    // negative 1: a genuinely vague English message keeps nudging even when it carries the token —
+    // the token is removed from the text, the heuristic itself is untouched.
+    const englishWithToken = { message: { id: "m27b" }, parts: [{ type: "text", text: "this feels slow when I use it a lot, can you help? [gate-ok]" }] }
+    await hooks["chat.message"]({ sessionID: "s27b" }, englishWithToken)
+    if (nudged(englishWithToken)) {
+      console.log("ok: T27b an English vague message carrying the token is still nudged — token stripped, heuristic intact")
+    } else {
+      console.log("FAIL: T27b stripping the token disabled the nudge instead of excluding the token:", JSON.stringify(englishWithToken.parts))
+      failures++
+    }
+
+    // negative 2: case-insensitive, single-sourced with hasOverrideToken — a token typed in caps
+    // still waives the checkpoint (T26), so it must also still be excluded from the text.
+    const upper = { message: { id: "m27c" }, parts: [{ type: "text", text: "네, 진행하세요. [GATE-OK]" }] }
+    await hooks["chat.message"]({ sessionID: "s27c" }, upper)
+    if (!nudged(upper)) {
+      console.log("ok: T27c an uppercase token is excluded too — same casing rule as the waiver itself")
+    } else {
+      console.log("FAIL: T27c uppercase [GATE-OK] was counted as message content:", JSON.stringify(upper.parts))
+      failures++
+    }
+
+    // negative 3: a bare token is a control signal with no work described at all — after removal
+    // there is nothing left to judge, so the greeting-length floor applies and nothing is said.
+    const bare = { message: { id: "m27d" }, parts: [{ type: "text", text: "[gate-ok]" }] }
+    await hooks["chat.message"]({ sessionID: "s27d" }, bare)
+    if (!nudged(bare)) {
+      console.log("ok: T27d a message that is only the token is not treated as an ambiguous request")
+    } else {
+      console.log("FAIL: T27d a bare token was judged as message content:", JSON.stringify(bare.parts))
+      failures++
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
