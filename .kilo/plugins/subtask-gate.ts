@@ -102,7 +102,7 @@
 // Auto-loaded by Kilo from .kilo/plugins/*.ts — no config.jsonc registration needed.
 
 import { existsSync, readFileSync, writeFileSync } from "fs"
-import { join, dirname } from "path"
+import { join, dirname, isAbsolute, relative, sep } from "path"
 import { fileURLToPath } from "url"
 import { execSync } from "child_process"
 
@@ -141,7 +141,10 @@ type State = {
   // THIS turn — written only at the throw sites below, so it can't itself claim more than "this
   // call was attempted and did not execute." Never used alone to decide whether to inject (see
   // chat.message's own comment) — only to name what to inject once git confirms nothing landed.
-  blockedCallsThisTurn: Record<string, { tool: string; detail: string }[]>
+  // Round 49 adds `path`: the untruncated repo-relative target of a blocked write/edit ("" when
+  // there isn't one). Purely derived at the same throw site from the same call, no new source of
+  // truth — `detail` is a 60-char display string and the live case truncated the basename away.
+  blockedCallsThisTurn: Record<string, { tool: string; detail: string; path?: string }[]>
   // git HEAD / working-tree signature snapshotted at the start of the CURRENT turn (refreshed on
   // every chat.message) — the ONLY thing the injection decision is based on.
   turnStartHead: Record<string, string>
@@ -602,9 +605,74 @@ function toolCallDetail(tool: string, output: any): string {
   return ""
 }
 
+// Round 49: `detail` above is a 60-char display truncation and the live case proves that is not
+// enough to check anything with — the blocked write's real target was
+// `/media/jay/D/cursor/tossinapp/warms-mobile/wiki/PROJECT_BACKGROUND.md` (70 chars), so `detail`
+// lost the basename mid-word. The untruncated repo-relative path is recorded alongside it, for
+// write/edit only: those two carry an exact `filePath` argument, whereas a bash command would have
+// to be *parsed* for a target, which is the free-text-judging species round 45 measured at 6%
+// precision and refused. Absolute paths outside the repo, and anything git cannot place, resolve
+// to "" and are simply not checkable — the notice says so rather than guessing.
+function blockedCallPath(tool: string, output: any): string {
+  if (tool !== "write" && tool !== "edit") return ""
+  const raw = String(output?.args?.filePath ?? "")
+  if (!raw) return ""
+  const abs = isAbsolute(raw) ? raw : join(PROJECT_ROOT, raw)
+  const rel = relative(PROJECT_ROOT, abs)
+  if (!rel || rel.startsWith("..")) return ""
+  const posix = rel.split(sep).join("/")
+  // This string reaches a shell through gitExec's `git ... -- "<path>"`, and it came from a tool
+  // argument the model wrote. Anything that could end the quoting or start a substitution makes
+  // the path un-checkable rather than escaped — a filename this exotic is not worth a quoting
+  // scheme, and the notice's own scope already treats "no usable path" as silence.
+  return /["'`$\\\n]/.test(posix) ? "" : posix
+}
+
 function recordBlockedCall(state: State, sessionID: string, tool: string, output: any) {
   if (!state.blockedCallsThisTurn[sessionID]) state.blockedCallsThisTurn[sessionID] = []
-  state.blockedCallsThisTurn[sessionID].push({ tool, detail: toolCallDetail(tool, output) })
+  state.blockedCallsThisTurn[sessionID].push({
+    tool,
+    detail: toolCallDetail(tool, output),
+    path: blockedCallPath(tool, output),
+  })
+}
+
+// Round 49: the same question as the whole-turn check below, asked about ONE path instead of the
+// whole repo. Two exact per-path git queries, no porcelain parsing and no path classification:
+// did any commit between the turn's starting sha and HEAD touch it, and is it dirty right now.
+// `--` and a literal pathspec keep an odd filename from being read as a revision. Returns null
+// when git cannot answer, which the caller must treat as "cannot verify" and stay silent about —
+// "unverifiable" and "verified unchanged" have to stay distinguishable (currentHeadSafe's rule).
+function pathChangedSinceTurnStart(fromSha: string, path: string): boolean | null {
+  try {
+    if (gitExec(`diff --name-only ${fromSha} HEAD -- "${path}"`)) return true
+    return gitExec(`status --porcelain -- "${path}"`) !== ""
+  } catch {
+    return null
+  }
+}
+
+// Round 49 (live: warms-mobile ses_f97ad8de5ffetACPSexiPxvuhV, 09-04 22:29-22:42 — the first
+// recorded case of a false completion claim surviving FEEDBACK #6's fact check). In one turn the
+// model committed SESSION_PRIMER.md (2394aa1, real), then had its PROJECT_BACKGROUND.md write
+// refused by this gate, then reported "PROJECT_BACKGROUND.md 업데이트 완료". The check below fires
+// only when HEAD *and* the dirty signature are both unmoved, so a turn where anything at all
+// succeeded goes silent about everything — and the user had to catch this one by hand an hour
+// later ("실제로는 커밋되지 않았고 파일도 안 바뀌었습니다").
+//
+// "Something landed this turn" and "this specific blocked file still hasn't" are not mutually
+// exclusive; the old predicate treated them as if they were. This notice reports the second, per
+// blocked call, and says out loud that other work did land — otherwise it reads as a claim that
+// the turn was empty, which would be the same error in the other direction.
+const CONTRADICTION_NOTICE_PARTIAL = (blocked: { tool: string; path?: string }[]) => {
+  const shown = blocked.slice(0, 5).map((b) => `${b.tool}(${b.path})`).join(", ")
+  const more = blocked.length > 5 ? `, ... (+${blocked.length - 5} more)` : ""
+  return (
+    `[subtask-gate] fact check: other work did land last turn, but ${blocked.length} blocked ` +
+    `call(s) did not execute and git confirms their target file(s) are still unchanged since ` +
+    `that turn began — ${shown}${more}. A summary that reported these as done was wrong. Say so ` +
+    "plainly before doing anything else, then redo them or explain why they were dropped."
+  )
 }
 
 const CONTRADICTION_NOTICE = (blocked: { tool: string; detail: string }[]) => {
@@ -822,6 +890,28 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
           synthetic: true,
           text: CONTRADICTION_NOTICE(blockedLastTurn),
         })
+      } else if (nowHead !== null && priorHead !== "") {
+        // Round 49: the turn moved something, so the check above is silent about all of it. Ask
+        // the same question per blocked call instead of per turn. Scope is the safety argument, as
+        // in rounds 39/46/48: only calls carrying an exact recorded path are eligible (bash is
+        // excluded by construction — see blockedCallPath), and a path is reported only when git
+        // positively answers "unchanged" for it. A null answer, an unrecorded path, or a target
+        // that did move are all silence, so the strictly-worse outcome of this branch versus the
+        // status quo is that it says nothing. Overlap with the branch above is impossible: they
+        // are the two halves of one condition on the same snapshot.
+        const unreflected = blockedLastTurn.filter(
+          (b) => b.path && pathChangedSinceTurnStart(priorHead, b.path) === false
+        )
+        if (unreflected.length > 0) {
+          output.parts.unshift({
+            id: `prt_gatecontrap${Date.now()}${Math.random().toString(36).slice(2, 8)}`,
+            sessionID,
+            messageID: output?.message?.id ?? input?.messageID ?? "",
+            type: "text",
+            synthetic: true,
+            text: CONTRADICTION_NOTICE_PARTIAL(unreflected),
+          })
+        }
       }
     }
     state.blockedCallsThisTurn[sessionID] = []
