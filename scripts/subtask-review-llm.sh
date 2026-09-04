@@ -225,6 +225,57 @@ printf '%s' "$CONTENT" | node -e '
     console.log(raw.slice(0, 1500))
     process.exit(0)
   }
+  // Round 49: the model has a training cutoff and this project deliberately runs current
+  // toolchains, so it reports newer-than-itself dependency versions as typos. Measured on the two
+  // warms-mobile reports that carried layer-2 findings at all: 14 findings, 0 true positives, and
+  // 5 of them were this exact claim -- typescript ^7.0.2, vite ^8.2.2, @types/node ^26.4.1 and
+  // Phaser 4 "do not exist", while node_modules holds all four at precisely those versions.
+  //
+  // The fix is not a better prompt (wording rewrites are 0/2 project-wide, and a training cutoff
+  // is not something an instruction moves). It is that this claim is decidable by a tool, and this
+  // project rules that whatever a tool can decide does not go to a model: a nonexistence claim
+  // about a package the repo declares AND has installed is checked against node_modules and
+  // dropped when the package is sitting right there. Both halves are required -- declared alone
+  // would let an uninstalled name through, installed alone would sweep in transitive packages
+  // whose short names collide with ordinary English.
+  //
+  // Direction matters: rather than parsing a package name out of prose (the free-text judging
+  // that round 45 measured at 6% precision), each declared+installed name is tested against the
+  // text as an exact case-insensitive substring -- the isMutating tool-name species of check.
+  // Nothing is silently deleted: filtered findings still print, they just stop reaching the
+  // human-attention channel, because in this project silence must never read as checked-and-clean.
+  // Apostrophe-free by necessity: this whole node program lives inside a single-quoted bash
+  // string. Narrow on purpose -- these are the phrasings the measured corpus actually used.
+  const NONEXISTENCE = /\b(?:does not exist|do not exist|no such version|not a (?:released|real|valid|published) version|never (?:been )?released)\b/i
+  let installedDeps = []
+  try {
+    const pkg = JSON.parse(require("fs").readFileSync("package.json", "utf8"))
+    const declared = Object.keys({ ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) })
+    installedDeps = declared.filter((name) => require("fs").existsSync(`node_modules/${name}/package.json`))
+  } catch (e) {}
+  function installedVersionOf(issue) {
+    if (!NONEXISTENCE.test(issue)) return null
+    const hay = issue.toLowerCase()
+    for (const name of installedDeps) {
+      if (!hay.includes(name.toLowerCase())) continue
+      // Third requirement, added after a constructed negative got swept up: the claim must be
+      // about a VERSION. A nonexistence claim with no version in it ("vite does not exist as a
+      // backend runtime") is a category argument, and this filter has nothing to say about those.
+      // Either a dotted version anywhere, or the package name followed directly by a number --
+      // which is what carries "Phaser 4", the only shape in the corpus without dots.
+      const escaped = name.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")
+      const versionish = /\bv?\d+\.\d+/.test(issue) || new RegExp(escaped + "\\s+v?\\d", "i").test(issue)
+      if (!versionish) continue
+      try {
+        const v = JSON.parse(require("fs").readFileSync(`node_modules/${name}/package.json`, "utf8")).version
+        return `${name}@${v}`
+      } catch (e) {
+        return name
+      }
+    }
+    return null
+  }
+
   console.log("PARSE_OK")
   console.log(String(items.length))
   const cap = parseInt(process.argv[1], 10) || 10
@@ -233,7 +284,8 @@ printf '%s' "$CONTENT" | node -e '
     const file = typeof it.file === "string" && it.file.trim() ? it.file.trim() : "(no file cited)"
     const line = (typeof it.line === "number" && Number.isFinite(it.line)) ? String(it.line) : "?"
     const issue = typeof it.issue === "string" && it.issue.trim() ? it.issue.trim() : "(no description)"
-    console.log(`ITEM\t${file}\t${line}\t${issue}`)
+    const installed = installedVersionOf(issue)
+    console.log(`${installed ? "FILTERED" : "ITEM"}\t${file}\t${line}\t${issue}\t${installed || ""}`)
   }
 ' "$MAX_ITEMS" > "$PARSE_OUT_FILE"
 
@@ -248,7 +300,8 @@ if [ "$STATUS_LINE" = "PARSE_FAIL" ]; then
 fi
 
 N_ITEMS="$(sed -n '2p' "$PARSE_OUT_FILE")"
-N_SHOWN="$(tail -n +3 "$PARSE_OUT_FILE" | grep -c $'^ITEM\t' || true)"
+N_SHOWN="$(tail -n +3 "$PARSE_OUT_FILE" | grep -cE $'^(ITEM|FILTERED)\t' || true)"
+N_FILTERED="$(tail -n +3 "$PARSE_OUT_FILE" | grep -c $'^FILTERED\t' || true)"
 if [ "$N_ITEMS" = "0" ]; then
   echo "- 0 issue(s) found (model reviewed the diff, output parsed cleanly)"
 else
@@ -257,11 +310,24 @@ else
   else
     echo "- $N_ITEMS issue(s) found:"
   fi
-  while IFS=$'\t' read -r tag file line issue; do
-    [ "$tag" = "ITEM" ] || continue
-    echo "  - $file:$line — $issue"
-    note_needs_human "[layer2/local-llm, unverified] $file:$line — $issue"
+  while IFS=$'\t' read -r tag file line issue installed; do
+    case "$tag" in
+      ITEM)
+        echo "  - $file:$line — $issue"
+        note_needs_human "[layer2/local-llm, unverified] $file:$line — $issue"
+        ;;
+      # Printed, never raised: the claim is that a version does not exist and node_modules holds
+      # that very package. Left visible so this is a stated verdict, not a silent deletion.
+      FILTERED)
+        echo "  - $file:$line — $issue"
+        echo "    [dropped: this repo has $installed installed — a version newer than the model's"
+        echo "     training cutoff is not evidence that the version does not exist]"
+        ;;
+    esac
   done < <(tail -n +3 "$PARSE_OUT_FILE")
+  if [ "$N_FILTERED" -gt 0 ]; then
+    echo "- $N_FILTERED of those were dropped against node_modules and are NOT in the list below."
+  fi
 fi
 rm -f "$PARSE_OUT_FILE"
 echo
