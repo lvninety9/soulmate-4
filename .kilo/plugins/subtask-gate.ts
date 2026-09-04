@@ -482,6 +482,16 @@ function anchorHeuristicApplies(text: string): boolean {
 }
 
 function looksAmbiguous(text: string): boolean {
+  // Round 49 (live regression, warms-mobile ses_f97ad8de5ffetACPSexiPxvuhV 22:24:44): round 47's
+  // `[gate-ok]` is itself six Latin letters, so appending it to a short Korean instruction pushed
+  // that message back over anchorHeuristicApplies()'s latin >= non-latin test and re-armed the
+  // very nudge round 39 measured out of Korean. Reproduced exactly: "네, 진행하세요." scores
+  // 0 latin / 6 non-latin (out of scope, silent), and "네, 진행하세요. [gate-ok]" scores
+  // 6 / 6 (in scope) with no anchor -> nudged, which is what the live transcript shows.
+  // The token is a control signal to this plugin, not part of the work the user is describing, so
+  // it must not be counted as message content by any content judge. Removed before every check
+  // below, single-sourced off GATE_OVERRIDE_TOKEN so the two literals cannot drift apart.
+  text = stripOverrideToken(text)
   // live-verified bug (round 7): `kilo run "<message>"` stores the message with a literal
   // wrapping quote pair as part of the text content itself (confirmed via a debug log on the
   // real chat.message payload, not assumed) — that pair matched the "quoted string" anchor on
@@ -542,6 +552,15 @@ const BLOCK_MESSAGE_UNCOMMITTED_CARRYOVER = (files: string[]) =>
 const GATE_OVERRIDE_TOKEN = "[gate-ok]"
 function hasOverrideToken(text: string): boolean {
   return text.toLowerCase().includes(GATE_OVERRIDE_TOKEN)
+}
+
+// Round 49: removes the control token from a message before any *content* judge reads it — see
+// looksAmbiguous()'s own comment for the live regression this fixes. Derived from the token itself
+// rather than repeating the literal; the only regex metacharacters `[gate-ok]` can contain are its
+// own brackets, so escaping those is the whole escape.
+const GATE_OVERRIDE_TOKEN_PATTERN = new RegExp(GATE_OVERRIDE_TOKEN.replace(/[[\]]/g, "\\$&"), "gi")
+function stripOverrideToken(text: string): string {
+  return text.replace(GATE_OVERRIDE_TOKEN_PATTERN, " ")
 }
 
 // Round 47 adds the last two sentences, and they are the ONLY place this plugin ever names the
