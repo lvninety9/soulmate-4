@@ -134,6 +134,13 @@ expect("wiki/deploy-archive.md naming collision — present-tense content stays 
   true)
 expect("similarly-named but NOT a real archive file stays swept",
   withNewFile("wiki/archive-notes.md", "This has not yet been verified and needs a look.\n"), true)
+// round 50: HANDOFF.md added as a 5th enumerated exempt stem — this project's own round-by-round
+// development log, same historical-narrative shape as the other 4, just an exact top-level name
+// rather than the *-archive.md convention.
+expect("HANDOFF.md (this project's own round log) stays exempt",
+  withNewFile("HANDOFF.md", "## Round 12\nThis was still unpatched as of that round.\n"), false)
+expect("a nested wiki/handoffs/HANDOFF.md does NOT match the exact top-level stem, stays swept",
+  withNewFile("wiki/handoffs/HANDOFF.md", "This has not yet been verified.\n"), true)
 expect("filename containing 'archive' mid-word but not the suffix stays swept",
   withNewFile("wiki/rule-archive-notes.md", "This has not yet been verified either.\n"), true)
 

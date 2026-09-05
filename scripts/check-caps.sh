@@ -763,7 +763,14 @@ check_stale_language() {
   # historical content. Fixed by renaming the file to match the convention (not by widening the
   # regex back to a wildcard — round 16's own history above is exactly why that direction is
   # rejected) and adding it as a 4th enumerated stem, same shape as the other 3.
-  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log(-archive)?\.md|wiki/FEEDBACK_PENDING-archive\.md|scripts/check-caps\.sh|tests/stale-language\.fuzz\.test\.mjs)$'
+  #
+  # Round 50 (post-cycle, Jay's own instruction): HANDOFF.md — this project's own round-by-round
+  # development log (rounds 39-50's live incidents, rejected alternatives, measurements) — moved
+  # from local-disk-only into this repo so it survives a conversation ending. It is exactly the
+  # same kind of historical narrative as the 4 enumerated stems above (round-specific "as of this
+  # moment" claims, not a live mechanism-state assertion), just under a different name predating
+  # the *-archive.md convention. Added as a 5th exact stem, same shape, not a wildcard.
+  local exempt='^(wiki/handoffs/SESSION_MASTER(-archive)?\.md|wiki/rule-archive(-archive)?\.md|wiki/session-log(-archive)?\.md|wiki/FEEDBACK_PENDING-archive\.md|HANDOFF\.md|scripts/check-caps\.sh|tests/stale-language\.fuzz\.test\.mjs)$'
   # round 13: FEEDBACK_PENDING.md used to be exempt whole-file — its open table legitimately uses
   # this language for real current gaps, but its "## Completed history" section (below a clean
   # heading boundary the repo already relies on elsewhere) is exactly as historical as the other
