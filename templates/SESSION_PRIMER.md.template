@@ -29,6 +29,7 @@
 task: <exact task ID>
 status: <exact current status; do not substitute synonyms>
 stage: <current execution stage>
+interrupted_task: <prior task ID, saved source/state and return point, or none; do not auto-resume>
 accepted_decisions: <ID, value and short reason for each>
 superseded_decisions: <ID and rejected value; do not reopen>
 pending_decisions: <ID, status, all options with units, owner>
