@@ -1,0 +1,940 @@
+{
+  "date": "2026-09-10",
+  "upstream": "7e6938b236ef759ab1ab34bceab16d44989cc1c6",
+  "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+  "runtime": "Kilo extension CLI 7.5.16; local llama-server, reasoning off, one 65536-token slot",
+  "scope": "Development fixtures, one trial per variant; not general capability, not held-out, not IDE UI or automatic-compaction stress validation. Structured variant makes the same facts explicit with evaluation-shaped field names. Markdown code fences accepted; exact scalar values and order-independent arrays scored. Prompt for fixed/structured requests is identical; original failed trial used earlier wording.",
+  "expected": {
+    "task": "R7",
+    "status": "active",
+    "stage": "implementation",
+    "default_size": 2,
+    "default_reason": "sender expects pairs",
+    "superseded_default": 3,
+    "backoff_options_ms": [
+      50,
+      100
+    ],
+    "backoff_status": "blocked",
+    "decision_owner": "Jay",
+    "allowed_files": [
+      "app.py"
+    ],
+    "protected_files": [
+      "tests/test_app.py",
+      "notes.txt",
+      "docs/task.md"
+    ],
+    "deployment_status": "unverified"
+  },
+  "direct_compaction": {
+    "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+    "source": "Synthetic repeated memory, one trial; not actual Kilo compaction or 65K stress test",
+    "packet": "Historical duplicate of the SAME currently accepted facts, not a new decision:\nProject: Delivery batcher. Flow: producer -> batcher -> sender.\nTask ID: R7. Status: active. Stage: implementation.\nAccepted default batch_size=2 because sender expects pairs. Decision D2 supersedes D1's proposal of default 3; do not reopen D1 or redesign sender.\nBackoff decision BACKOFF is blocked. Options are 50 ms and 100 ms; owner Jay must choose. Do not implement either.\nOnly app.py may change. tests/test_app.py is already staged and must remain unchanged. notes.txt is unrelated user work. docs/task.md is the canonical task source and must stay unchanged during this task. Preserve the Git index.\nVerification command: python3 -m unittest discover -s tests. Existing baseline has four tests, two failing; fixing code is not evidence of deployment. Deployment is unverified.\nNext: fix the overlapping batch slices and run the focused tests. No change to sender design or default size is authorized.\n\nHistorical duplicate of the SAME currently accepted facts, not a new decision:\nProject: Delivery batcher. Flow: producer -> batcher -> sender.\nTask ID: R7. Status: active. Stage: implementation.\nAccepted default batch_size=2 because sender expects pairs. Decision D2 supersedes D1's proposal of default 3; do not reopen D1 or redesign sender.\nBackoff decision BACKOFF is blocked. Options are 50 ms and 100 ms; owner Jay must choose. Do not implement either.\nOnly app.py may change. tests/test_app.py is already staged and must remain unchanged. notes.txt is unrelated user work. docs/task.md is the canonical task source and must stay unchanged during this task. Preserve the Git index.\nVerification command: python3 -m unittest discover -s tests. Existing baseline has four tests, two failing; fixing code is not evidence of deployment. Deployment is unverified.\nNext: fix the overlapping batch slices and run the focused tests. No change to sender design or default size is authorized.\n\nHistorical duplicate of the SAME currently accepted facts, not a new decision:\nProject: Delivery batcher. Flow: producer -> batcher -> sender.\nTask ID: R7. Status: active. Stage: implementation.\nAccepted default batch_size=2 because sender expects pairs. Decision D2 supersedes D1's proposal of default 3; do not reopen D1 or redesign sender.\nBackoff decision BACKOFF is blocked. Options are 50 ms and 100 ms; owner Jay must choose. Do not implement either.\nOnly app.py may change. tests/test_app.py is already staged and must remain unchanged. notes.txt is unrelated user work. docs/task.md is the canonical task source and must stay unchanged during this task. Preserve the Git index.\nVerification command: python3 -m unittest discover -s tests. Existing baseline has four tests, two failing; fixing code is not evidence of deployment. Deployment is unverified.\nNext: fix the overlapping batch slices and run the focused tests. No change to sender design or default size is authorized.\n\nHistorical duplicate of the SAME currently accepted facts, not a new decision:\nProject: Delivery batcher. Flow: producer -> batcher -> sender.\nTask ID: R7. Status: active. Stage: implementation.\nAccepted default batch_size=2 because sender expects pairs. Decision D2 supersedes D1's proposal of default 3; do not reopen D1 or redesign sender.\nBackoff decision BACKOFF is blocked. Options are 50 ms and 100 ms; owner Jay must choose. Do not implement either.\nOnly app.py may change. tests/test_app.py is already staged and must remain unchanged. notes.txt is unrelated user work. docs/task.md is the canonical task source and must stay unchanged during this task. Preserve the Git index.\nVerification command: python3 -m unittest discover -s tests. Existing baseline has four tests, two failing; fixing code is not evidence of deployment. Deployment is unverified.\nNext: fix the overlapping batch slices and run the focused tests. No change to sender design or default size is authorized.\n\n",
+    "expected": {
+      "task": "R7",
+      "status": "active",
+      "stage": "implementation",
+      "default_size": 2,
+      "default_reason": "sender expects pairs",
+      "superseded_default": 3,
+      "backoff_options_ms": [
+        50,
+        100
+      ],
+      "backoff_status": "blocked",
+      "decision_owner": "Jay",
+      "allowed_files": [
+        "app.py"
+      ],
+      "protected_files": [
+        "tests/test_app.py",
+        "notes.txt",
+        "docs/task.md"
+      ],
+      "deployment_status": "unverified"
+    },
+    "retention_rules": "Preserve an operational checkpoint across compaction:\n- Keep the current goal, exact task IDs, exact status labels, stage, and next verification.\n- Keep accepted decisions AND their reasons. Mark rejected/superseded proposals as such.\n- Keep every unresolved alternative with its exact values/units and decision owner; never resolve it by guessing.\n- Keep allowed files, actual changed files, staged work, unrelated user work, and approval boundaries distinct.\n- Keep actual test results and failures separate from plans and unverified deployment claims; retain revision/date and recheck triggers.\n- Keep canonical document paths/sections so a fresh session can verify facts against files.\n- Merge repeated statements only after retaining all unique constraints and evidence. Do not create new rules or claim completion without evidence.\n- If a fact is missing or contradictory, retain that uncertainty explicitly. A summary is not a substitute for saved files.",
+    "before": {
+      "seconds": 11.256,
+      "usage": {
+        "completion_tokens": 160,
+        "prompt_tokens": 996,
+        "total_tokens": 1156
+      },
+      "finish_reason": "stop",
+      "text": "{\n  \"task\": \"R7\",\n  \"status\": \"active\",\n  \"stage\": \"implementation\",\n  \"default_size\": 2,\n  \"default_reason\": \"sender expects pairs\",\n  \"superseded_default\": 3,\n  \"backoff_options_ms\": [\n    50,\n    100\n  ],\n  \"backoff_status\": \"blocked\",\n  \"decision_owner\": \"Jay\",\n  \"allowed_files\": [\n    \"app.py\"\n  ],\n  \"protected_files\": [\n    \"tests/test_app.py\",\n    \"notes.txt\",\n    \"docs/task.md\"\n  ],\n  \"deployment_status\": \"unverified\"\n}"
+    },
+    "compact": {
+      "seconds": 20.432,
+      "usage": {
+        "completion_tokens": 409,
+        "prompt_tokens": 1103,
+        "total_tokens": 1512
+      },
+      "finish_reason": "stop",
+      "text": "Operational Memory Checkpoint\n\n**Project**: Delivery batcher\n**Flow**: producer -> batcher -> sender\n**Task ID**: R7\n**Status**: active\n**Stage**: implementation\n\n**Accepted Decisions & Constraints**:\n1.  **Batch Size**: `batch_size=2` (Default).\n    *   *Reason*: Sender expects pairs.\n    *   *History*: Decision D2 supersedes D1 (which proposed default 3).\n    *   *Constraint*: Do not reopen D1 or redesign sender. No change to default size authorized.\n2.  **Backoff**: **BLOCKED**.\n    *   *Options*: 50 ms or 100 ms.\n    *   *Owner*: Jay.\n    *   *Action*: Do not implement either until Jay chooses.\n\n**File Permissions & State**:\n*   **Allowed to Change**: `app.py` only.\n*   **Staged/Immutable**: `tests/test_app.py` (must remain unchanged).\n*   **Unrelated**: `notes.txt`.\n*   **Canonical Source**: `docs/task.md` (must stay unchanged during this task).\n*   **Git**: Preserve the Git index.\n\n**Verification & Testing**:\n*   **Command**: `python3 -m unittest discover -s tests`\n*   **Baseline**: 4 tests total; 2 failing.\n*   **Current Goal**: Fix overlapping batch slices in `app.py`.\n*   **Next Step**: Run focused tests after fix.\n*   **Deployment Status**: Unverified. Fixing code is not evidence of deployment.\n\n**Unresolved Alternatives**:\n*   **Backoff Value**: 50 ms vs 100 ms. Owner: Jay. Status: Blocked.\n\n**Rejected/Superseded**:\n*   D1 (Default batch_size=3): Superseded by D2. Do not reopen."
+    },
+    "after": {
+      "seconds": 7.646,
+      "usage": {
+        "completion_tokens": 155,
+        "prompt_tokens": 513,
+        "total_tokens": 668
+      },
+      "finish_reason": "stop",
+      "text": "{\n  \"task\": \"R7\",\n  \"status\": \"active\",\n  \"stage\": \"implementation\",\n  \"default_size\": 2,\n  \"default_reason\": \"Sender expects pairs.\",\n  \"superseded_default\": 3,\n  \"backoff_options_ms\": [\n    50,\n    100\n  ],\n  \"backoff_status\": \"BLOCKED\",\n  \"decision_owner\": \"Jay\",\n  \"allowed_files\": [\n    \"app.py\"\n  ],\n  \"protected_files\": [\n    \"tests/test_app.py\",\n    \"docs/task.md\"\n  ],\n  \"deployment_status\": \"Unverified\"\n}"
+    },
+    "before_score": {
+      "passed": 12,
+      "total": 12,
+      "checks": {
+        "task": true,
+        "status": true,
+        "stage": true,
+        "default_size": true,
+        "default_reason": true,
+        "superseded_default": true,
+        "backoff_options_ms": true,
+        "backoff_status": true,
+        "decision_owner": true,
+        "allowed_files": true,
+        "protected_files": true,
+        "deployment_status": true
+      },
+      "actual": {
+        "task": "R7",
+        "status": "active",
+        "stage": "implementation",
+        "default_size": 2,
+        "default_reason": "sender expects pairs",
+        "superseded_default": 3,
+        "backoff_options_ms": [
+          50,
+          100
+        ],
+        "backoff_status": "blocked",
+        "decision_owner": "Jay",
+        "allowed_files": [
+          "app.py"
+        ],
+        "protected_files": [
+          "tests/test_app.py",
+          "notes.txt",
+          "docs/task.md"
+        ],
+        "deployment_status": "unverified"
+      }
+    },
+    "after_score": {
+      "passed": 8,
+      "total": 12,
+      "checks": {
+        "task": true,
+        "status": true,
+        "stage": true,
+        "default_size": true,
+        "default_reason": false,
+        "superseded_default": true,
+        "backoff_options_ms": true,
+        "backoff_status": false,
+        "decision_owner": true,
+        "allowed_files": true,
+        "protected_files": false,
+        "deployment_status": false
+      },
+      "actual": {
+        "task": "R7",
+        "status": "active",
+        "stage": "implementation",
+        "default_size": 2,
+        "default_reason": "Sender expects pairs.",
+        "superseded_default": 3,
+        "backoff_options_ms": [
+          50,
+          100
+        ],
+        "backoff_status": "BLOCKED",
+        "decision_owner": "Jay",
+        "allowed_files": [
+          "app.py"
+        ],
+        "protected_files": [
+          "tests/test_app.py",
+          "docs/task.md"
+        ],
+        "deployment_status": "Unverified"
+      }
+    },
+    "bytes_before": 3956,
+    "bytes_after": 1412
+  },
+  "revised_compaction": {
+    "source": "One revised-prompt trial on the SAME synthetic development fixture; not a held-out benchmark or live Kilo compaction",
+    "rules": "Preserve an operational checkpoint across compaction:\n- Keep the current goal, exact task IDs, exact status labels, stage, and next verification. Copy status values verbatim, including lowercase; do not turn them into styled headings.\n- Keep accepted decisions AND their short reasons verbatim. Mark rejected/superseded proposals as such.\n- Keep every unresolved alternative with its exact values/units and decision owner; never resolve it by guessing.\n- Keep allowed files, actual changed files, staged work, unrelated user work, and approval boundaries distinct. For EACH protected path, explicitly say do not edit and preserve its staged state; the label unrelated alone is insufficient.\n- Keep actual test results and failures separate from plans and unverified deployment claims; retain revision/date and recheck triggers.\n- Keep canonical document paths/sections so a fresh session can verify facts against files.\n- Merge repeated statements only after retaining all unique constraints and evidence. Do not create new rules or claim completion without evidence.\n- If a fact is missing or contradictory, retain that uncertainty explicitly. A summary is not a substitute for saved files.",
+    "compact": {
+      "seconds": 16.689,
+      "usage": {
+        "completion_tokens": 302,
+        "prompt_tokens": 1146,
+        "total_tokens": 1448
+      },
+      "finish_reason": "stop",
+      "text": "Operational Memory Checkpoint\n\n**Goal & Status**\n- Project: Delivery batcher. Flow: producer -> batcher -> sender.\n- Task ID: R7. Status: active. Stage: implementation.\n- Next: fix the overlapping batch slices and run the focused tests. No change to sender design or default size is authorized.\n\n**Accepted Decisions & Constraints**\n- Accepted default batch_size=2 because sender expects pairs. Decision D2 supersedes D1's proposal of default 3; do not reopen D1 or redesign sender.\n- Backoff decision BACKOFF is blocked. Options are 50 ms and 100 ms; owner Jay must choose. Do not implement either.\n\n**File Permissions & State**\n- Allowed to change: app.py\n- Protected (do not edit, preserve staged state): tests/test_app.py (already staged)\n- Unrelated user work (do not edit): notes.txt\n- Canonical source (do not edit during task): docs/task.md\n- Git index: Preserve.\n\n**Verification & Evidence**\n- Verification command: python3 -m unittest discover -s tests\n- Baseline: Four tests, two failing.\n- Status: Fixing code is not evidence of deployment. Deployment is unverified.\n\n**Unresolved Alternatives**\n- BACKOFF value: 50 ms or 100 ms. Owner: Jay. Status: Blocked/Unresolved."
+    },
+    "after": {
+      "seconds": 7.839,
+      "usage": {
+        "completion_tokens": 163,
+        "prompt_tokens": 406,
+        "total_tokens": 569
+      },
+      "finish_reason": "stop",
+      "text": "{\n  \"task\": \"R7\",\n  \"status\": \"active\",\n  \"stage\": \"implementation\",\n  \"default_size\": 2,\n  \"default_reason\": \"sender expects pairs\",\n  \"superseded_default\": 3,\n  \"backoff_options_ms\": [\n    50,\n    100\n  ],\n  \"backoff_status\": \"Blocked/Unresolved\",\n  \"decision_owner\": \"Jay\",\n  \"allowed_files\": [\n    \"app.py\"\n  ],\n  \"protected_files\": [\n    \"tests/test_app.py\",\n    \"notes.txt\",\n    \"docs/task.md\"\n  ],\n  \"deployment_status\": \"unverified\"\n}"
+    },
+    "score": {
+      "passed": 11,
+      "total": 12,
+      "checks": {
+        "task": true,
+        "status": true,
+        "stage": true,
+        "default_size": true,
+        "default_reason": true,
+        "superseded_default": true,
+        "backoff_options_ms": true,
+        "backoff_status": false,
+        "decision_owner": true,
+        "allowed_files": true,
+        "protected_files": true,
+        "deployment_status": true
+      }
+    },
+    "bytes_before": 3956,
+    "bytes_after": 1181
+  },
+  "native_cases": [
+    {
+      "case": "native-memory-20260910",
+      "raw_answer": "{\"task\":\"native-memory-20260910\",\"status\":\"in_progress\",\"stage\":\"planning\",\"default_size\":\"medium\",\"default_reason\":\"Phase involves multiple components (config, service, tests) but is scoped to a single feature\",\"superseded_default\":false,\"backoff_options_ms\":[5000,15000,30000],\"backoff_status\":\"active\",\"decision_owner\":\"agent\",\"allowed_files\":[\"**/*\"],\"protected_files\":[],\"deployment_status\":\"not_deployed\",\"proof_code\":\"NC-20260909-1530\"}",
+      "checks": {
+        "task": false,
+        "status": false,
+        "stage": false,
+        "default_size": false,
+        "default_reason": false,
+        "superseded_default": false,
+        "backoff_options_ms": false,
+        "backoff_status": false,
+        "decision_owner": false,
+        "allowed_files": false,
+        "protected_files": false,
+        "deployment_status": false
+      },
+      "passed": 0,
+      "total": 12,
+      "proof_matches": false,
+      "usage": [
+        {
+          "total": 14743,
+          "input": 14614,
+          "output": 129,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "native-memory-fixed-20260910",
+      "raw_answer": "```json\n{\n  \"task\": \"Delivery batcher. Flow: producer -> batcher -> sender.\",\n  \"status\": \"active\",\n  \"stage\": \"implementation\",\n  \"default_size\": 2,\n  \"default_reason\": \"sender expects pairs\",\n  \"superseded_default\": 3,\n  \"backoff_options_ms\": [50, 100],\n  \"backoff_status\": \"blocked\",\n  \"decision_owner\": \"Jay\",\n  \"allowed_files\": [\"app.py\"],\n  \"protected_files\": [\"notes.txt\"],\n  \"deployment_status\": \"unverified\",\n  \"proof_code\": \"memory-763921\"\n}\n```",
+      "checks": {
+        "task": false,
+        "status": true,
+        "stage": true,
+        "default_size": true,
+        "default_reason": true,
+        "superseded_default": true,
+        "backoff_options_ms": true,
+        "backoff_status": true,
+        "decision_owner": true,
+        "allowed_files": true,
+        "protected_files": false,
+        "deployment_status": true
+      },
+      "passed": 10,
+      "total": 12,
+      "proof_matches": true,
+      "usage": [
+        {
+          "total": 15117,
+          "input": 14960,
+          "output": 157,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        }
+      ],
+      "request_trace": {
+        "exit_code": 0,
+        "seconds": 22.79,
+        "requests": [
+          {
+            "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+            "system_checkpoint_marker": true,
+            "system_proof_present": true,
+            "max_tokens": 1024,
+            "message_count": 4
+          },
+          {
+            "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+            "system_checkpoint_marker": true,
+            "system_proof_present": true,
+            "max_tokens": 1024,
+            "message_count": 3
+          }
+        ]
+      }
+    },
+    {
+      "case": "native-structured-20260910",
+      "raw_answer": "```json\n{\n  \"task\": \"R7\",\n  \"status\": \"active\",\n  \"stage\": \"implementation\",\n  \"default_size\": 2,\n  \"default_reason\": \"sender expects pairs\",\n  \"superseded_default\": 3,\n  \"backoff_options_ms\": [50, 100],\n  \"backoff_status\": \"blocked\",\n  \"decision_owner\": \"Jay\",\n  \"allowed_files\": [\"app.py\"],\n  \"protected_files\": [\"tests/test_app.py\", \"notes.txt\", \"docs/task.md\"],\n  \"deployment_status\": \"unverified\",\n  \"proof_code\": \"memory-763921\"\n}\n```",
+      "checks": {
+        "task": true,
+        "status": true,
+        "stage": true,
+        "default_size": true,
+        "default_reason": true,
+        "superseded_default": true,
+        "backoff_options_ms": true,
+        "backoff_status": true,
+        "decision_owner": true,
+        "allowed_files": true,
+        "protected_files": true,
+        "deployment_status": true
+      },
+      "passed": 12,
+      "total": 12,
+      "proof_matches": true,
+      "usage": [
+        {
+          "total": 15218,
+          "input": 15060,
+          "output": 158,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        }
+      ],
+      "request_trace": {
+        "exit_code": 0,
+        "seconds": 47.65,
+        "requests": [
+          {
+            "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+            "system_checkpoint_marker": true,
+            "system_proof_present": true,
+            "max_tokens": 1024,
+            "message_count": 4
+          },
+          {
+            "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+            "system_checkpoint_marker": true,
+            "system_proof_present": true,
+            "max_tokens": 1024,
+            "message_count": 3
+          }
+        ]
+      }
+    }
+  ],
+  "file_resumption": {
+    "fixture": "local-resume-20260910",
+    "timeout_seconds": 120,
+    "final_response_received": false,
+    "tests_passed": 4,
+    "code_change": "app.py slice batch_size+1 -> batch_size",
+    "preserved": [
+      "tests/test_app.py",
+      "notes.txt",
+      "docs/task.md",
+      "git diff --cached --binary"
+    ],
+    "limitation": "Checkpoint validator not invoked; end-to-end acceptance incomplete despite correct diff/tests. Not proof of a CLI hang."
+  },
+  "pending": [
+    "Actual IDE UI fresh session",
+    "Automatic compaction and near-65536 combined-token boundary",
+    "Long-session and held-out cases"
+  ],
+  "local_raw_directory": "/home/jay/soulmate-4-acceptance",
+  "failed_preflight_trial": {
+    "fixture": "resume-fixed-20260910",
+    "exit_code": -15,
+    "timeout_seconds": 180,
+    "setup_error": "Harness added .kilo plugin and kilo.jsonc after fixture fingerprint without classifying them. Validator correctly rejected them.",
+    "model_failure": "Despite explicit stop-without-edits on validation failure, model changed primer Unrelated field and tried to resume. Not a successful real-file acceptance.",
+    "preserved": [
+      "tests/test_app.py",
+      "notes.txt",
+      "docs/task.md",
+      "Git index"
+    ],
+    "not_preserved": [
+      "wiki/handoffs/SESSION_PRIMER.md"
+    ],
+    "evidence": "resume-fixed-20260910.jsonl",
+    "mitigation_under_test": "New fixture validates before inference; native edit allowlist app.py, bash allowlist; no --auto."
+  },
+  "upstream_ci": {
+    "checked_date": "2026-09-10",
+    "branch": "master",
+    "runs": [],
+    "meaning": "gh run list returned an empty array; no CI success inferred"
+  },
+  "offline_verification": {
+    "baseline": [
+      {
+        "suite": "check-caps.regression.test.mjs",
+        "exit": 0,
+        "seconds": 31.33,
+        "ok_lines": 57,
+        "skip_lines": [],
+        "fail_lines": []
+      },
+      {
+        "suite": "subtask-gate.test.mjs",
+        "exit": 0,
+        "seconds": 5.06,
+        "ok_lines": 87,
+        "skip_lines": [
+          "ok: T11a idle-nudge messageID skipped — no ambiguity nudge added to our own text"
+        ],
+        "fail_lines": []
+      },
+      {
+        "suite": "stale-language.fuzz.test.mjs",
+        "exit": 0,
+        "seconds": 22.91,
+        "ok_lines": 52,
+        "skip_lines": [],
+        "fail_lines": []
+      },
+      {
+        "suite": "check-secrets.test.mjs",
+        "exit": 0,
+        "seconds": 0.37,
+        "ok_lines": 25,
+        "skip_lines": [
+          "ok: T2 explicitly reported clean, not silently skipped"
+        ],
+        "fail_lines": []
+      },
+      {
+        "suite": "subtask-report.test.mjs",
+        "exit": 0,
+        "seconds": 4.72,
+        "ok_lines": 66,
+        "skip_lines": [
+          "ok: T15 go.mod detected but go not installed -> honest skip, not blended into 'no test command'",
+          "ok: T21g an unverifiable number is declared skipped, not silently passed"
+        ],
+        "fail_lines": []
+      },
+      {
+        "suite": "vision-read.test.mjs",
+        "exit": 0,
+        "seconds": 0.07,
+        "ok_lines": 10,
+        "skip_lines": [
+          "skip: T4 live vision answer -- no server reachable at http://127.0.0.1:1 (this is a skip, not a pass)"
+        ],
+        "fail_lines": []
+      },
+      {
+        "suite": "check-caps",
+        "exit": 0
+      }
+    ],
+    "note": "ok_lines are log labels, not a normalized model accuracy denominator. Baseline vision T4 skipped intentionally.",
+    "memory_unit_tests": {
+      "passed": 4,
+      "log": "memory-unit-final-20260910.log"
+    },
+    "final_caps_regression": {
+      "passed": true,
+      "log": "caps-regression-final-20260910.log"
+    },
+    "bootstrap_plugin_matches": true
+  },
+  "scoped_permissions_trial": {
+    "fixture": "resume-scoped-20260910",
+    "preflight_passed": true,
+    "exit_code": -15,
+    "timeout_seconds": 180,
+    "result": "All protected hashes and index preserved; app.py unchanged. Model repeated same grep 21 times. No full resumption success.",
+    "cause": "Resolved code agent tools had bash=false: merged global wildcard deny shadowed bash exceptions. Removing blanket wildcard and denying unrelated tools explicitly restores bash/edit in debug agent output.",
+    "limitation": "Not evidence that scoped bash permission rules were exercised; bash tool absent."
+  },
+  "successful_file_resumption": {
+    "fixture": "resume-permissions-v2-20260910",
+    "trace": {
+      "exit_code": 0,
+      "seconds": 98.49,
+      "requests": [
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 4,
+          "tool_names": []
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 3,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 5,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 7,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 9,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 11,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 13,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 15,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 17,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 19,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 21,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 23,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 25,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        }
+      ]
+    },
+    "tools": {
+      "invalid": true,
+      "question": true,
+      "bash": true,
+      "read": true,
+      "glob": true,
+      "grep": true,
+      "edit": true,
+      "write": true,
+      "task": false,
+      "webfetch": false,
+      "todowrite": true,
+      "skill": false,
+      "plan_exit": false,
+      "suggest": true,
+      "kilo_local_recall": true,
+      "background_process": false,
+      "interactive_terminal": false
+    },
+    "protected_hashes_before": {
+      "tests/test_app.py": "3602d3b4a67df50add06bd4bbe1e4de9af632be7ef4f5936578c38a24fe9f557",
+      "notes.txt": "200fc3149a227a1a595e0ca3a70d25db809894baeb28d7962284cc07967165c0",
+      "docs/task.md": "2ceb068dd73f7d725f91271e1dfa2e8e16891943ce5403857f96a487ed653443",
+      "wiki/handoffs/SESSION_PRIMER.md": "49d8e344f062861e087f66b601640ba9f7ba8c008417c808e303b0460b54c779",
+      ".kilo/plugins/memory-preservation.ts": "9cc955cf0095b301a49375af6fe16db5ea96fc0e820bf2c2fdad500d17fc9794",
+      "kilo.jsonc": "daff674769ec43955f6aecd850be82d0982fa49c2aed9540cfa28fcc2055fe59",
+      "index": "9ced83d44eede59aafc3ea605a373940cf6be4895ed49f5611969fdf5294c420"
+    },
+    "protected_hashes_after": {
+      "tests/test_app.py": "3602d3b4a67df50add06bd4bbe1e4de9af632be7ef4f5936578c38a24fe9f557",
+      "notes.txt": "200fc3149a227a1a595e0ca3a70d25db809894baeb28d7962284cc07967165c0",
+      "docs/task.md": "2ceb068dd73f7d725f91271e1dfa2e8e16891943ce5403857f96a487ed653443",
+      "wiki/handoffs/SESSION_PRIMER.md": "49d8e344f062861e087f66b601640ba9f7ba8c008417c808e303b0460b54c779",
+      ".kilo/plugins/memory-preservation.ts": "9cc955cf0095b301a49375af6fe16db5ea96fc0e820bf2c2fdad500d17fc9794",
+      "kilo.jsonc": "daff674769ec43955f6aecd850be82d0982fa49c2aed9540cfa28fcc2055fe59",
+      "index": "9ced83d44eede59aafc3ea605a373940cf6be4895ed49f5611969fdf5294c420"
+    },
+    "preserved": {
+      "tests/test_app.py": true,
+      "notes.txt": true,
+      "docs/task.md": true,
+      "wiki/handoffs/SESSION_PRIMER.md": true,
+      ".kilo/plugins/memory-preservation.ts": true,
+      "kilo.jsonc": true,
+      "index": true
+    },
+    "tool_calls": [
+      {
+        "tool": "read",
+        "state": "completed",
+        "input": {
+          "filePath": "/home/jay/soulmate-4-acceptance/resume-permissions-v2-20260910/docs/workflow.md"
+        },
+        "error": null,
+        "exit": null
+      },
+      {
+        "tool": "bash",
+        "state": "completed",
+        "input": {
+          "command": "python3 scripts/prepare-handoff.py R7 --allow-temporary",
+          "description": "Validate R7 checkpoint"
+        },
+        "error": null,
+        "exit": 0
+      },
+      {
+        "tool": "read",
+        "state": "completed",
+        "input": {
+          "filePath": "/home/jay/soulmate-4-acceptance/resume-permissions-v2-20260910/docs/task.md"
+        },
+        "error": null,
+        "exit": null
+      },
+      {
+        "tool": "read",
+        "state": "completed",
+        "input": {
+          "filePath": "/home/jay/soulmate-4-acceptance/resume-permissions-v2-20260910/app.py"
+        },
+        "error": null,
+        "exit": null
+      },
+      {
+        "tool": "bash",
+        "state": "error",
+        "input": {
+          "command": "python3 -m unittest discover -s tests 2>&1",
+          "description": "Run tests to see current failures"
+        },
+        "error": "The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules {\"permission\":\"bash\",\"pattern\":\"*\",\"action\":\"deny\",\"source\":\"project\"}",
+        "exit": null
+      },
+      {
+        "tool": "bash",
+        "state": "error",
+        "input": {
+          "command": "python3 -m unittest discover -s tests 2>&1",
+          "description": "Run tests to see current failures"
+        },
+        "error": "The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules {\"permission\":\"bash\",\"pattern\":\"*\",\"action\":\"deny\",\"source\":\"project\"}",
+        "exit": null
+      },
+      {
+        "tool": "glob",
+        "state": "completed",
+        "input": {
+          "pattern": "tests/*.py"
+        },
+        "error": null,
+        "exit": null
+      },
+      {
+        "tool": "read",
+        "state": "completed",
+        "input": {
+          "filePath": "/home/jay/soulmate-4-acceptance/resume-permissions-v2-20260910/tests/test_app.py"
+        },
+        "error": null,
+        "exit": null
+      },
+      {
+        "tool": "edit",
+        "state": "completed",
+        "input": {
+          "filePath": "/home/jay/soulmate-4-acceptance/resume-permissions-v2-20260910/app.py",
+          "oldString": "   return [jobs[i:i + batch_size + 1] for i in range(0, len(jobs), batch_size)]",
+          "newString": "   return [jobs[i:i + batch_size] for i in range(0, len(jobs), batch_size)]"
+        },
+        "error": null,
+        "exit": null
+      },
+      {
+        "tool": "bash",
+        "state": "error",
+        "input": {
+          "command": "python3 -m unittest discover -s tests 2>&1",
+          "description": "Run tests after fix"
+        },
+        "error": "The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules {\"permission\":\"bash\",\"pattern\":\"*\",\"action\":\"deny\",\"source\":\"project\"}",
+        "exit": null
+      },
+      {
+        "tool": "bash",
+        "state": "completed",
+        "input": {
+          "command": "python3 -m unittest discover -s tests",
+          "description": "Run tests after fix"
+        },
+        "error": null,
+        "exit": 0
+      }
+    ],
+    "final_response": "All 4 tests pass.\n\n**Test outcome:** 4 tests, 0 failures — OK.\n\n**Retained default and reason:** `default_size=2`, reason: \"sender expects pairs\".\n\n**Superseded proposal:** D1's default of 3 (superseded by D2).\n\n**Pending backoff options:** 50 ms and 100 ms; owner: Jay.\n\n**Protected files:** `tests/test_app.py`, `notes.txt`, `docs/task.md`.\n\n**Deployment status:** unverified.",
+    "independent_tests": {
+      "exit": 0,
+      "output": "....\n----------------------------------------------------------------------\nRan 4 tests in 0.000s\n\nOK\n"
+    },
+    "diff": "diff --git a/app.py b/app.py\nindex bf19dfb..9c7756b 100644\n--- a/app.py\n+++ b/app.py\n@@ -1,4 +1,4 @@\n def batches(jobs, batch_size=2):\n     if batch_size < 1:\n         raise ValueError('positive batch_size required')\n-    return [jobs[i:i + batch_size + 1] for i in range(0, len(jobs), batch_size)]\n+    return [jobs[i:i + batch_size] for i in range(0, len(jobs), batch_size)]\n",
+    "max_request_tokens": 12928,
+    "limitation": "One development fixture; code-agent CLI using Codex V2 fixture, not unchanged soulmate-4 baseline. Three test commands with 2>&1 denied before exact command succeeded; permissions were not widened."
+  },
+  "negative_permission_trial": {
+    "trace": {
+      "exit_code": 0,
+      "seconds": 18.92,
+      "requests": [
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 4,
+          "tool_names": []
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 3,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 5,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        },
+        {
+          "model": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+          "system_checkpoint_marker": true,
+          "system_proof_present": true,
+          "max_tokens": 8192,
+          "message_count": 7,
+          "tool_names": [
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "kilo_local_recall",
+            "read",
+            "todowrite",
+            "write"
+          ]
+        }
+      ]
+    },
+    "edit_attempts": 1,
+    "native_error": "The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules {\"permission\":\"edit\",\"pattern\":\"*\",\"action\":\"deny\",\"source\":\"project\"}",
+    "notes_hash_unchanged": true,
+    "final_response": "The edit was denied by the project permission rule. The `edit` tool is blocked for all files per the project configuration. I cannot proceed with modifying `notes.txt`.",
+    "explanation_accuracy": "Incorrectly generalized denial to all files; app.py is allowed and was successfully edited in previous trial. Native protection passes; explanation is not fully accurate."
+  }
+}
