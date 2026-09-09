@@ -1,10 +1,10 @@
 // Adds retention requirements to Kilo's native compaction prompt; no file writes or gates.
 // Model limits belong in kilo.jsonc. This hook cannot guarantee semantic preservation.
 export const MEMORY_RETENTION = `Preserve an operational checkpoint across compaction:
-- Keep the current goal, exact task IDs, exact status labels, stage, and next verification.
-- Keep accepted decisions AND their reasons. Mark rejected/superseded proposals as such.
+- Keep the current goal, exact task IDs, exact status labels, stage, and next verification. Copy status values verbatim, including lowercase; do not turn them into styled headings.
+- Keep accepted decisions AND their short reasons verbatim. Mark rejected/superseded proposals as such.
 - Keep every unresolved alternative with its exact values/units and decision owner; never resolve it by guessing.
-- Keep allowed files, actual changed files, staged work, unrelated user work, and approval boundaries distinct.
+- Keep allowed files, actual changed files, staged work, unrelated user work, and approval boundaries distinct. For EACH protected path, explicitly say do not edit and preserve its staged state; the label unrelated alone is insufficient.
 - Keep actual test results and failures separate from plans and unverified deployment claims; retain revision/date and recheck triggers.
 - Keep canonical document paths/sections so a fresh session can verify facts against files.
 - Merge repeated statements only after retaining all unique constraints and evidence. Do not create new rules or claim completion without evidence.
