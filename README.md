@@ -220,6 +220,8 @@ exactly that retry). Do not have the local model invent the line from the diff; 
   documentation, or revise scope when asked; memory preservation must not require an unlock
   phrase or prevent ordinary conversation. Native permission allowlists in the acceptance
   fixtures were test controls, not the default development workflow. This change adds no gate.
+- When work switches, save the interrupted task ID, source/state and return point separately
+  from the new active task. Its saved next step does not automatically resume it.
 - Acceptance is user-led: Jay develops in Kilo and shares outputs for review and correction.
   Offline/CLI experiments supplement those artifacts; they do not replace that feedback loop.
 - Assumes single-writer, same as soulmate/soulmate-2/3 — no locking on the handoff files.
