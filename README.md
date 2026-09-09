@@ -207,6 +207,15 @@ exactly that retry). Do not have the local model invent the line from the diff; 
 - `.kilo/plugins/*.ts` auto-discovery is a Kilo CLI feature (confirmed via the CLI's own in-app
   help text) — it should apply identically whether Kilo is driven via the VS Code/Cursor
   extension or the raw `kilo` CLI, since both spawn the same CLI backend for tool execution.
+- Set positive model limits: this repo's optional `kilo.jsonc` uses a combined 65,536-token
+  context, 8,192 output tokens and a 75% compaction threshold. Adapt the provider/model IDs;
+  bootstrap does not copy this machine-specific profile. A zero context disables tracking.
+- `memory-preservation.ts` adds retention guidance to native compaction and projects the saved
+  primer's `Current sub-task` section verbatim on each request (8 KiB limit; explicit warning
+  for missing/oversized state). Save exact IDs, reasons, pending alternatives and protected
+  paths explicitly. Files can be stale; projection is neither a validator nor a success claim.
+  A custom compaction `output.prompt` can bypass added context. CLI validation does not prove
+  the active IDE session has reloaded the plugin or that long-context retention is reliable.
 - Assumes single-writer, same as soulmate/soulmate-2/3 — no locking on the handoff files.
 - Does assume a real mid-session write-blocking hook exists (unlike soulmate-3) — but see "Known
   gap" for its actual limits (one-shot, not a permanent lock).
