@@ -14,10 +14,9 @@ payoff: a real `tool.execute.before` mechanical brake. `scripts/subtask-report.s
 tool-only) + `scripts/subtask-review-llm.sh` (layer 2, local-model diff review, report-only) are
 the sub-task-close verification. Round 32 closed the project out; rounds 33-37 were each narrow,
 fully-specified reopenings (Opus/Jay work orders, not new audit rounds) — everything below is the
-true current state after round 37, not an in-progress snapshot. Opus's own HANDOFF.md (round 37's
-work order) framed closing criteria as "items 1/2/3 closed + one real project built end-to-end
-with this harness" — items 1/2/3 are now closed (below); the end-to-end real-project build is
-still open, next.
+historical round-37 baseline. Latest upstream work is in HANDOFF.md through round 50; the
+Current sub-task block below owns this local-memory continuation. An end-to-end real-project
+build remains open; fixture success does not close that requirement.
 
 ## Current sub-task
 
@@ -30,14 +29,19 @@ Owner intent (2026-09-10): Jay permits replacing old rules and applying Codex V2
 Observed: Kilo IDE extension 7.5.16; server Qwen3.6-35B-A3B Q4_K_M, reasoning off, n_ctx=65536,
   one slot. Kilo resolved the custom model to context=0/output=0. Its installed code skips
   overflow checking at context=0. Isolated override 65536/8192 is accepted by this same binary.
-Done: six offline suites pass (live vision excluded), seventh layer-2 suite passes including
-  its real local-model planted-defect check. These are mechanics, not a general model score.
-Now: fresh Kilo+Qwen R7 file-resumption trial with explicit limits (120s bound), derived from
-  the Codex V2 fixture. It tests a candidate recipe, not the unchanged Soulmate 4 baseline.
-Next: inspect real diff/tests/preserved index and raw token usage; add the smallest budget and
-  durable-memory correction supported by those results, then repeat the same acceptance cases.
-Pending: full 65K-boundary/compaction retention, actual IDE UI run, long-session quality.
-Evidence: /home/jay/soulmate-4-acceptance/; offline logs currently /tmp/soulmate4-offline-20260909/.
+Done: project-only kilo.jsonc limits 65536/8192, threshold 75%; global IDE config unchanged.
+  Saved-state plugin projects Current sub-task verbatim, bounded to 8 KiB; bootstrap copies it.
+  Fixed Kilo array-reference bug; four unit tests and caps regression pass; install hash matches.
+Measured: direct compaction 8/12 -> revised 11/12. Native saved prose 10/12; explicit fields
+  12/12 + proof code, observed in actual local requests. Development fixture only, no broad score.
+  R7 permissions-v2 trial: validation before edit, one app.py fix, four tests and final report
+  pass; six protected files + index hashes match. Earlier setup/stop/permission failures retained
+  in evidence. Native notes.txt edit denial also verified; model overstated its scope.
+  A merged wildcard deny had hidden bash; resolved before the passing run.
+Next: validate fresh IDE session, real automatic compaction near the combined ceiling and held-out
+  resumption. Do not treat CLI success or configured threshold as proof of IDE/long-context success.
+Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
+  /home/jay/soulmate-4-acceptance/. Source branch feat/local-memory-budget, not pushed/merged.
 Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
   gaps are in HANDOFF.md section 8-1 (not the stale round-37 priority list). The warms-mobile
   deployment remains separate; no changes there. Existing feedback rows below remain open.
