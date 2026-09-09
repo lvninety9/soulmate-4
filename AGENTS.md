@@ -48,13 +48,14 @@ steps above are self-served prose instead, same shape as soulmate-3's Continue g
 | sub-task gate plugin | `.kilo/plugins/subtask-gate.ts` |
 | sub-task report — layer 1 tool evidence + layer 2 local-model diff review (tagged `[layer2/local-llm, unverified]`, report-only) | `scripts/subtask-report.sh` + `scripts/subtask-review-llm.sh`, auto via `scripts/post-commit-subtask-report` |
 | sub-task gate tests (`node --experimental-strip-types tests/subtask-gate.test.mjs`) | `tests/subtask-gate.test.mjs` |
-| local model provider config | `~/.config/kilo/kilo.jsonc` (global) |
+| local model provider config | `kilo.jsonc` (this repo limits/local-only selection); `~/.config/kilo/kilo.jsonc` (provider connection) |
+| compaction retention, no extra blocking | `.kilo/plugins/memory-preservation.ts` |
 | need to see an image — use the `vision_read` tool, never attach it in chat (round 40) | `.kilo/plugins/vision-read.ts` |
 
 ## Caps + sub-task budget
 File Map ≤10 rows · SESSION_PRIMER ≤150 lines · this file ≤85 lines (matches original soulmate's
-cap, not lowered for a local model). No live token-usage signal mid-session: `design` sizes
-sub-tasks to finish under context length by construction; `build` checkpoints on overrun.
+cap, not lowered for a local model). Configure Kilo context/output limits; zero disables automatic
+context tracking/compaction. Save reasons, exact IDs/statuses, unresolved alternatives and changed/staged files before handoff.
 
 ## Learned Rules
 
