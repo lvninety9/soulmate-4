@@ -50,7 +50,9 @@ export const MemoryPreservation = async ({ directory }: { directory?: string } =
     let checkpoint: string
     try { checkpoint = await savedCheckpoint(directory) }
     catch { checkpoint = `${MARKER} Saved checkpoint read failed; inspect ${CHECKPOINT} before work.` }
-    output.system = output.system.filter((part) => !part.startsWith(MARKER))
+    // Kilo retains this array reference after the hook; replacing it drops the projection.
+    const retained = output.system.filter((part) => !part.startsWith(MARKER))
+    output.system.splice(0, output.system.length, ...retained)
     if (checkpoint) output.system.push(checkpoint)
   },
   "experimental.session.compacting": async (_input: unknown, output: { context: string[] }) => {
