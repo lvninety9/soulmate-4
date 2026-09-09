@@ -22,23 +22,23 @@ build remains open; fixture success does not close that requirement.
 
 ```text
 Start: fresh GitHub clone at 7e6938b; prior local checkout is explicitly stale and unused.
-Goal: improve local-only memory recovery under the actual combined 65,536-token ceiling.
-Owner intent (2026-09-10): Jay permits replacing old rules and applying Codex V2 lessons;
-  effectiveness and retained context matter more than preserving the old process. Short GPU
-  trials authorized; recheck the shared single slot and run sequentially. No Hermes migration.
+Goal: Codex-style smart, efficient memory/work management with local-only inference and a
+  combined 65,536-token ceiling. Local limitations shape context handling, not user intervention.
+Owner intent (2026-09-10): apply Codex V2 lessons; revise old rules when useful. Preserve both
+  current work and interrupted-task context. No Hermes migration; Jay-led Kilo acceptance.
 Observed: Kilo IDE extension 7.5.16; server Qwen3.6-35B-A3B Q4_K_M, reasoning off, n_ctx=65536,
   one slot. Kilo resolved the custom model to context=0/output=0. Its installed code skips
   overflow checking at context=0. Isolated override 65536/8192 is accepted by this same binary.
 Done: project-only kilo.jsonc limits 65536/8192, threshold 75%; global IDE config unchanged.
   Saved-state plugin projects Current sub-task verbatim, bounded to 8 KiB; bootstrap copies it.
-  Fixed Kilo array-reference bug; four unit tests and caps regression pass; install hash matches.
+  Array-reference fix verified. New task-switch guidance is CPU-checked, not IDE-verified.
 Measured: direct compaction 8/12 -> revised 11/12. Native saved prose 10/12; explicit fields
   12/12 + proof code, observed in actual local requests. Development fixture only, no broad score.
   R7 permissions-v2 trial: validation before edit, one app.py fix, four tests and final report
   pass; six protected files + index hashes match. Earlier setup/stop/permission failures retained
   in evidence, including permission failures and an overstated denial explanation.
 Owner correction: latest pause/redirect/document-only requests override saved scope. No new locks
-  or unlock phrases. Fixture permission limits are not a development default; existing gate unchanged.
+  or unlock phrases. Fixture permissions are not development defaults; existing gate unchanged.
 Next: Jay develops in Kilo and shares artifacts; review/correct those. Extra GPU experiments stopped.
   IDE/long-context remain unverified; do not replace Jay's feedback loop with autonomous testing.
 Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
