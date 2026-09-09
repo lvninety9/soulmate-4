@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 37 complete (2026-08-26)
+# SESSION PRIMER — local-memory acceptance in progress (2026-09-10)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
@@ -21,35 +21,31 @@ still open, next.
 
 ## Current sub-task
 
+```text
+Start: fresh GitHub clone at 7e6938b; prior local checkout is explicitly stale and unused.
+Goal: improve local-only memory recovery under the actual combined 65,536-token ceiling.
+Owner intent (2026-09-10): Jay permits replacing old rules and applying Codex V2 lessons;
+  effectiveness and retained context matter more than preserving the old process. Short GPU
+  trials authorized; recheck the shared single slot and run sequentially. No Hermes migration.
+Observed: Kilo IDE extension 7.5.16; server Qwen3.6-35B-A3B Q4_K_M, reasoning off, n_ctx=65536,
+  one slot. Kilo resolved the custom model to context=0/output=0. Its installed code skips
+  overflow checking at context=0. Isolated override 65536/8192 is accepted by this same binary.
+Done: six offline suites pass (live vision excluded), seventh layer-2 suite passes including
+  its real local-model planted-defect check. These are mechanics, not a general model score.
+Now: fresh Kilo+Qwen R7 file-resumption trial with explicit limits (120s bound), derived from
+  the Codex V2 fixture. It tests a candidate recipe, not the unchanged Soulmate 4 baseline.
+Next: inspect real diff/tests/preserved index and raw token usage; add the smallest budget and
+  durable-memory correction supported by those results, then repeat the same acceptance cases.
+Pending: full 65K-boundary/compaction retention, actual IDE UI run, long-session quality.
+Evidence: /home/jay/soulmate-4-acceptance/; offline logs currently /tmp/soulmate4-offline-20260909/.
+Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
+  gaps are in HANDOFF.md section 8-1 (not the stale round-37 priority list). The warms-mobile
+  deployment remains separate; no changes there. Existing feedback rows below remain open.
 ```
-시작: round 36's closed-out state, Opus's round 37 HANDOFF.md work order (items 1/2/3).
-완료: item 1 — check_bootstrap_hook_installed() now diffs the installed hook against its source
-     script, not just -x existence (catches exactly the drift round 36 found live: a stale
-     pre-commit hook missing check-secrets.sh). item 2 — layer 2 detection rate measured at
-     n=16 (was n=2): 11/16 (68.75%) hit on single-line semantic/logic defects, 11/14 (78.6%)
-     excluding 2 cases confounded by the prompt's own "don't invent unseen context" rule;
-     verdict: no policy change, still report-only. item 3 — re-measured round 35's own +62-line
-     growth: mostly a report→block relocation of the secret scanner (net wash), not padding;
-     scanned all 25 check_* functions for a low-value candidate to cut, found none, no deletion
-     proposed. Full detail: wiki/rule-archive.md "Round 37" — not re-narrated here per this
-     file's own "current-state only" role (see banner).
-막힘: none.
-다음: Opus's own suggested close-out condition — build one real project end-to-end with this
-     harness (item 4/aider-polyglot-full-6-language and item 5/layer-2-slot-contention are
-     explicitly optional per HANDOFF.md section 4, not required for that condition). That build
-     also carries one prompt-level experiment, no harness change: every step prompt ends with an
-     acceptance line (README.md, bootstrapping section). Decide at its close whether it earned a
-     `verify:` field in this file's sub-task block or should be dropped — prompt-only until then.
-     2026-08-26: that build is `warms-mobile` (a Worms-1995-style mobile web game) at
-     /media/jay/D/cursor/tossinapp/warms-mobile — bootstrapped, 15 sub-tasks decomposed up front
-     in its own wiki/PROJECT_BACKGROUND.md, --bootstrap-check EXIT=0. This repo is in
-     maintenance mode from here: reopen it only for a harness defect that real use actually
-     surfaces, one defect at a time — not for another refinement round.
-     Round 32's
-     own open items (#4/12, #6/38, #47, #50 — see table below) are UNCHANGED by round 37 (out of
-     scope). Round 35's undocumented-handoff gap (still open, see rule-archive.md "Round 36" closing
-     note) is unrelated to round 37 and still open if a future session wants to close it.
-```
+
+1. Measure local budget and resumption — tests/ and wiki/PROJECT_BACKGROUND.md (small)
+2. Correct local model limits and memory handoff — kilo.jsonc and wiki/protocols/ (medium)
+3. Repeat real-file acceptance and preserve evidence — tests/ and wiki/handoffs/ (medium)
 
 ## Final state — every FEEDBACK row (`FEEDBACK_PENDING.md`)
 
