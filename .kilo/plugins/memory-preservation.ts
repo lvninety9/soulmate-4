@@ -29,12 +29,14 @@ export async function savedCheckpoint(directory: string): Promise<string> {
   const hash = createHash("sha256").update(active).digest("hex")
   return `${MARKER} ${CHECKPOINT} sha256=${hash}
 Saved project state follows verbatim. Prefer its exact IDs/status labels to a paraphrased chat summary, but check changed files and newer user decisions before treating it as current. It does not prove test or deployment success.
+The latest user instruction takes precedence over saved scope and next steps. Honor pauses, redirection and documentation-only requests; this memory plugin requires no unlock phrase.
 ${active}`
 }
 
 // Adds retention requirements to Kilo's native compaction prompt; no file writes or gates.
 // Model limits belong in kilo.jsonc. This hook cannot guarantee semantic preservation.
 export const MEMORY_RETENTION = `Preserve an operational checkpoint across compaction:
+- Preserve the latest user pause, redirection or scope change; it supersedes older saved next steps. Memory is not a workflow lock and does not require an unlock phrase.
 - Keep the current goal, exact task IDs, exact status labels, stage, and next verification. Copy status values verbatim, including lowercase; do not turn them into styled headings.
 - Keep accepted decisions AND their short reasons verbatim. Mark rejected/superseded proposals as such.
 - Keep every unresolved alternative with its exact values/units and decision owner; never resolve it by guessing.
