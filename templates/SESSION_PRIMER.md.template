@@ -26,6 +26,18 @@
 목표: <this sub-task's one concrete goal, not the whole original task>
 작업 사이클: <2-4 step loop for this sub-task>
 참고: <what's already done, prior decisions, surprises found mid-work>
+task: <exact task ID>
+status: <exact current status; do not substitute synonyms>
+stage: <current execution stage>
+accepted_decisions: <ID, value and short reason for each>
+superseded_decisions: <ID and rejected value; do not reopen>
+pending_decisions: <ID, status, all options with units, owner>
+allowed_files: <exhaustive paths allowed to change>
+protected_files: <exhaustive paths NOT to change, including unrelated work>
+changed_files: <actual working-tree changes>
+staged_files: <actual index state to preserve>
+verification: <command, observed result, evidence path/revision; distinguish unverified>
+next: <one observable next action; unresolved approval boundaries>
 ```
 
 ## Hard constraints / warnings
