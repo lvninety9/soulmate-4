@@ -11,7 +11,8 @@ export async function savedCheckpoint(directory: string): Promise<string> {
   const root = await realpath(directory)
   const path = resolve(root, CHECKPOINT)
   let target: string
-  try { target = await realpath(path) } catch { return "" }
+  try { target = await realpath(path) }
+  catch { return `${MARKER} No readable saved checkpoint at ${CHECKPOINT}; inspect project state before work.` }
   const rel = relative(root, target)
   if (rel === ".." || rel.startsWith("../") || isAbsolute(rel)) {
     return `${MARKER} Checkpoint points outside the project; read no external file.`
