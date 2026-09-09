@@ -216,12 +216,12 @@ exactly that retry). Do not have the local model invent the line from the diff; 
   paths explicitly. Files can be stale; projection is neither a validator nor a success claim.
   A custom compaction `output.prompt` can bypass added context. CLI validation does not prove
   the active IDE session has reloaded the plugin or that long-context retention is reliable.
-- Protected-file prose is not an access control: scope native Kilo `permission.edit` to allowed
-  paths and constrain `permission.bash` separately. Validate the prepared checkpoint before
-  inference; never reclassify a validation failure merely to proceed. Check resolved tool
-  availability (`kilo debug agent code`): in 7.5.16 a merged blanket `"*": "deny"` hid bash
-  despite command exceptions. Prefer explicit tool denies and verify actual requests.
-  See [Kilo permissions](https://kilo.ai/docs/customize/agent-permissions).
+- The latest user direction takes precedence over saved scope and next steps. Pause, switch to
+  documentation, or revise scope when asked; memory preservation must not require an unlock
+  phrase or prevent ordinary conversation. Native permission allowlists in the acceptance
+  fixtures were test controls, not the default development workflow. This change adds no gate.
+- Acceptance is user-led: Jay develops in Kilo and shares outputs for review and correction.
+  Offline/CLI experiments supplement those artifacts; they do not replace that feedback loop.
 - Assumes single-writer, same as soulmate/soulmate-2/3 — no locking on the handoff files.
 - Does assume a real mid-session write-blocking hook exists (unlike soulmate-3) — but see "Known
   gap" for its actual limits (one-shot, not a permanent lock).
