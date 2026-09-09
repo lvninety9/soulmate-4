@@ -149,7 +149,7 @@ esac
 echo "Bootstrapped '$TARGET' — its own git repo, own history, no leftover clone, one commit already made."
 echo "Still to do by hand: fill in AGENTS.md's [project name] + File map rows, the wiki/*.md"
 echo "templates, and confirm ~/.config/kilo/kilo.jsonc's provider config matches the model you're"
-echo "actually running — then run:"
+echo "actually running, with positive context/output limits (see README Preconditions) — then run:"
 echo "  (cd '$TARGET' && scripts/check-caps.sh --bootstrap-check)"
 echo ""
 echo "IMPORTANT: open '$TARGET' with Kilo (Cursor's Kilo panel, or 'cd $TARGET && kilo') and run"
