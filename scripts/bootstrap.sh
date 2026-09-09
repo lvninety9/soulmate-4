@@ -51,6 +51,7 @@ fi
 
 mkdir -p "$TARGET/.kilo/plugins/lib" "$TARGET/wiki/handoffs" "$TARGET/wiki/protocols"
 cp "$SELF_DIR/.kilo/plugins/subtask-gate.ts" "$TARGET/.kilo/plugins/subtask-gate.ts"
+cp "$SELF_DIR/.kilo/plugins/memory-preservation.ts" "$TARGET/.kilo/plugins/memory-preservation.ts"
 # round 40: the vision bridge tool -- lets the (non-multimodal) coding session call the resident
 # local vision model as a tool instead of attaching an image to the chat directly, which either
 # the provider can't interpret or (live-reproduced) opencode's own size-limit guard silently
