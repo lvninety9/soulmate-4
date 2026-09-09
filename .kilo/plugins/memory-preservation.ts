@@ -37,6 +37,7 @@ ${active}`
 // Model limits belong in kilo.jsonc. This hook cannot guarantee semantic preservation.
 export const MEMORY_RETENTION = `Preserve an operational checkpoint across compaction:
 - Preserve the latest user pause, redirection or scope change; it supersedes older saved next steps. Memory is not a workflow lock and does not require an unlock phrase.
+- On a task switch, retain the interrupted task ID, saved source/state and return point separately from the new active task. Do not resume interrupted work merely because an old checkpoint lists it as next.
 - Keep the current goal, exact task IDs, exact status labels, stage, and next verification. Copy status values verbatim, including lowercase; do not turn them into styled headings.
 - Keep accepted decisions AND their short reasons verbatim. Mark rejected/superseded proposals as such.
 - Keep every unresolved alternative with its exact values/units and decision owner; never resolve it by guessing.
