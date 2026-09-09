@@ -27,13 +27,16 @@ test("saved status survives lossy summaries and updates without duplicate projec
     const path = join(dir, "wiki/handoffs/SESSION_PRIMER.md")
     await writeFile(path, "# State\n\n## Current sub-task\nR7: active; BACKOFF: blocked; 50/100 ms.\n\n## History\nOld text")
     const hooks = await MemoryPreservation({ directory: dir })
-    const output = { system: ["Existing instructions"] }
+    const system = ["Existing instructions"]
+    const output = { system }
     await hooks["experimental.chat.system.transform"]({}, output)
-    assert.match(output.system[1], /R7: active; BACKOFF: blocked; 50\/100 ms/)
+    assert.equal(output.system, system, "Kilo consumes the original array, not a replacement")
+    assert.match(system[1], /R7: active; BACKOFF: blocked; 50\/100 ms/)
     assert.doesNotMatch(output.system[1], /Old text/)
     await writeFile(path, "## Current sub-task\nR7: verify; BACKOFF: blocked.\n")
     await hooks["experimental.chat.system.transform"]({}, output)
-    assert.equal(output.system.length, 2)
+    assert.equal(output.system, system)
+    assert.equal(system.length, 2)
     assert.equal(output.system[0], "Existing instructions")
     assert.match(output.system[1], /R7: verify/)
   } finally { await rm(dir, { recursive: true, force: true }) }
