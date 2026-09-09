@@ -36,10 +36,11 @@ Measured: direct compaction 8/12 -> revised 11/12. Native saved prose 10/12; exp
   12/12 + proof code, observed in actual local requests. Development fixture only, no broad score.
   R7 permissions-v2 trial: validation before edit, one app.py fix, four tests and final report
   pass; six protected files + index hashes match. Earlier setup/stop/permission failures retained
-  in evidence. Native notes.txt edit denial also verified; model overstated its scope.
-  A merged wildcard deny had hidden bash; resolved before the passing run.
-Next: validate fresh IDE session, real automatic compaction near the combined ceiling and held-out
-  resumption. Do not treat CLI success or configured threshold as proof of IDE/long-context success.
+  in evidence, including permission failures and an overstated denial explanation.
+Owner correction: latest pause/redirect/document-only requests override saved scope. No new locks
+  or unlock phrases. Fixture permission limits are not a development default; existing gate unchanged.
+Next: Jay develops in Kilo and shares artifacts; review/correct those. Extra GPU experiments stopped.
+  IDE/long-context remain unverified; do not replace Jay's feedback loop with autonomous testing.
 Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
   /home/jay/soulmate-4-acceptance/. Source branch feat/local-memory-budget, not pushed/merged.
 Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
@@ -47,9 +48,9 @@ Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 
   deployment remains separate; no changes there. Existing feedback rows below remain open.
 ```
 
-1. Measure local budget and resumption — tests/ and wiki/PROJECT_BACKGROUND.md (small)
-2. Correct local model limits and memory handoff — kilo.jsonc and wiki/protocols/ (medium)
-3. Repeat real-file acceptance and preserve evidence — tests/ and wiki/handoffs/ (medium)
+1. Jay develops in Kilo and shares the actual artifacts.
+2. Review those artifacts and correct the relevant implementation or memory handling.
+3. Preserve verified results and Jay's latest direction in existing owners.
 
 ## Final state — every FEEDBACK row (`FEEDBACK_PENDING.md`)
 
