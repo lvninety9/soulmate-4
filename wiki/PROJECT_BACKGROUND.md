@@ -118,6 +118,14 @@ update in place as new measurements land, don't append a running log here.
   knowledge (e.g. an unconverted minutes→seconds value) or unseen cross-file schema. Raw evidence:
   `wiki/rule-archive.md` "Round 37".
 
+
+- Local-memory development fixture (2026-09-10): direct summarization retained 8/12 exact
+  fields, revised instructions 11/12. Native Kilo with saved prose retained 10/12; explicit
+  fields retained 12/12 plus a request-traced proof code. One trial each, not held-out or a
+  general score. Kilo keeps the system-array reference: mutate it in place. Raw answers and
+  limitations: `tests/results/local-memory-acceptance.json`. A scoped R7 CLI trial also passed
+  checkpoint-before-edit, four tests, protected hashes and final report. IDE/65K remain unverified.
+
 ## What's NOT here
 
 Current state, active sub-task, and this session's priorities — see
