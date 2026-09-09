@@ -42,6 +42,7 @@ test("saved status survives lossy summaries and updates without duplicate projec
 test("oversized and external checkpoints are explicit failures, never truncated facts", async () => {
   const dir = await mkdtemp(join(tmpdir(), "memory-boundary-"))
   try {
+    assert.match(await savedCheckpoint(dir), /No readable saved checkpoint/)
     await mkdir(join(dir, "wiki/handoffs"), { recursive: true })
     const path = join(dir, "wiki/handoffs/SESSION_PRIMER.md")
     await writeFile(path, "## Current sub-task\n" + "x".repeat(8193))
