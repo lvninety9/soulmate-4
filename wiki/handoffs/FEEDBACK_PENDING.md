@@ -13,7 +13,7 @@ Valid `priority` values: `p0` (blocking/urgent) | `p1` (normal) | `p2` (someday)
 | 6 | Post-block model self-report fabricates "done" claims | p1 | open, correlates with session length (not inherent) | Round 32: 2-trial compare — long/derailed session fabricates 18x, fresh 3-turn session stays honest. `rule-archive.md` "Round 28"+"31"+"32" | rounds 2,8,27,31,32 |
 | 47 | Retry storm (18 blocks/turn), primer-path | p1 | open, reopened — correlates with session length, not the primer path itself (round 32: fresh session stopped after 1 block) | `rule-archive.md` "Round 31"+"32" | rounds 29,30,31,32 |
 | 50 | `kilo run` reliability: round 30 saw ~50%+ solo-call hangs; closing pass re-tested lightly (2/2 quick calls OK, stale-Q3-default hypothesis ruled out) — inconclusive, not proven fixed | p2 | open, monitor (downgraded from blocking) | `rule-archive.md` "Round 30 closing pass" | round 30 |
-| 51 | Local-only memory under combined 65,536 tokens (Jay) | p1 | in-progress | Limits + saved-state projection + explicit fields; tests/results/local-memory-acceptance.json. IDE/long-context pending | 2026-09-10 |
+| 51 | Local-only memory, 65,536 tokens; Jay must freely pause/redirect work | p1 | in-progress | Jay develops in Kilo, shares artifacts for review. No new workflow locks. Evidence: tests/results/local-memory-acceptance.json | 2026-09-10 |
 ---
 
 ## Completed history
