@@ -32,15 +32,15 @@ Observed: Kilo IDE extension 7.5.16; server Qwen3.6-35B-A3B Q4_K_M, reasoning of
 Done: project-only kilo.jsonc limits 65536/8192, threshold 75%; global IDE config unchanged.
   Saved-state plugin projects Current sub-task verbatim, bounded to 8 KiB; bootstrap copies it.
   Array-reference fix verified. New task-switch guidance is CPU-checked, not IDE-verified.
-Measured: direct compaction 8/12 -> revised 11/12. Native saved prose 10/12; explicit fields
-  12/12 + proof code, observed in actual local requests. Development fixture only, no broad score.
-  R7 permissions-v2 trial: validation before edit, one app.py fix, four tests and final report
-  pass; six protected files + index hashes match. Earlier setup/stop/permission failures retained
-  in evidence, including permission failures and an overstated denial explanation.
+Measured development fixtures: native prose 10/12, explicit fields 12/12; R7 file resume passed.
+  All prior failures, scores and limits remain in tests/results/local-memory-acceptance.json.
+Jay artifact review: it_defense has no project harness/git; CLI resolves limits to 0/0.
+  Log overflow 68,232 > 65,536; GDD has week-sized phases, tower/speed requirement drift.
+  Seven JS files pass syntax only; game/IDE integration not verified. Game files unchanged.
 Owner correction: latest pause/redirect/document-only requests override saved scope. No new locks
   or unlock phrases. Fixture permissions are not development defaults; existing gate unchanged.
-Next: Jay develops in Kilo and shares artifacts; review/correct those. Extra GPU experiments stopped.
-  IDE/long-context remain unverified; do not replace Jay's feedback loop with autonomous testing.
+Next: verify actual IDE instruction/limit loading, reconcile decisions and form small resumable
+  tasks from Jay's artifacts. No automatic game edits, new locks or extra GPU experiments.
 Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
   /home/jay/soulmate-4-acceptance/. Source branch feat/local-memory-budget, not pushed/merged.
 Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
