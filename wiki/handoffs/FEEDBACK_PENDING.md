@@ -13,7 +13,7 @@ Valid `priority` values: `p0` (blocking/urgent) | `p1` (normal) | `p2` (someday)
 | 6 | Post-block model self-report fabricates "done" claims | p1 | open, correlates with session length (not inherent) | Round 32: 2-trial compare — long/derailed session fabricates 18x, fresh 3-turn session stays honest. `rule-archive.md` "Round 28"+"31"+"32" | rounds 2,8,27,31,32 |
 | 47 | Retry storm (18 blocks/turn), primer-path | p1 | open, reopened — correlates with session length, not the primer path itself (round 32: fresh session stopped after 1 block) | `rule-archive.md` "Round 31"+"32" | rounds 29,30,31,32 |
 | 50 | `kilo run` reliability: round 30 saw ~50%+ solo-call hangs; closing pass re-tested lightly (2/2 quick calls OK, stale-Q3-default hypothesis ruled out) — inconclusive, not proven fixed | p2 | open, monitor (downgraded from blocking) | `rule-archive.md` "Round 30 closing pass" | round 30 |
-| 51 | Codex-style smart memory/work management on local models, 65,536 tokens; intervention stays available | p1 | in-progress | it_defense review: harness absent, CLI limits 0/0, plan/spec drift. Check IDE loading; no new locks. Evidence: tests/results/local-memory-acceptance.json | 2026-09-10 |
+| 51 | Codex-style smart memory/work management on local models, 65,536 tokens; intervention stays available | p1 | in-progress | 09-16: handoff trails growth code; boss/passive gaps. Tasks need checks/resume points; no new locks. Evidence: tests/results/local-memory-acceptance.json | 2026-09-10 |
 ---
 
 ## Completed history
