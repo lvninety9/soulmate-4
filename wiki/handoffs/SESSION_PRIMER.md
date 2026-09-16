@@ -1,4 +1,4 @@
-# SESSION PRIMER — local-memory acceptance in progress (2026-09-10)
+# SESSION PRIMER — local-memory acceptance in progress (2026-09-16)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
@@ -32,15 +32,14 @@ Observed: Kilo IDE extension 7.5.16; server Qwen3.6-35B-A3B Q4_K_M, reasoning of
 Done: project-only kilo.jsonc limits 65536/8192, threshold 75%; global IDE config unchanged.
   Saved-state plugin projects Current sub-task verbatim, bounded to 8 KiB; bootstrap copies it.
   Array-reference fix verified. New task-switch guidance is CPU-checked, not IDE-verified.
-Measured development fixtures: native prose 10/12, explicit fields 12/12; R7 file resume passed.
-  All prior failures, scores and limits remain in tests/results/local-memory-acceptance.json.
-Jay artifact review: it_defense has no project harness/git; CLI resolves limits to 0/0.
-  Log overflow 68,232 > 65,536; GDD has week-sized phases, tower/speed requirement drift.
-  Seven JS files pass syntax only; game/IDE integration not verified. Game files unchanged.
+Fixtures: native prose 10/12, explicit fields 12/12; R7 resume passed. Limits/failures in evidence.
+Jay artifact review (09-16): handoff predates growth.js; nine JS files pass syntax, not gameplay.
+  Boss damage and hero-passive gaps persist; 3-minute target conflicts with post-wave waits.
+  Project harness/git absent. CLI limits 0/0 were measured 09-10; active IDE remains unverified.
 Owner correction: latest pause/redirect/document-only requests override saved scope. No new locks
   or unlock phrases. Fixture permissions are not development defaults; existing gate unchanged.
-Next: verify actual IDE instruction/limit loading, reconcile decisions and form small resumable
-  tasks from Jay's artifacts. No automatic game edits, new locks or extra GPU experiments.
+Next: Astra reviews scope/results; Terra handles bounded checks/edits (Jay, 09-16). Verify IDE
+  loading and task/evidence freshness. No automatic game edits, new locks or extra GPU experiments.
 Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
   /home/jay/soulmate-4-acceptance/. Source branch feat/local-memory-budget, not pushed/merged.
 Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
