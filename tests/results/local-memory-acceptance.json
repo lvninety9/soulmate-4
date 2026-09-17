@@ -1336,5 +1336,38 @@
         }
       ]
     }
+  },
+  "jay_kilo_installation_review": {
+    "checked": "2026-09-17",
+    "classification": "supplement",
+    "project": "/media/jay/D/cursor/tossinapp/it_defense",
+    "project_files": {
+      "kilo_directory": [
+        ".gitignore"
+      ],
+      "AGENTS.md": false,
+      "kilo.jsonc": false,
+      "wiki/handoffs/SESSION_PRIMER.md": false,
+      "memory-preservation.ts": false
+    },
+    "running_server": "kilocode.kilo-code-7.7.2-linux-x64/bin/kilo serve --port 0",
+    "installed_versions": [
+      "7.7.2",
+      "7.7.3"
+    ],
+    "cli_resolved_config": {
+      "binary_version": "7.7.2",
+      "cwd": "/media/jay/D/cursor/tossinapp/it_defense",
+      "instructions": null,
+      "compaction": null,
+      "plugins": [
+        "@kilocode/kilo-indexing",
+        "@kilocode/plugin-atomic-chat"
+      ],
+      "local_model_declared_limit": null
+    },
+    "conclusion": "The reviewed Soulmate memory plugin and handoff are not installed in the game. A new session alone will not install them. CLI config is not proof of the existing IDE daemon effective request limits or complete system prompt.",
+    "next": "Prepare an isolated copy of the current game using the existing reviewed Soulmate checkout; resolve inherited subtask-gate and instructions against Jay intervention requirements before installing anything. Verify loading and resolved limits before a user-led new IDE session.",
+    "changes": "No installation, restart, game edit or GPU inference."
   }
 }
