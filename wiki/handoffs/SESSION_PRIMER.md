@@ -36,11 +36,9 @@ Fixtures: native prose 10/12, explicit fields 12/12; R7 resume passed. Limits/fa
 Jay artifact review (09-16): handoff predates growth.js; nine JS files pass syntax, not gameplay.
   Boss damage and hero-passive gaps persist; 3-minute target conflicts with post-wave waits.
   Project harness/git absent. CLI limits 0/0 were measured 09-10; active IDE remains unverified.
-Owner correction: latest pause/redirect/document-only requests override saved scope. No new locks
-  or unlock phrases. Fixture permissions are not development defaults; existing gate unchanged.
-History (09-17, d2246cb): DB has 8 scoped sessions; game todos 5/4 calls, compactions 1/1.
-  Output hit 65536; summaries promoted unverified work. Repeated reads confirmed by call IDs/hash.
-Trial: /media/jay/D/cursor/soulmate4-playground; CLI/CPU passed. Next: Jay-led IDE acceptance.
+Owner correction: latest intervention overrides saved scope; no new gates or unlock phrases.
+History (09-17): 8 scoped sessions; todos 5/4, compactions 1/1; overflow and unverified summaries.
+Trial: /media/jay/D/cursor/soulmate4-playground; workflow acceptance FAIL: no pre-code design/task plan or proactive docs; P1/P2 conflict. No runtime/plugin failure claim. Next: instruction fix, then Jay-led IDE acceptance; no playground change.
 Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
   /home/jay/soulmate-4-acceptance/. Source branch feat/local-memory-budget, not pushed/merged.
 Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
