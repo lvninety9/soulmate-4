@@ -1369,5 +1369,48 @@
     "conclusion": "The reviewed Soulmate memory plugin and handoff are not installed in the game. A new session alone will not install them. CLI config is not proof of the existing IDE daemon effective request limits or complete system prompt.",
     "next": "Prepare an isolated copy of the current game using the existing reviewed Soulmate checkout; resolve inherited subtask-gate and instructions against Jay intervention requirements before installing anything. Verify loading and resolved limits before a user-led new IDE session.",
     "changes": "No installation, restart, game edit or GPU inference."
+  },
+  "jay_playground_setup": {
+    "date": "2026-09-17",
+    "classification": "supplement",
+    "path": "/media/jay/D/cursor/soulmate4-playground",
+    "status": "installed; CLI config and CPU hook checks passed; user-led IDE acceptance pending",
+    "profile": "experimental partial profile; compact new-project instructions and memory plugin; no legacy subtask gate, vision plugin or git hooks installed",
+    "source_revision": "9d1e1ffb62d59e33be16e45a8d1c69b5ddbcb12e",
+    "source_files_copied_exactly": [
+      "kilo.jsonc",
+      ".kilo/plugins/memory-preservation.ts"
+    ],
+    "new_project_docs": "Root reviewed Terra scaffold; removed staging-only prohibitions from development rules and required automatic task-boundary documentation without mandatory stops.",
+    "verification": {
+      "cli_versions": [
+        "7.7.2",
+        "7.7.3"
+      ],
+      "plugin_discovered": true,
+      "context": 65536,
+      "output": 8192,
+      "threshold_percent": 75,
+      "local_model_for_development_and_compaction": "qwen-3-6/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+      "source_tests": "4/4 pass",
+      "installed_hook": "P0 injection, array identity, deduplication and no tool-gate hook verified without model call"
+    },
+    "sha256": {
+      "AGENTS.md": "e078b1a467478f3526be9a5150ff33625d7127cfbe582421fcf80c0844ca9435",
+      "kilo.jsonc": "f2ca262d5958b8f324c15b3cd0bac48428de3b623a5ac1d63360a86cc2136e64",
+      ".kilo/plugins/memory-preservation.ts": "f70891e61c46cbdb0b977a16d212888a9d3dbd95537d933a2a978fe0cf038c92",
+      "SETUP.md": "8b55b1d90644d3fc6d744773c59401fb9c4f44b7ff556fbf02d556fdc56fa7d1",
+      "wiki/handoffs/SESSION_PRIMER.md": "9ed07c7837145bd3bbe6cf39b5ea87724338fd2bbf1749aaaff67bcbada86d4d",
+      "wiki/handoffs/FEEDBACK_PENDING.md": "81f934da0d71567aa06440249e5ed124d086a1a5263564db00b7914096790215",
+      "wiki/PROJECT_BACKGROUND.md": "ffa7dba366323afec6915a65ea2961a59c61f496ebab4f40c521fd0a546eaa30",
+      "SCAFFOLD_MANIFEST.md": "d9bb9b8e209aa328e73bf21ba6a5f6e97fecb4290d377851a3453a67a81c5156"
+    },
+    "next": "Jay opens exact folder in a new Cursor window/new Kilo session; inspect current state, discuss a product, then test small-task verification, mid-work redirect, routine doc updates and fresh-session resume. Inspect native history after user trial.",
+    "not_done": [
+      "No GPU inference or model endpoint health check",
+      "No IDE live acceptance",
+      "No old game edit or global configuration change",
+      "No GitHub push"
+    ]
   }
 }
