@@ -1412,5 +1412,34 @@
       "No old game edit or global configuration change",
       "No GitHub push"
     ]
+  },
+  "jay_playground_live_review": {
+    "checked": "2026-09-17",
+    "classification": "supplement; current static artifacts plus native-history chronology",
+    "target": "/media/jay/D/cursor/soulmate4-playground",
+    "workflow_acceptance": "FAIL: durable pre-implementation design and small-task plan were absent; proactive task-boundary documentation did not occur before the explicit documentation request.",
+    "history_evidence": {
+      "session": "ses_f5084826affeije54HWoJX0uik",
+      "user_implementation_approval": "msg_0af91a07d001hFEnoCClJSz7ip",
+      "first_product_write": "msg_0af91dacb00122uO6fT6MPWxb6",
+      "first_document_write_after_explicit_request": "msg_0af9beeb4001qX2o3zZQkPEK3M",
+      "compactions": 0,
+      "finding": "Eight todos preceded the first code write; seven product files had no earlier product-document write. This does not establish an unapproved implementation, because the user approved implementation progress."
+    },
+    "static_artifact_evidence": [
+      "No .git directory: Git status/log unavailable.",
+      "Product mtimes: index.html 22:33; CSS/state/UI 22:34; events/game 22:36 KST. Primer 22:44; background and feedback 22:46.",
+      "No standalone design, decision, or small-task plan exists; current artifacts are AGENTS, setup/scaffold docs, three wiki docs, and product files.",
+      "AGENTS.md requires discussion/design/short plan for a new product but also says a clearly scoped implementation request may proceed directly; it provides no design/plan artifact, required contents, or pre-code check.",
+      "Primer conflict: P1 is 'in progress' with visual acceptance/next, while feedback marks P1 completed and P2 pending.",
+      "'functional/playable in browser' is a static-document claim without a saved browser result; no trial test/browser/node command occurred; this audit separately ran syntax only."
+    ],
+    "limits": [
+      "Static artifacts and mtimes do not identify the author or fully reconstruct chat order.",
+      "No claim that the memory plugin failed to load or that runtime gameplay failed.",
+      "No broad semantic status validator is implemented."
+    ],
+    "design_direction": "For a new product or material scope change, persist decisions/reasons/unresolved choices, then a task-specific design (interactions, state, interfaces, acceptance), then small tasks with scopes, dependencies, and tests before product changes. A user-requested small change to an existing product may proceed after a concise update to its existing plan. Routine documentation writes need no repeated approval; latest intervention remains free and no gate/unlock phrase is introduced.",
+    "next": "Jay-led IDE acceptance: verify the workflow after a durable-design/task-plan instruction fix; retain this as a workflow finding, not a change to the playground runtime."
   }
 }
