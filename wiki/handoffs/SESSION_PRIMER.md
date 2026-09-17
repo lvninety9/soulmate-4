@@ -40,7 +40,7 @@ Owner correction: latest pause/redirect/document-only requests override saved sc
   or unlock phrases. Fixture permissions are not development defaults; existing gate unchanged.
 History (09-17, d2246cb): DB has 8 scoped sessions; game todos 5/4 calls, compactions 1/1.
   Output hit 65536; summaries promoted unverified work. Repeated reads confirmed by call IDs/hash.
-Next: verify IDE loading/limits; Astra reviews, Terra checks/edits. No game edits, locks or GPU runs.
+IDE (09-17): game lacks harness; CLI has no limits override. Next: isolated game-copy trial.
 Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
   /home/jay/soulmate-4-acceptance/. Source branch feat/local-memory-budget, not pushed/merged.
 Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
