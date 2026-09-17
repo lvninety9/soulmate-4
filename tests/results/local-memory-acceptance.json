@@ -1189,5 +1189,152 @@
         "bytes": 4030
       }
     ]
+  },
+  "jay_kilo_history_review": {
+    "checked": "2026-09-17",
+    "classification": "supplement; replaces the inference that no task list existed",
+    "source": {
+      "database": "/home/jay/.local/share/kilo/kilo.db",
+      "selection": "session.directory = /media/jay/D/cursor/tossinapp/it_defense; not project_id=global",
+      "access": "SQLite URI mode=ro, PRAGMA query_only=ON; no main-DB-only copy",
+      "official_reference": "https://kilo.ai/docs/code-with-ai/agents/session-history",
+      "json_export": "<installed Kilo binary> export <sessionID> --sanitize"
+    },
+    "sessions": [
+      {
+        "id": "ses_f77d29feaffezU688R3GPnUqq6",
+        "title": "토스 인앱 디펜스 게임 기획 및 컨셉 논의",
+        "compactions": 1,
+        "todowrite_calls": 5
+      },
+      {
+        "id": "ses_f74e2c58bffeLVFAqr94oIEmW0",
+        "title": "GDD 불일치 수정 및 개발 우선순위 정리",
+        "compactions": 1,
+        "todowrite_calls": 4
+      },
+      {
+        "id": "ses_f715a07fbffeQ6j5KHkufY6Jnr",
+        "title": "ComfyUI-Ref2VA-VSA 로컬 구동 및 최적화 검토",
+        "compactions": 9,
+        "todowrite_calls": 4
+      },
+      {
+        "id": "ses_f6ed22749ffeAvBXXjT4BziZZE",
+        "title": "WanGP 플랫폼 아키텍처 및 모델 가이드 개요",
+        "compactions": 1,
+        "todowrite_calls": 0
+      },
+      {
+        "id": "ses_f6ebe7f97ffe3NomtN3ZknpBQA",
+        "title": "WanGP 플랫폼 아키텍처 및 모델 가이드 요약",
+        "compactions": 1,
+        "todowrite_calls": 5
+      },
+      {
+        "id": "ses_f6c37133fffeg3eondczLxkr9S",
+        "title": "Kimi-k3-in-c 로컬 구동 가능성 조사",
+        "compactions": 0,
+        "todowrite_calls": 0
+      },
+      {
+        "id": "ses_f6bf95f6fffecuZUvrl4gAxD0Q",
+        "title": "WanGP 플랫폼 및 모델 아키텍처 개요",
+        "compactions": 1,
+        "todowrite_calls": 2
+      },
+      {
+        "id": "ses_f6949a867ffeugDxgG7OP1Gtgt",
+        "title": "Wan 2.2 GGUF 비디오 생성 테스트 진행",
+        "compactions": 2,
+        "todowrite_calls": 0
+      }
+    ],
+    "scope": "Counts for all eight sessions; detailed text/tool/compaction review of the first two game sessions and last Wan session. No inference, GPU job, IDE change or game edit.",
+    "findings": [
+      {
+        "id": "H1",
+        "fact": "Task lists existed: first game session five todowrite calls; second four. Lists carried content/status/priority, without per-item acceptance evidence or explicit resume checkpoints in their text."
+      },
+      {
+        "id": "H2",
+        "fact": "The sound write ended with finish=length and malformed tool input at total 65536 tokens: input 63142, output 2394. This is one message, not five failures; SQL joins repeat message metadata per part.",
+        "message_id": "msg_0884a8f32001z40jDCbfzubINH"
+      },
+      {
+        "id": "H3",
+        "fact": "First summary listed game.js as completed; the next directory read showed only utils.js under js. sound.js write had failed. Summary also stated three base towers while naming five.",
+        "summary_message": "msg_0884bdabc001lJK37tsWScEEdL",
+        "directory_message": "msg_08853b310001yrq2XwwjhpdHVN"
+      },
+      {
+        "id": "H4",
+        "fact": "Last todo before second-session compaction had BGM in_progress. Next tool read sound.js; no sound edit or verification command followed before summary. Summary promoted BGM to completed and named playBGM, while saved code exposed startBGM(melody). Existing helper code does not establish completion of this requested melody task.",
+        "todo_message": "msg_08b285e07001UunpoU6KNSwkQL",
+        "read_message": "msg_08b288237001KmBFsvniEUFCd3",
+        "summary_message": "msg_08b2896e100150YY4Tn34l828v"
+      },
+      {
+        "id": "H5",
+        "fact": "Second-session post-compaction answer claimed full GDD implementation, then offered stability verification and additional missing GDD features. No executed test command occurs in that session tool trace. First session did run node syntax checks.",
+        "message_id": "msg_08b2f2942001XgsRSyp0fzaxgP"
+      },
+      {
+        "id": "H6",
+        "fact": "Handoff document writes followed explicit user requests in both game sessions; todo transitions were not accompanied by per-task handoff writes in the observed trace."
+      },
+      {
+        "id": "H7",
+        "fact": "Last Wan session summary claimed inspected Wan22TextEncode/Wan22T2V nodes, absent from the returned Wan/GGUF node list. It called Qwen missing even though the earlier document said prepared and DualCLIPLoader output listed qwen_3_4b.safetensors. Presence in a list is not proof of a valid model; it conflicts with an unqualified missing claim.",
+        "node_list_message": "msg_096cad94e001FhurtOKG7l0XxL",
+        "loader_message": "msg_096cb2304001INtPYDyHn4zkT5",
+        "summary_message": "msg_096cc8849001RQRH4adojiuUYZ"
+      }
+    ],
+    "limits": [
+      "Stored traces do not by themselves prove which system instructions/plugins were auto-loaded. Current IDE effective limits remain unverified.",
+      "Compaction frequency alone is not a quality score or proof of causation. Char counts are not token counts.",
+      "No claim that all Wan technical choices were independently validated. Markdown repetition alone does not prove repeated tool calls."
+    ],
+    "next": [
+      "Verify actual IDE instruction/plugin loading and resolved context/output limits.",
+      "Use focused retrieval and preserve output headroom; a smaller todo alone does not bound accumulated context.",
+      "Carry exact task status, evidence, unresolved conflicts and next action through compaction without promoting guesses to facts.",
+      "Keep user intervention available; no new mutation locks or unlock phrases."
+    ],
+    "repeat_read_verification": {
+      "last_wan_session": "ses_f6949a867ffeugDxgG7OP1Gtgt",
+      "first_compaction_utc": "2026-09-12T17:49:10.357000+00:00",
+      "distinct_pre_post_compaction_reads": [
+        {
+          "path": "/media/jay/D/ComfyUI/custom_nodes/ComfyUI-GGUF/nodes.py",
+          "pre_call_id": "sZA3zZ27nkLOjx0QGIErDutg0iu0Je2e",
+          "post_call_id": "Z4JgUp8REqnD8KErsjn7DcWq1hniKecR",
+          "output_chars": 14997,
+          "same_output_sha256": "4132b567c81f138b6e15ed47ed1c54148f46aded72ecb3b6b2c3f7d50370e969"
+        },
+        {
+          "path": "/media/jay/D/ComfyUI/comfy_extras/nodes_wan.py",
+          "pre_call_id": "94udH14Ja04CJlSKhL27aiIeyfAUtzGb",
+          "post_call_id": "tnqEY6wk0lJkgS8b7nR6ERQXjoY0Aqdi",
+          "output_chars": 56532,
+          "same_output_sha256": "e95e9bc30b5a2a4498e77e09174185cd2686b2f3c940ad75dbb435d51df3ce9e"
+        }
+      ],
+      "initial_game_sessions_rechecked": [
+        {
+          "id": "ses_f77d29feaffezU688R3GPnUqq6",
+          "todowrite_calls": 5,
+          "current_todo_rows": 13,
+          "compactions": 1
+        },
+        {
+          "id": "ses_f74e2c58bffeLVFAqr94oIEmW0",
+          "todowrite_calls": 4,
+          "current_todo_rows": 4,
+          "compactions": 1
+        }
+      ]
+    }
   }
 }
