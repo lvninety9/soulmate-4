@@ -1,4 +1,4 @@
-# SESSION PRIMER — local-memory acceptance in progress (2026-09-16)
+# SESSION PRIMER — local-memory acceptance in progress (2026-09-17)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
@@ -38,8 +38,9 @@ Jay artifact review (09-16): handoff predates growth.js; nine JS files pass synt
   Project harness/git absent. CLI limits 0/0 were measured 09-10; active IDE remains unverified.
 Owner correction: latest pause/redirect/document-only requests override saved scope. No new locks
   or unlock phrases. Fixture permissions are not development defaults; existing gate unchanged.
-Next: Astra reviews scope/results; Terra handles bounded checks/edits (Jay, 09-16). Verify IDE
-  loading and task/evidence freshness. No automatic game edits, new locks or extra GPU experiments.
+History (09-17, d2246cb): DB has 8 scoped sessions; game todos 5/4 calls, compactions 1/1.
+  Output hit 65536; summaries promoted unverified work. Repeated reads confirmed by call IDs/hash.
+Next: verify IDE loading/limits; Astra reviews, Terra checks/edits. No game edits, locks or GPU runs.
 Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
   /home/jay/soulmate-4-acceptance/. Source branch feat/local-memory-budget, not pushed/merged.
 Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
