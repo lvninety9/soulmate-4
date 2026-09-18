@@ -72,6 +72,7 @@ UI stub, see L02).
 - **Sub-task**: a unit of work sized at design time to plausibly finish well under the model's
   real context length by construction — not measured at runtime, no live token-usage signal
   exists for the model to poll.
+- **Context/Canvas proposal**: `wiki/obsidian-context-design.md` defines a Markdown-first, task-scoped test-vault experiment; it does not claim central-vault integration.
 - **claudeCodeCompat**: a Kilo setting (off by default in the VS Code/Cursor extension, on by
   default when running the raw `kilo` CLI) controlling whether `~/.claude/CLAUDE.md` and Claude
   Code Skills also load. Irrelevant to this harness either way — `AGENTS.md`/`CONTEXT.md` load
