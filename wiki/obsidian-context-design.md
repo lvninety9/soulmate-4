@@ -81,3 +81,23 @@ unverified and is not claimed. Use the project folder as a test vault first so t
 viewed without duplicating documents; leave the existing central vault untouched pending a separate
 local inventory and a user decision.
 
+
+1. Route and inventory five existing Markdown documents; define flat fields, reusable test recipes,
+   runtime facts, and one task manifest so later work does not rediscover the Playwright/runtime setup.
+2. From that same index, preview a generated Canvas and context manifest; make no source edits or
+   deletions.
+3. Run an equivalent task and compare selected input, repeated reads, compaction/length outcomes,
+   and required decision/test coverage.
+
+Acceptance evidence: no required decision or test is absent; every selected link resolves; source
+documents are not edited or deleted; selected input and repeated reads are demonstrably smaller;
+required decisions/tests remain covered; and the trial avoids a length failure. This is evidence of
+reduced pressure, not a promise that compaction never occurs.
+
+### Budget clarification
+
+The planning budget is 65,536 total tokens, including prompt, tool, and system overhead. Reserve up
+to 8,192 tokens for output; selected input and its included overhead must fit the remainder with
+headroom. Counts state whether they use the serving model's tokenizer or an estimate.
+
+P1 game work remains separate and is out of scope for this proposal.
