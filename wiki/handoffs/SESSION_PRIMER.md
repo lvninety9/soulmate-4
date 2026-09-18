@@ -38,7 +38,8 @@ Jay artifact review (09-16): handoff predates growth.js; nine JS files pass synt
   Project harness/git absent. CLI limits 0/0 were measured 09-10; active IDE remains unverified.
 Owner correction: latest intervention overrides saved scope; no new gates or unlock phrases.
 History (09-17): 8 scoped sessions; todos 5/4, compactions 1/1; overflow and unverified summaries.
-Trial: /media/jay/D/cursor/soulmate4-playground; workflow acceptance FAIL: no pre-code design/task plan or proactive docs; P1/P2 conflict. No runtime/plugin failure claim. Next: instruction fix, then Jay-led IDE acceptance; no playground change.
+Trial: /media/jay/D/cursor/soulmate4-playground; token/quality trial next.
+  09-18: manual docs accepted; prioritize token budget, design, verified tasks and quality. Preserve prior findings as history; evidence JSON owns details.
 Evidence: tests/results/local-memory-acceptance.json; raw/offline logs preserved under
   /home/jay/soulmate-4-acceptance/. Source branch feat/local-memory-budget, not pushed/merged.
 Previous state: round 37 close-out is in rule-archive.md Round 37; rounds 39-50 and latest live
