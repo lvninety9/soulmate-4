@@ -1613,5 +1613,50 @@
       ],
       "interpretation": "The maxima are separate and must not be added; reported metrics do not prove coverage of all prompts."
     }
+  },
+  "jay_restart_compaction_review": {
+    "checked": "2026-09-18",
+    "session": "ses_f4bd265f6ffe6gG3WS52GK7VfT",
+    "classification": "supplement; automatic compaction is observed, not itself a failure",
+    "compaction": {
+      "count": 1,
+      "message": "msg_0b43e892e001wl78Mql7LFt8sp",
+      "auto": true,
+      "overflow": false,
+      "interpretation": "Automatic compaction without an overflow flag; exact UI percentage denominator and threshold activation timing not independently verified."
+    },
+    "reported_tokens": {
+      "max_input": 54327,
+      "max_total": 54656,
+      "first_post_compaction_normal_input": 19227,
+      "first_post_message": "msg_0b440c8b1001zXwHqMCgzv2i7c",
+      "final_input": 25058,
+      "length_finishes": 0,
+      "limits": "API-reported values; separate maxima are not additive. User-observed 24% UI value cannot be reconstructed exactly from these snapshots."
+    },
+    "language": {
+      "finding": "English commentary also appeared BEFORE compaction (msg_0b43c23fb001XDQgbm8vfpGl69 and msg_0b43c358a001lR1pFKcRO3rlZu), and after it. Language change alone does not identify compaction or prove its cause.",
+      "summary": "English summary omitted the Korean-response requirement; actual auto-loaded instruction content not captured by this audit."
+    },
+    "quality": {
+      "test_message": "msg_0b436d556001hAlwS0GekyR7kG",
+      "observed": "Normal restart click succeeded after DEFEAT at round 5; overlay hid, round after restart=2 and resources=45. Output explicitly says Initial playable state verified: false. Console/page errors empty.",
+      "pre_compaction_report": "msg_0b43cf9f9001F8UcMYTDSRU14g explicitly marked initial state partial and full victory-restart-cycle unverified. No-error output alone was overstated as event-regression success.",
+      "summary_message": "msg_0b43e893d001nOM03G7tgyU72o",
+      "summary_loss": "Summary marked repair completed and state reset, retained a note about immediate round advancement but dropped explicit partial acceptance and skipped full-cycle verification. This is narrower than claiming all uncertainty vanished.",
+      "incorrect_probability": "Before and after compaction, explanation says 60% advances round. events.js:170 uses Math.random()>0.6 for consumeResources/nextRound (approximately 40% under normal uniform random). This mistake predates compaction.",
+      "artifact_links": "Summary/final references prior browser failure/callback evidence paths, not a new saved restart test report; current run evidence was read from native tool output.",
+      "verdict": "Scoped normal-click fix has evidence; full acceptance remains PARTIAL. Compaction retained main task/scope but weakened verification limits."
+    },
+    "efficiency": {
+      "finding": "Repeated Playwright module-resolution failures reappeared across newly written test scripts after an installed path had been found; avoid recreating discovery and harness each time.",
+      "suggested_improvements": [
+        "Reuse a verified local test harness and known environment facts",
+        "Retain partial/failed/not-run acceptance items verbatim in compaction and checkpoint",
+        "Preserve response language across summary transitions",
+        "Use focused retrieval and report actual token figures; do not disable useful compaction solely to avoid summaries"
+      ]
+    },
+    "scope": "Read-only native history/static review; no product/config edits, model call or browser rerun. Automatic documentation is not an acceptance requirement."
   }
 }
