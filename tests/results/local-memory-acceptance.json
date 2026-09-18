@@ -1452,12 +1452,18 @@
       "sequence": "detailed user request -> product-file reads -> todos -> CSS/HTML/game.js edits -> HTML/CSS reads -> first primer read (msg_0b015274f0015wCRYr2ZKpa5fZ) -> primer edits (msg_0b015b14c001t4UjPjDlVvw96Y, msg_0b0160a98001b2iEdFaANE9idi) -> browser test completed (msg_0b01939fb001LREHZ7km997sNc)",
       "feedback": "No FEEDBACK_PENDING.md read or write occurred.",
       "improvement": "Proactive primer update after the product work.",
-      "failures": ["No durable plan/state reconciliation before code edits.", "No preserved actual browser-verification evidence."]
+      "failures": [
+        "No durable plan/state reconciliation before code edits.",
+        "No preserved actual browser-verification evidence."
+      ]
     },
     "static_audit": {
       "artifact_presence": "index.html has #particles and avatar/silhouette markup (10, 19-20, 35-36); style.css has starfield/Mars/particles (17-112), avatar effects (190-238), button/event effects (306-381), and game-over effect (452-495); game.js initializes VisualEffects and creates 20 particles (2-5, 14-46).",
       "syntax": "This audit ran node --check successfully on game.js, state.js, ui.js, events.js, and actions.js; it did not run a browser, GPU, service, or model.",
-      "state_conflicts": ["Primer marks P1 completed visual polish (lines 9-15), while feedback retains P1 core complete and P2 visuals pending (line 7).", "Primer introduction says no selected product/no implementation history (lines 3-4), contradicted by its active P1 and Project Background Product section."],
+      "state_conflicts": [
+        "Primer marks P1 completed visual polish (lines 9-15), while feedback retains P1 core complete and P2 visuals pending (line 7).",
+        "Primer introduction says no selected product/no implementation history (lines 3-4), contradicted by its active P1 and Project Background Product section."
+      ],
       "history_limit": "Target has no Git worktree, so no diff or commit comparison was available."
     },
     "memory_efficacy_limit": "The detailed user prompt supplied the operating state, so this session does not isolate memory-plugin efficacy. Absent explicit AGENTS.md-read evidence does not prove auto-load failure.",
@@ -1493,11 +1499,18 @@
     },
     "observed_failure": {
       "trigger": "Clicking the first initial event choice.",
-      "page_errors": ["this.checkRoundEnd is not a function"],
+      "page_errors": [
+        "this.checkRoundEnd is not a function"
+      ],
       "state_after_click": {
         "round": 1,
         "isEventActive": true,
-        "resources": {"energy": 35, "water": 45, "oxygen": 45, "food": 45}
+        "resources": {
+          "energy": 35,
+          "water": 45,
+          "oxygen": 45,
+          "food": 45
+        }
       },
       "disabled_evidence": "The first P1 action button resolved as disabled, and Playwright timed out waiting for it to become enabled.",
       "result": "The event did not close; basic post-event action, round progression, game-over, and restart interaction could not be verified."
@@ -1513,5 +1526,23 @@
     ],
     "status": "FAIL: runtime exception blocks the first event resolution and subsequent gameplay interaction.",
     "next": "Repair the event callback receiver, then repeat isolated browser interaction and visual review."
+  },
+  "jay_playground_guidance_repair": {
+    "checked": "2026-09-18",
+    "target": "/media/jay/D/cursor/soulmate4-playground",
+    "files_updated": [
+      "AGENTS.md",
+      "wiki/handoffs/SESSION_PRIMER.md",
+      "wiki/handoffs/FEEDBACK_PENDING.md",
+      "wiki/PROJECT_BACKGROUND.md",
+      "wiki/DESIGN.md",
+      "wiki/TASKS.md"
+    ],
+    "artifact_path": "/home/jay/soulmate-4-acceptance/playground-guidance-repair-20260918.json",
+    "cpu_projection": "PASS: V1/status/design/task refs/browser failure projected; repeated hook dedup retained 2 entries; no model call.",
+    "browser_verification": "FAIL: event choice throws this.checkRoundEnd is not a function; isEventActive remains true and action buttons stay disabled. P2 DOM smoke found 2 avatars and 20 particles; appearance/full-game compatibility not passed.",
+    "kilo_acceptance": "PENDING: user-led new-session, mid-work redirect, automatic documentation, and resume check.",
+    "product_unchanged": true,
+    "gpu_or_model_called": false
   }
 }
