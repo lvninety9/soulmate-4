@@ -1582,5 +1582,36 @@
       "Improve and retest durable planning before product changes",
       "Track restart interaction separately; do not conflate it with the fixed callback crash"
     ]
+  },
+  "accepted_priority_revision": {
+    "checked": "2026-09-18",
+    "classification": "replacement",
+    "decision": "Automatic documentation is neither mandatory nor an acceptance gate; manual documentation updates are accepted.",
+    "priorities": [
+      "smart combined 65,536-token handling",
+      "output quality",
+      "development design",
+      "small verified tasks",
+      "coherent current state",
+      "preserve unique constraints without quality sacrifice"
+    ],
+    "historical_review": "Earlier reviews remain then-valid: pre-code planning, current-state correctness, and test evidence remain required; absence of automatic documentation alone is not FAIL.",
+    "work_split": "Terra implementation; root Astra review.",
+    "active_criterion": "Test a new token-and-quality plan; do not invent automatic-documentation scoring.",
+    "session_metrics": {
+      "source": "root SQLite, latest session ses_f4d541e14ffe37HHKANM36p0VG",
+      "assistant_messages": 52,
+      "max_reported_input_tokens": 43090,
+      "max_reported_output_tokens": 1054,
+      "max_reported_total_tokens": 43474,
+      "length_finishes": 0,
+      "compactions": 0,
+      "max_tool_output_chars": 8318,
+      "files_read_twice": [
+        "events.js",
+        "index.html"
+      ],
+      "interpretation": "The maxima are separate and must not be added; reported metrics do not prove coverage of all prompts."
+    }
   }
 }
