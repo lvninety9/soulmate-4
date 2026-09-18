@@ -67,8 +67,7 @@ from judgment and deletion.
 
 Before the next large work item or repeated test cycle, define a coherent task boundary and measure
 its selected manifest. Prefer the serving model's tokenizer; report whether a count is measured or
-estimated. The current planning assumption is 65,536 total tokens with an 8,192-token output cap,
-plus prompt/tool/system overhead. Preserve headroom; do not impose arbitrary hard stops or approval
+estimated. The planning budget is 65,536 total tokens including prompt, tool, and system overhead, reserving up to 8,192 for output. Preserve headroom; do not impose arbitrary hard stops or approval
 gates. Hand off before pressure when useful, allow Jay to redirect or continue, and recommend a new
 session explicitly only when accumulated context warrants it--never as an automatic reset or for
 every small task. Automatic documentation remains optional; manual maintenance is valid.
@@ -93,11 +92,5 @@ Acceptance evidence: no required decision or test is absent; every selected link
 documents are not edited or deleted; selected input and repeated reads are demonstrably smaller;
 required decisions/tests remain covered; and the trial avoids a length failure. This is evidence of
 reduced pressure, not a promise that compaction never occurs.
-
-### Budget clarification
-
-The planning budget is 65,536 total tokens, including prompt, tool, and system overhead. Reserve up
-to 8,192 tokens for output; selected input and its included overhead must fit the remainder with
-headroom. Counts state whether they use the serving model's tokenizer or an estimate.
 
 P1 game work remains separate and is out of scope for this proposal.
