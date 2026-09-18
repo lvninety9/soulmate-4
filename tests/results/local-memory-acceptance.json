@@ -1462,5 +1462,56 @@
     },
     "memory_efficacy_limit": "The detailed user prompt supplied the operating state, so this session does not isolate memory-plugin efficacy. Absent explicit AGENTS.md-read evidence does not prove auto-load failure.",
     "next": "Keep the existing primer next-fix; reconcile the P1/P2 status and stale primer introduction, then preserve a concrete browser result in the next visual-work verification."
+  },
+  "jay_playground_browser_verification": {
+    "checked": "2026-09-18",
+    "classification": "supplement; isolated actual browser interaction baseline, not a visual review",
+    "target": "/media/jay/D/cursor/soulmate4-playground",
+    "artifact": {
+      "json": "/home/jay/soulmate-4-acceptance/playground-browser-20260918.json",
+      "screenshot": "/home/jay/soulmate-4-acceptance/playground-browser-20260918.png",
+      "source_json_screenshot_field": "/tmp/playground-browser-check.png",
+      "note": "The source JSON retains its original /tmp screenshot field; the PNG above is the preserved permanent copy."
+    },
+    "environment": {
+      "browser": "/usr/bin/google-chrome",
+      "headless": true,
+      "gpu_disabled": true,
+      "isolated_tmp_profile": true,
+      "existing_browser_or_cdp_contact": false,
+      "model_calls": false
+    },
+    "checks": {
+      "method": "actual browser DOM and interaction checks",
+      "page_loaded": true,
+      "title": "Mars Colony 2046",
+      "avatars": 2,
+      "particles": 20,
+      "initial_round": "1",
+      "initial_action_buttons": 6,
+      "console_errors": []
+    },
+    "observed_failure": {
+      "trigger": "Clicking the first initial event choice.",
+      "page_errors": ["this.checkRoundEnd is not a function"],
+      "state_after_click": {
+        "round": 1,
+        "isEventActive": true,
+        "resources": {"energy": 35, "water": 45, "oxygen": 45, "food": 45}
+      },
+      "disabled_evidence": "The first P1 action button resolved as disabled, and Playwright timed out waiting for it to become enabled.",
+      "result": "The event did not close; basic post-event action, round progression, game-over, and restart interaction could not be verified."
+    },
+    "scope": {
+      "game_edits": false,
+      "documentation_or_design_repair": "Another agent is still repairing instructions only; this evidence record does not imply that repair is complete."
+    },
+    "limits": [
+      "DOM and interaction checks passed only through the initial layout; this is not a visual review.",
+      "The screenshot exists but was not visually inspected because the sandbox image helper failed with bwrap loopback permission error.",
+      "No gameplay pass is claimed."
+    ],
+    "status": "FAIL: runtime exception blocks the first event resolution and subsequent gameplay interaction.",
+    "next": "Repair the event callback receiver, then repeat isolated browser interaction and visual review."
   }
 }
