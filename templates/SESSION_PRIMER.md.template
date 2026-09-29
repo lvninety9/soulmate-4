@@ -25,6 +25,8 @@
 시작: <exact files to grep first — never "read everything">
 목표: <this sub-task's one concrete goal, not the whole original task>
 작업 사이클: <2-4 step loop for this sub-task>
+완료 기준: <observable result; exact test command or manual action>
+예산: <starting context + reads/tool output + work + verification <= 45,000 tokens>
 참고: <what's already done, prior decisions, surprises found mid-work>
 ```
 
