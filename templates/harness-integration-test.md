@@ -25,8 +25,8 @@ Expect: bootstrap and `--bootstrap-check` both pass without editing a placeholde
 
 ## Short-request acceptance — the default workflow
 
-Open the new project in a fresh Kilo session and send one ordinary request, with no protocol
-names or token instructions:
+Open the new project, reload the Cursor window so Kilo loads its plugin, and start a fresh Kilo
+session. Send one ordinary request, with no protocol names or token instructions:
 
 ```
 Python으로 파일의 단어 수를 세는 CLI를 만들어 주세요. 차근차근 진행해 주세요.
