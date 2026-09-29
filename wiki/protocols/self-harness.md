@@ -1,7 +1,6 @@
 # self-harness
 
-> No real `/self-harness` command exists in Kilo yet (see AGENTS.md "Known gap") — self-serve
-> this file at the end of a session, or when explicitly asked to reflect.
+> Read this at the end of a session, or when explicitly asked to reflect.
 
 Turn today's friction into one durable, checkable rule — without letting the rule tables grow
 without bound.
@@ -12,8 +11,8 @@ Method:
 2. PROPOSE: grep `AGENTS.md`'s Learned Rules for the highest existing `L<NN>` first (moved here
    from `PROJECT_BACKGROUND.md` at the architecture realignment — see `wiki/rule-archive.md`,
    the merge note right before L09) — the new rule is the next number in that same sequence,
-   never a new ID scheme. soulmate-3's own testing found a model inventing a parallel numbering
-   system (`LR-01`) instead of continuing an existing one — don't repeat that. One one-line rule,
+   never a new ID scheme. A prior test found a model inventing a parallel numbering system
+   (`LR-01`) instead of continuing an existing one — don't repeat that. One one-line rule,
    with an ID and an expiry tag (`permanent` or a review date).
 3. VALIDATE: would this rule have actually prevented today's friction? Does it conflict with an
    existing rule in `AGENTS.md`'s Fixed Rules or Learned Rules?
