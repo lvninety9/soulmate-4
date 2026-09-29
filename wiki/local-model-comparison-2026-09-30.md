@@ -46,3 +46,14 @@ model. Its median decode rate was about 4.4 times IQ2 and 8.1 times Q4+MTP in th
 prompts. Qwen3.8 Q4 may warrant another look on a host with enough free VRAM to hold the full
 model and MTP context. The user's real new-project Kilo trial remains the acceptance test for the
 Soulmate 4 workflow; this direct API comparison does not replace it.
+
+## Follow-up: 40,000-token game-code quality check
+
+The [game-code benchmark](evidence/game-code-benchmark-2026-09-30.md) replaced the short
+coding cap with 40,000 output tokens and archived fixed prompts, graders, and raw responses.
+Full-engine raw scores were Qwen3.6 0/14 (repetition to limit), IQ2 7/14, and Q4+MTP 0/14
+(duplicate declarations). For a smaller explosion-resolution subtask, raw scores were 5/10,
+0/10 (wrong export), and 10/10. Removing Q4’s two discarded draft blocks in a separate diagnostic
+copy yielded 14/14, but does not change its raw score. Keep Qwen3.6 as the available working
+service while the user runs the real Kilo trial; Q4+MTP is the strongest quality candidate for
+verified subtasks in this single direct-API run, with much higher latency on this GPU.
