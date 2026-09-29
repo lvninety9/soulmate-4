@@ -9,6 +9,13 @@ never "do all remaining sub-tasks." soulmate-3's own testing showed this invoked
 silently chaining through 5 sub-tasks back-to-back with no stop in between — exactly the runaway
 `.kilo/plugins/subtask-gate.ts` now exists to catch mechanically, not just remind about in prose.
 
+**Context stop:** Check Kilo's context indicator after each file read or test output. At about
+45,000 tokens, finish the current small unit, record the exact remaining work in the primer,
+and end the session. At 50,000, start no new read, edit, or debug loop: checkpoint immediately.
+Never wait for automatic compaction; the next session must start from files and test output,
+not from a compressed recollection. If the indicator is unavailable, stop after one completed
+file plus its verification, or at the first repeated read/debug loop, whichever comes first.
+
 **The sub-task's last file commit and the SESSION_PRIMER.md handoff update are the same commit,
 not two steps.** soulmate-3's testing separately found that a prose-only "stop after one
 sub-task" fix can hold for the *code* while the *bookkeeping* (updating SESSION_PRIMER.md) still
@@ -18,7 +25,8 @@ it together with the last file, in the same `git add`/`git commit`.
 If no sub-task block exists (the task was small/clearly-scoped enough to skip straight here):
 that's fine. The per-file-commit and checkpoint rules below still apply exactly the same; there's
 just no sub-task block to read from or hand off to, and the gate below won't fire until you
-touch SESSION_PRIMER.md yourself.
+touch SESSION_PRIMER.md yourself. This shortcut is for one small, verifiable goal; if another
+goal appears or the work might reach 45,000 tokens, stop and use `design.md` first.
 
 Method:
 1. Read only the active sub-task block in `wiki/handoffs/SESSION_PRIMER.md` (grep for it, don't
@@ -53,6 +61,8 @@ Method:
    - the sub-task turned out to need a decision `design.md` didn't make
    - you're about to write a large new chunk without having committed the last completed piece
    - you're inside an ad-hoc debug loop with 2+ files dirty and no commit yet
+   - the context indicator reaches about 45,000 tokens, or the indicator is unavailable and
+     you have completed one file with its verification
    On trigger: commit whatever unit is done (or `wip:` if mid-edit), update the SESSION_PRIMER
    sub-task block with exactly what's left — then stop.
 6. When the sub-task is genuinely done: the SESSION_PRIMER update already happened in step 3
