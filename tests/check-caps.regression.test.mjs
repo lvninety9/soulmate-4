@@ -152,18 +152,17 @@ async function main() {
     expectContains("T5b adapted wiki -> ok, exact original message", output,
       "ok: bootstrap — wiki/handoffs/SESSION_PRIMER.md doesn't look like this seed repo's own untouched wiki")
 
-    // Scenario B (was check_bootstrap_placeholders_filled): a fresh bootstrap.sh output already
-    // has AGENTS.md carrying the literal "[project name]" placeholder unfilled (that's the whole
-    // point of this check) -- so the "FAIL" case is the untouched baseline, and "ok" requires
-    // actually filling it in.
+    // Scenario B: bootstrap now fills the project name. Reintroduce the placeholder to check
+    // that the validation still catches an unfilled or manually regressed AGENTS.md.
     const agentsPath = join(dir, "AGENTS.md")
     const agents = readFileSync(agentsPath, "utf8")
+    writeFileSync(agentsPath, agents.replace(`# ${dir.split("/").at(-1)}`, "# [project name]"))
     ;({ output } = run(dir, ["--bootstrap-check"]))
-    expectContains("T6a unfilled placeholder (fresh bootstrap baseline) still FAILs, exact original message", output,
+    expectContains("T6a reintroduced placeholder still FAILs, exact original message", output,
       'BOOTSTRAP FAIL: AGENTS.md still has the literal placeholder "[project name]" -- fill in the real project name')
-    writeFileSync(agentsPath, agents.replace("[project name]", "Regression Test Project"))
+    writeFileSync(agentsPath, agents)
     ;({ output } = run(dir, ["--bootstrap-check"]))
-    expectContains("T6b filled placeholder -> ok, exact original message", output,
+    expectContains("T6b bootstrap-filled placeholder -> ok, exact original message", output,
       "ok: bootstrap — AGENTS.md placeholders filled in")
 
     rmSync(dir, { recursive: true, force: true })
@@ -361,8 +360,9 @@ async function main() {
     // default -- detection power is unchanged, only the default print behavior is.
     const dir = freshFixture()
     const { output } = run(dir, ["--verbose"])
+    const agentLines = readFileSync(join(dir, "AGENTS.md"), "utf8").trimEnd().split("\n").length
     expectContains("T14a --verbose restores the AGENTS.md WARN, exact original wording", output,
-      "WARN: AGENTS.md total (AGENTS.md) is 83/85 lines (soft target 70) — consider a pruning pass soon")
+      `WARN: AGENTS.md total (AGENTS.md) is ${agentLines}/85 lines (soft target 70) — consider a pruning pass soon`)
     expectContains("T14b --verbose restores the subtask-gate.ts WATCH, exact original wording", output,
       "WATCH: .kilo/plugins/subtask-gate.ts is")
     expectContains("T14c --verbose restores the check-caps.sh WATCH, exact original wording", output,
