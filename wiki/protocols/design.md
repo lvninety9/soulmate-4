@@ -1,9 +1,9 @@
 # design
 
-> No real `/design` command exists in Kilo yet (see AGENTS.md "Known gap") — self-serve this
-> file the moment you see the word "design" after a discussion has converged.
+> Read this automatically for a new project or multi-goal request. No command word is required.
 
-Produce a plan the user explicitly approves before any file is touched. Split it into sub-tasks
+Produce a plan from the user's authorized request. Ask only when a product decision cannot be
+inferred or safely deferred. Split the plan into sub-tasks
 that fit a **45,000-token working budget** inside the model's 65,536-token context. Treat 50,000
 as the latest point to save a handoff and end the session; 60,000 is a ceiling, not a target.
 Kilo's context indicator may show usage, but it is not a reliable per-sub-task estimator: size
@@ -14,9 +14,9 @@ whose first session might exceed 45,000 tokens — even if it touches only one f
 for a small, clearly-scoped task that can be finished and verified in one short session.
 
 Method:
-1. State the plan in plain language: what changes, in which files, in what order. No separate
-   design doc — say it, get explicit sign-off, then write only the outcome (the sub-task list)
-   into `wiki/handoffs/SESSION_PRIMER.md`.
+1. State the plan briefly: what changes, in which files, in what order. Do not wait for a second
+   approval of work the user already requested. Write the sub-task list into
+   `wiki/handoffs/SESSION_PRIMER.md`; this is the durable handoff, not a separate design doc.
 2. Split into sub-tasks. Each needs, at minimum:
    - one concrete goal (a single committable unit)
    - the exact files/sections to touch (grep targets, not "read the whole file")
