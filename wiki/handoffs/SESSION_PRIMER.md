@@ -1,4 +1,4 @@
-# SESSION PRIMER — round 37 complete (2026-08-26)
+# SESSION PRIMER — ordinary-request workflow ready for live trial (2026-09-29)
 
 > Status icons: ✅done(evidence) ⏳code-done·unverified 🔶partial 🔴unfixed-bug ⚠️needs-user-action
 > **Role: current-state only — no "why" narrative.** Round-by-round detail: `FEEDBACK_PENDING.md`'s
@@ -12,14 +12,22 @@ to a local LLM with a hard context ceiling (RTX 3080 10GB, physically **shared w
 production system "Hermes"** — see Hard constraints). `.kilo/plugins/subtask-gate.ts` is the
 payoff: a real `tool.execute.before` mechanical brake. `scripts/subtask-report.sh` (layer 1,
 tool-only) + `scripts/subtask-review-llm.sh` (layer 2, local-model diff review, report-only) are
-the sub-task-close verification. Round 32 closed the project out; rounds 33-37 were each narrow,
-fully-specified reopenings (Opus/Jay work orders, not new audit rounds) — everything below is the
-true current state after round 37, not an in-progress snapshot. Opus's own HANDOFF.md (round 37's
-work order) framed closing criteria as "items 1/2/3 closed + one real project built end-to-end
-with this harness" — items 1/2/3 are now closed (below); the end-to-end real-project build is
-still open, next.
+the sub-task-close verification. The current workflow awaits the user's manual live trial in a
+fresh Kilo conversation. Earlier maintenance findings below are retained as historical context;
+the current task and its evidence are stated first.
 
 ## Current sub-task
+
+```
+완료: GitHub master includes automatic design/build handoff, 45k/50k context guard,
+     bootstrap project naming, and short-request acceptance instructions. Static cap check,
+     bootstrap regression, and plugin regression passed. Live Cursor/Kilo behavior is unverified.
+다음: User bootstraps a fresh project and sends one ordinary request in a new Kilo conversation.
+     Inspect its actual conversation, primer, commits, and checks; record and fix any defect.
+     Do not simulate the user's live trial.
+```
+
+### Prior maintenance snapshot (2026-08-26; historical)
 
 ```
 시작: round 36's closed-out state, Opus's round 37 HANDOFF.md work order (items 1/2/3).
