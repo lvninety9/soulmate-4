@@ -52,9 +52,10 @@ steps above are self-served prose instead, same shape as soulmate-3's Continue g
 | need to see an image — use the `vision_read` tool, never attach it in chat (round 40) | `.kilo/plugins/vision-read.ts` |
 
 ## Caps + sub-task budget
-File Map ≤10 rows · SESSION_PRIMER ≤150 lines · this file ≤85 lines (matches original soulmate's
-cap, not lowered for a local model). No live token-usage signal mid-session: `design` sizes
-sub-tasks to finish under context length by construction; `build` checkpoints on overrun.
+File Map ≤10 rows · SESSION_PRIMER ≤150 lines · this file ≤85 lines. Context limit: 65,536;
+plan each sub-task for ≤45,000 tokens including reads and verification, with ≤2 implementation
+files. Checkpoint around 45,000; at 50,000 start no new work. Never rely on auto-compaction.
+Use Kilo's context indicator as a stop signal; if absent, finish one file and hand off.
 
 ## Learned Rules
 
