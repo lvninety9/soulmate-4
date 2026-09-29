@@ -122,8 +122,9 @@ curl -fsSL https://raw.githubusercontent.com/lvninety9/soulmate-4/master/scripts
 
 This gives `<target-directory>` its own fresh git history, `.kilo/plugins/subtask-gate.ts`, the
 wiki/ templates copied in, the cap-check pre-commit hook installed, and one commit already made.
-The bootstrap names `AGENTS.md` from the target directory. Open that directory in Cursor/Kilo
-and describe the project in one ordinary message; Kilo should plan before writing code.
+The bootstrap names `AGENTS.md` from the target directory. Open that directory in Cursor,
+reload the Cursor window once so Kilo loads the new project plugin, then describe the project in
+one ordinary message; Kilo should plan before writing code.
 Confirm `~/.config/kilo/kilo.jsonc` points at the running model and its inference server has
 reasoning disabled. Run `(cd <target-directory> && scripts/check-caps.sh --bootstrap-check)`.
 For a full live check, follow `templates/harness-integration-test.md`.
