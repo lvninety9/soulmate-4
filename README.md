@@ -187,6 +187,13 @@ Then, by hand:
    rather than assuming it works from the docs alone the first time you use this.
 7. First real session: `design` your first real piece of work before touching any code.
 
+**Context budget for the 65,536-token local setup:** size each planned sub-task for at most
+45,000 tokens including a 10,000-token contingency and no more than two implementation files.
+Check Kilo's context indicator while building; around 45,000, commit and hand off, and at
+50,000 start no new work. A new sub-task starts in a new session from the primer and git facts.
+These are operating limits to test in Kilo, not a claim that the plugin measures tokens or
+mechanically prevents compaction.
+
 **One prompting rule worth keeping.** End every sub-task prompt with an *acceptance line*: what
 you will open, click, or run yourself, and what you should see if it worked (`open index.html,
 click an empty cell, a square appears`). The sub-task report already closes with a "needs a human
