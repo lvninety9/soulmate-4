@@ -1,13 +1,11 @@
 # build
 
-> No real `/build` command exists in Kilo yet (see AGENTS.md "Known gap") — self-serve this
-> file the moment you see the word "build," or after `design.md` handed off a sub-task.
+> Read this automatically when a numbered sub-task is active and the user asks to continue.
 
 Finish **exactly one sub-task** as sized by `design.md`, commit it as standalone units, then
 stop — whether or not more sub-tasks remain on the list. `build` means "do the next sub-task,"
-never "do all remaining sub-tasks." soulmate-3's own testing showed this invoked once and
-silently chaining through 5 sub-tasks back-to-back with no stop in between — exactly the runaway
-`.kilo/plugins/subtask-gate.ts` now exists to catch mechanically, not just remind about in prose.
+never "do all remaining sub-tasks." A prior live test chained through five sub-tasks in one
+turn; `.kilo/plugins/subtask-gate.ts` exists to catch that mechanically.
 
 **Context stop:** Check Kilo's context indicator after each file read or test output. At about
 45,000 tokens, finish the current small unit, record the exact remaining work in the primer,
@@ -17,7 +15,7 @@ not from a compressed recollection. If the indicator is unavailable, stop after 
 file plus its verification, or at the first repeated read/debug loop, whichever comes first.
 
 **The sub-task's last file commit and the SESSION_PRIMER.md handoff update are the same commit,
-not two steps.** soulmate-3's testing separately found that a prose-only "stop after one
+not two steps.** Live testing found that a prose-only "stop after one
 sub-task" fix can hold for the *code* while the *bookkeeping* (updating SESSION_PRIMER.md) still
 silently gets skipped. Do not defer the primer update to "a step after the last commit" — stage
 it together with the last file, in the same `git add`/`git commit`.
