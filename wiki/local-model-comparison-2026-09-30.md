@@ -5,7 +5,9 @@
 One RTX 3080 10 GB, 39 GiB RAM. ComfyUI and the vision server remained running and used about
 1.4 GiB VRAM together. The normal Qwen3.6 server was measured first, temporarily stopped for
 Qwen3.8, then restarted. All tested servers allocated a 65,536-token context, disabled reasoning,
-and used one slot. Requests used temperature 0 and a 500-token output limit. The prompts, full
+and used one slot. Requests used temperature 0 and a 500-token output limit. This was later found
+to be an invalid default for both Qwen3.6 and Qwen3.8; their official non-thinking profiles use
+stochastic sampling. The prompts, full
 responses, and server timings are in `wiki/evidence/local-model-benchmark-2026-09-30.json`.
 
 | Configuration | GGUF size | llama.cpp | KV type | Decode, code / plan / cache (tok/s) |
@@ -47,13 +49,29 @@ prompts. Qwen3.8 Q4 may warrant another look on a host with enough free VRAM to 
 model and MTP context. The user's real new-project Kilo trial remains the acceptance test for the
 Soulmate 4 workflow; this direct API comparison does not replace it.
 
-## Follow-up: 40,000-token game-code quality check
+## Follow-up: corrected game-code and ecosystem comparison
 
-The [game-code benchmark](evidence/game-code-benchmark-2026-09-30.md) replaced the short
-coding cap with 40,000 output tokens and archived fixed prompts, graders, and raw responses.
-Full-engine raw scores were Qwen3.6 0/14 (repetition to limit), IQ2 7/14, and Q4+MTP 0/14
-(duplicate declarations). For a smaller explosion-resolution subtask, raw scores were 5/10,
-0/10 (wrong export), and 10/10. Removing Q4’s two discarded draft blocks in a separate diagnostic
-copy yielded 14/14, but does not change its raw score. Keep Qwen3.6 as the available working
-service while the user runs the real Kilo trial; Q4+MTP is the strongest quality candidate for
-verified subtasks in this single direct-API run, with much higher latency on this GPU.
+The [game-code benchmark](evidence/game-code-benchmark-2026-09-30.md) replaced the short coding
+cap with a 40,000-token ceiling. Qwen3.6's greedy run repeated to the ceiling and scored 0/14, but
+two runs with its official non-thinking sampling stopped normally and scored 8/14 and 10/14 at
+34–35 tokens/s. The greedy result was primarily a bad server-default result, not a fair model
+ranking. Unrestricted Qwen3.6 thinking was cancelled after 8,589 generated tokens without a
+deliverable.
+
+The wider search included coding-specialist and general agent models rather than only Qwen:
+
+- Qwen3-Coder 30B-A3B Q4 decoded at 26.3 tokens/s, but both generated modules contained an
+  unbounded chain-reaction loop.
+- Devstral Small 2 24B is designed for repository exploration and edit/test loops, but its dense
+  Q4 weights are about 15 GB. It would require the same costly CPU spill as Qwen3.8 on this 10 GB
+  GPU, so it was not downloaded after a faster candidate passed.
+- GLM-4.7-Flash has favorable community reports for some agent workflows, but its official
+  SWE-bench Verified result and 30B-A3B deployment class did not justify another 17 GB download
+  before testing the smaller candidate.
+- GPT-OSS 20B MXFP4 fit as a 12.1 GB file with automatic CPU/GPU placement, used about 7.2 GiB
+  VRAM at 65K context, decoded at 41.27 tokens/s, and passed the raw full task 14/14. Its focused
+  task scored 8/10. It also completed a live Kilo 7.8.1 Glob/Read/Edit/Read tool flow.
+
+GPT-OSS 20B is therefore the next live Kilo trial model. Qwen3.6 remains the rollback option with
+official non-thinking sampling. ComfyUI should remain stopped during coding; freeing its VRAM does
+not make the larger dense Qwen3.8 or Devstral weights fully fit this GPU.
