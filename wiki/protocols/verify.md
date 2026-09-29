@@ -1,7 +1,6 @@
 # verify
 
-> No real `/verify` command exists in Kilo yet (see AGENTS.md "Known gap") — self-serve this
-> file the moment you see the word "verify," or a sub-task list has no items left.
+> Read this when a sub-task list has no items left, or when the user asks to verify.
 
 Judge whether a deliverable (or a doc's handoff quality) is actually good, without the bias of
 the session that built it.
@@ -11,8 +10,8 @@ Method:
    tab/session in Kilo's Agent Manager — not a continued thread) and paste in only
    `templates/cold-read-test-prompt.md` filled in with this project's path and the specific files
    to read. A new session has no conversation history, so this is a genuine cold read — though it
-   still inherits the same auto-loaded `AGENTS.md` (unlike opencode/soulmate-2's fully isolated
-   subagent primitive — note this difference, don't overclaim isolation). If that's not
+   still inherits the same auto-loaded `AGENTS.md`; note this difference and don't overclaim
+   isolation. If that's not
    practical, fall back to a human cold-read: the user reads the deliverable/docs without your
    running commentary.
 2. Give the reviewer a fixed rubric up front, scored 0-10 per axis, each score requiring a cited
