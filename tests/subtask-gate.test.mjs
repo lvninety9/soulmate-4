@@ -1876,6 +1876,46 @@ async function main() {
     }
   }
 
+  // Context budget: Kilo's assistant usage event warns once, stops new code edits at 50K,
+  // still permits the primer handoff, and resets after a later compacted context.
+  {
+    const dir = freshRepo()
+    const hooks = await loadGate(dir)
+    process.chdir(dir)
+    const sid = "budget31"
+    const event = (created, input, output = 1) => hooks.event({ event: {
+      type: "message.updated", properties: { info: { role: "assistant", sessionID: sid,
+        time: { created }, tokens: { input, output, reasoning: 0, cache: { read: 0, write: 0 } } } }
+    } })
+    await hooks["tool.execute.before"]({ sessionID: sid, tool: "read" },
+      { args: { filePath: join(dir, "wiki", "protocols", "refactor.md") } })
+    await event(1, 45_000)
+    const warn = { title: "status", output: "ok", metadata: {} }
+    await hooks["tool.execute.after"]({ sessionID: sid, tool: "bash", args: {} }, warn)
+    const repeat = { title: "status", output: "ok", metadata: {} }
+    await hooks["tool.execute.after"]({ sessionID: sid, tool: "bash", args: {} }, repeat)
+    if (warn.output.includes("[context-budget]") && !repeat.output.includes("[context-budget]")) {
+      console.log("ok: T31a 45K usage warns once on a tool result")
+    } else { console.log("FAIL: T31a warning missing or repeated"); failures++ }
+    await event(2, 50_000)
+    let budgetBlocked = false
+    try {
+      await hooks["tool.execute.before"]({ sessionID: sid, tool: "edit" },
+        { args: { filePath: join(dir, "src.js") } })
+    } catch (error) { budgetBlocked = String(error).includes("[context-budget]") }
+    if (budgetBlocked) console.log("ok: T31b 50K specifically blocks another code edit")
+    else { console.log("FAIL: T31b context budget did not block the edit"); failures++ }
+    await assertNoThrow("T31c 50K permits primer handoff", () =>
+      hooks["tool.execute.before"]({ sessionID: sid, tool: "edit" },
+        { args: { filePath: join(dir, "wiki", "handoffs", "SESSION_PRIMER.md") } }))
+    await event(3, 20_000)
+    await event(2, 60_000) // delayed older event must not restore a stale hard stop
+    await assertNoThrow("T31d later compacted context resets the stop", () =>
+      hooks["tool.execute.before"]({ sessionID: sid, tool: "edit" },
+        { args: { filePath: join(dir, "src.js") } }))
+    rmSync(dir, { recursive: true, force: true })
+  }
+
   console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`)
   process.exit(failures === 0 ? 0 : 1)
 }
