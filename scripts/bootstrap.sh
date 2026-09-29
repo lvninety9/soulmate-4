@@ -156,7 +156,8 @@ echo "AGENTS.md is named for this project. Confirm ~/.config/kilo/kilo.jsonc poi
 echo "model actually running, then run:"
 echo "  (cd '$TARGET' && scripts/check-caps.sh --bootstrap-check)"
 echo ""
-echo "Open '$TARGET' with Kilo in Cursor and describe the project in an ordinary message."
+echo "Open '$TARGET' in Cursor, reload the window once to load Kilo's project plugin,"
+echo "then describe the project in an ordinary message."
 echo "(the sub-task gate actually blocking a tool call live)."
 
 case "$TARGET" in
