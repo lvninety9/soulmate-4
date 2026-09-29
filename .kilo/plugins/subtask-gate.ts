@@ -1,10 +1,8 @@
 // subtask-gate.ts — mechanical sub-task checkpoint (soulmate-4's flagship capability)
 //
 // Prose alone ("checkpoint after each sub-task, ask before continuing") doesn't reliably hold
-// under real load — soulmate-2/3 both document this repeating in new forms no matter how the
-// prompt is worded. Kilo's CLI inherits opencode's tool.execute.* hook (confirmed by reading the
-// compiled binary — soulmate-3's "Known gap" about Continue lacking this does NOT apply to
-// Kilo), so this uses it as a real, non-prose brake instead of one more reworded reminder.
+// under real load. Kilo's CLI exposes a real tool.execute.* hook, so this uses it as a
+// mechanical brake instead of one more reminder.
 //
 // Two independent blind-validation rounds shaped this file's current design — both fixes are
 // load-bearing, not decorative:
@@ -134,6 +132,8 @@ const ACKNOWLEDGED_HISTORY_LIMIT = 20
 // build.md step 5's own checkpoint trigger says "2+ files dirty and no commit yet," so this sits
 // one deliberately conservative step above the protocol's own line.
 const UNCOMMITTED_RUN_THRESHOLD = 3
+const CONTEXT_WARN_TOKENS = 45_000
+const CONTEXT_STOP_TOKENS = 50_000
 
 type ArmReason = "primer" | "elective"
 type State = {
@@ -164,6 +164,10 @@ type State = {
   // by doing the thing the notice asked for. No separate reset logic and no counter of its own:
   // the count itself is read out of git every time (see newlyDirtyPaths).
   uncommittedRunNotified: Record<string, number>
+  // Latest assistant usage belongs to the current context window; a later compaction may
+  // legitimately lower it. Event timestamps keep delayed older updates from restoring it.
+  contextUsage: Record<string, { tokens: number; created: number }>
+  contextNoticeLevel: Record<string, number>
 }
 
 function loadState(): State {
@@ -181,6 +185,8 @@ function loadState(): State {
         turnStartHead: parsed.turnStartHead ?? {},
         turnStartDirtySignature: parsed.turnStartDirtySignature ?? {},
         uncommittedRunNotified: parsed.uncommittedRunNotified ?? {},
+        contextUsage: parsed.contextUsage ?? {},
+        contextNoticeLevel: parsed.contextNoticeLevel ?? {},
       }
     }
   } catch {
@@ -199,6 +205,8 @@ function loadState(): State {
     turnStartHead: {},
     turnStartDirtySignature: {},
     uncommittedRunNotified: {},
+    contextUsage: {},
+    contextNoticeLevel: {},
   }
 }
 
@@ -208,6 +216,17 @@ function saveState(state: State) {
   } catch {
     // Best-effort persistence — a write failure here should not break the tool call itself.
   }
+}
+
+function assistantContextTokens(info: any): number | null {
+  if (info?.role !== "assistant") return null
+  const usage = info?.tokens
+  if (!usage || typeof usage.input !== "number" || typeof usage.output !== "number") return null
+  const values = [usage.input, usage.output, usage.reasoning ?? 0,
+    usage.cache?.read ?? 0, usage.cache?.write ?? 0]
+  if (values.some((v) => typeof v !== "number" || !Number.isFinite(v) || v < 0)) return null
+  const total = values.reduce((sum, value) => sum + value, 0)
+  return total > 0 ? total : null
 }
 
 // Round 29 (FEEDBACK #46, fail-open gate): "genuinely not a git repo" and "is a repo but this
@@ -881,6 +900,19 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
       throw new Error(BLOCK_MESSAGE_NO_PROTOCOL_READ)
     }
 
+    // Kilo reports usage on each completed assistant message. At the emergency threshold,
+    // permit the primer handoff and git commits, but refuse another code write/edit. A bash
+    // command can still mutate; keeping it available is necessary to save a WIP commit.
+    const used = state.contextUsage[sessionID]?.tokens ?? 0
+    if (used >= CONTEXT_STOP_TOKENS && (tool === "write" || tool === "edit") &&
+        blockedCallPath(tool, output) !== "wiki/handoffs/SESSION_PRIMER.md") {
+      recordBlockedCall(state, sessionID, tool, output)
+      saveState(state)
+      throw new Error(`[context-budget] ${used} tokens used. Stop code edits; commit finished work ` +
+        "or a WIP, update wiki/handoffs/SESSION_PRIMER.md with exact remaining steps, then end " +
+        "this session. Resume in a fresh Kilo session.")
+    }
+
     if (dirty) saveState(state)
   },
 
@@ -911,10 +943,19 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
     try {
       const sessionID = input?.sessionID
       if (!sessionID) return
-      if (input?.tool !== "write" && input?.tool !== "edit") return
       if (typeof output?.output !== "string") return
 
       const state = loadState()
+      const used = state.contextUsage[sessionID]?.tokens ?? 0
+      const level = used >= CONTEXT_STOP_TOKENS ? 2 : used >= CONTEXT_WARN_TOKENS ? 1 : 0
+      if (level > (state.contextNoticeLevel[sessionID] ?? 0)) {
+        state.contextNoticeLevel[sessionID] = level
+        saveState(state)
+        output.output += level === 2
+          ? `\n\n[context-budget] ${used} tokens used. No new code edits. Commit the current unit or WIP, update SESSION_PRIMER.md with exact remaining work, and end this session.\n`
+          : `\n\n[context-budget] ${used} tokens used. Finish the current small unit, commit it, update SESSION_PRIMER.md, and end this session before compaction.\n`
+      }
+      if (input?.tool !== "write" && input?.tool !== "edit") return
       const prior = state.turnStartDirtySignature[sessionID]
       // Undefined means chat.message has not run for this session yet, so there is no turn to
       // measure against — stay quiet rather than treat the whole tree as this turn's doing.
@@ -1246,6 +1287,20 @@ export const SubtaskGate = async ({ client }: any = {}) => ({
   // inspection).
   event: async (input: any) => {
     const event = input?.event
+    if (event?.type === "message.updated") {
+      const info = event?.properties?.info
+      const sessionID = info?.sessionID
+      const count = assistantContextTokens(info)
+      const created = info?.time?.created
+      if (!sessionID || count === null || typeof created !== "number") return
+      const state = loadState()
+      const prior = state.contextUsage[sessionID]
+      if (prior && (created < prior.created || (created === prior.created && count <= prior.tokens))) return
+      state.contextUsage[sessionID] = { tokens: count, created }
+      if (count < CONTEXT_WARN_TOKENS) state.contextNoticeLevel[sessionID] = 0
+      saveState(state)
+      return
+    }
     if (event?.type !== "session.idle") return
     const sessionID = event?.properties?.sessionID
     if (!sessionID || !client?.session?.prompt) return
