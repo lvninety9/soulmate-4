@@ -1,9 +1,8 @@
 <!--
   Copy this file to project-root/AGENTS.md. Fill in [project name].
   Kilo auto-loads AGENTS.md (and CLAUDE.md/CONTEXT.md) every message, hierarchy-aware — there is
-  no separate "kernel" file the way soulmate-3 (Continue) needed one. Learned/Fixed Rules and the
-  File map live HERE too, not in a separate wiki file — matches the original soulmate's proven
-  design (a rule only referenced from here, not stated in it, doesn't reach ad-hoc work).
+  no separate "kernel" file. Learned/Fixed Rules and the File map live HERE too, not in a
+  separate wiki file (a rule only referenced from here doesn't reach ad-hoc work).
   Delete these instructional HTML-comment blocks once you've filled a section in.
   Run scripts/check-caps.sh (copied from this repo) at self-harness's PRUNE step.
 -->
@@ -28,25 +27,24 @@ smallest unique fragment (2-3 lines) — grep first. Same tool+file error twice:
 | Step | When | Doc |
 |---|---|---|
 | discuss | ambiguous ask — converge via Q&A first | `wiki/protocols/discuss.md` |
-| design | plan + sign-off + split into sub-tasks sized to the ceiling | `wiki/protocols/design.md` |
+| design | plan + split into sub-tasks sized to the ceiling | `wiki/protocols/design.md` |
 | build | one sub-task, commit per file, checkpoint on scope creep | `wiki/protocols/build.md` |
 | verify | independent check against the actual deliverable | `wiki/protocols/verify.md` |
 | refactor | shrinking/reorganizing code that already works, composes with build | `wiki/protocols/refactor.md` |
 | self-harness | end of session — mine friction, propose a rule, log, commit | `wiki/protocols/self-harness.md` |
 
-Clearly-scoped: skip to build. Else: discuss → design → build → verify. No real slash command
-exists for any of these (see "Known gap") — read the matching doc yourself, every time.
+Choose the step yourself; the user need not name it. On a new project or multi-goal request:
+clarify only missing decisions, then design and commit a numbered plan before implementation.
+On the next user message, build exactly the active sub-task and hand off. Repeat until all are
+done, then verify and update the project docs. A small one-goal fix can start at build. Read the
+matching protocol doc before each step. Ask approval only for a decision the user must make.
 
 ## Sub-task gate (mechanical, not just prose)
-`.kilo/plugins/subtask-gate.ts` hooks `tool.execute.before`/`after`/`chat.message` (unlike
-Continue): blocks every mutation until a `wiki/protocols/*.md` doc is read; blocks once
+`.kilo/plugins/subtask-gate.ts` hooks `tool.execute.before`/`after`/`chat.message`: blocks every
+mutation until a `wiki/protocols/*.md` doc is read; blocks once
 on a primer-touch/N-commit-elective trigger; warns on carried-over uncommitted work at the next
 message — verified live, see `wiki/rule-archive.md` for this project's own evidence.
 Only the user waives a standing checkpoint: the exact text `[gate-ok]` in their own message.
-
-## Known gap
-Custom slash commands (`.kilo/commands/*.md`) don't work yet (canary-tested) — protocol
-steps above are self-served prose instead, same shape as soulmate-3's Continue gap.
 
 ## File map
 | Need | File |
@@ -64,7 +62,8 @@ steps above are self-served prose instead, same shape as soulmate-3's Continue g
 File Map ≤10 rows · SESSION_PRIMER ≤150 lines · this file ≤85 lines. Context limit: 65,536;
 plan each sub-task for ≤45,000 tokens including reads and verification, with ≤2 implementation
 files. Checkpoint around 45,000; at 50,000 start no new work. Never rely on auto-compaction.
-Use Kilo's context indicator as a stop signal; if absent, finish one file and hand off.
+The plugin warns from Kilo usage events at 45,000 and blocks new code write/edit at 50,000.
+If usage events are unavailable, finish one file and hand off.
 
 ## Learned Rules
 
