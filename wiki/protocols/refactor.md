@@ -1,6 +1,6 @@
 # refactor
 
-> No real `/refactor` command exists in Kilo yet (see AGENTS.md "Known gap") — self-serve this
+> No real `/refactor` command exists in Kilo; read this protocol automatically when its scope fits.
 > file the moment a task is "make this cleaner/shorter/faster" rather than "add a capability."
 > Composes with `build.md` — a refactor's each verified unit IS a sub-task; the sub-task gate
 > still applies exactly the same way.
