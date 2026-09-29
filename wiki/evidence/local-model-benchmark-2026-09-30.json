@@ -1,0 +1,232 @@
+{
+  "qwen36": {
+    "label": "qwen3.6",
+    "port": 8080,
+    "cases": [
+      {
+        "name": "code",
+        "prompt": "Write only Python code for `parse_ranges(text: str) -> list[int]`. Input is comma-separated integers or inclusive ranges like `-2--1,3,5-7`. Reject malformed pieces with ValueError, reject descending ranges, deduplicate and return sorted integers. Use the standard library only.",
+        "elapsed_s": 15.381,
+        "output_tokens": 500,
+        "input_tokens": 72,
+        "text": "```python\ndef parse_ranges(text: str) -> list[int]:\n    \"\"\"\n    Parse a string of comma-separated integers or inclusive ranges.\n    \n    Examples:\n        \"-2--1,3,5-7\" -> [-2, -1, 3, 5, 6, 7]\n        \"1-3,5\" -> [1, 2, 3, 5]\n    \n    Raises ValueError for malformed pieces or descending ranges.\n    Returns sorted, deduplicated list of integers.\n    \"\"\"\n    if not text or not text.strip():\n        return []\n    \n    result = set()\n    parts = text.split(',')\n    \n    for part in parts:\n        part = part.strip()\n        if not part:\n            raise ValueError(f\"Empty range piece in input: {text}\")\n        \n        if '-' in part:\n            # It's a range\n            # Need to handle negative numbers carefully\n            # Split on '-' but be careful with negative numbers\n            # Strategy: find the first '-' that is not at the start (or is at start for negative)\n            # Actually, let's think about this more carefully.\n            # A range like \"-2--1\" means from -2 to -1\n            # A range like \"5-7\" means from 5 to 7\n            # A range like \"-5-3\" would be ambiguous... but let's see.\n            \n            # Let's split on '-' and handle the signs properly.\n            # The format is: [sign]number[-[sign]number]\n            # So we need to find the separator '-' that separates the two numbers.\n            \n            # Approach: try to split on '-' and see if we get two valid integers.\n            # But \"-2--1\" split on '-' gives ['', '2', '', '1'] which is messy.\n            \n            # Better approach: use regex or manual parsing.\n            # Let's manually parse: find the position of the '-' that separates the two numbers.\n            # The separator '-' is not the first character (unless the first number is negative, but then the '-' after it is the separator).\n            \n            # Let's find all '-' positions.\n            # For a valid range, there should be exactly one '-' that acts as the separator.\n            # But negative numbers",
+        "finish_reason": "length",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 72,
+          "prompt_ms": 1683.364,
+          "prompt_per_token_ms": 23.380055555555558,
+          "prompt_per_second": 42.771498024194415,
+          "predicted_n": 500,
+          "predicted_ms": 13084.547,
+          "predicted_per_token_ms": 26.169094,
+          "predicted_per_second": 38.213015704708766
+        }
+      },
+      {
+        "name": "planning",
+        "prompt": "새 Python 프로젝트에서 파일 단어 수 CLI를 만든다. 구현 전에 3개 이하의 번호 매긴 하위 작업만 제시하라. 각 작업에 검증 가능한 완료 기준을 한 줄씩 쓰고, 지금은 코드를 작성하지 마라. 180단어 이내로 답하라.",
+        "elapsed_s": 9.288,
+        "output_tokens": 307,
+        "input_tokens": 73,
+        "text": "새로운 Python 프로젝트에서 파일의 단어 수를 세는 CLI 도구를 개발하기 위해, 다음 세 가지 핵심 하위 작업을 단계별로 수행해야 합니다. 각 작업은 명확한 검증 기준을 통해 완료 여부를 확인할 수 있습니다.\n\n1. **CLI 인터페이스 설계 및 인자 파싱 구현**: `argparse` 라이브러리를 사용하여 명령줄 인자를 처리하는 기본 구조를 구축합니다. 검증 기준: 유효한 파일 경로가 인자로 전달될 때, 해당 파일의 경로를 성공적으로 파싱하여 내부 변수에 저장하고, 잘못된 인자 입력 시 명확한 오류 메시지를 출력해야 합니다.\n\n2. **파일 읽기 및 단어 수 계산 로직 작성**: 지정된 경로의 파일을 열고, 공백을 기준으로 단어를 분리하여 개수를 세는 함수를 구현합니다. 검증 기준: 다양한 형식의 텍스트 파일(빈 파일, 특수 문자 포함 파일 등)을 입력했을 때, 정확한 단어 수를 정수 형태로 반환하며, 파일이 존재하지 않거나 읽기 권한이 없을 경우 적절한 예외를 처리해야 합니다.\n\n3. **통합 테스트 및 결과 출력 기능 연결**: 계산된 단어 수를 사용자에게 직관적인 형식으로 출력하는 최종 스크립트를 완성합니다. 검증 기준: 실제 테스트 파일에 대해 스크립트를 실행했을 때, 예상되는 단어 수와 일치하는 결과가 표준 출력으로 정확히 표시되어야 하며, 실행 종료 코드가 0(성공)이어야 합니다.",
+        "finish_reason": "stop",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 73,
+          "prompt_ms": 1070.028,
+          "prompt_per_token_ms": 14.657917808219178,
+          "prompt_per_second": 68.22251380337711,
+          "predicted_n": 307,
+          "predicted_ms": 8082.352,
+          "predicted_per_token_ms": 26.32687947882736,
+          "predicted_per_second": 37.983992778339775
+        }
+      },
+      {
+        "name": "reasoning",
+        "prompt": "A cache stores an entry for 15 minutes after creation. At 12:00 an entry is created. At 12:14 it is read without refresh. At 12:15 it is read; on a miss it is recreated. At 12:29 it is read without refresh. At 12:30 it is read. List hit/miss at each read and explain briefly. Assume expiration occurs exactly at the deadline.",
+        "elapsed_s": 14.189,
+        "output_tokens": 500,
+        "input_tokens": 111,
+        "text": "Here is the step-by-step analysis of the cache hits and misses based on the 15-minute expiration rule.\n\n### **Rules & Definitions**\n*   **Creation Time ($T_{create}$):** The time the entry was created.\n*   **Expiration Time ($T_{expire}$):** $T_{create} + 15$ minutes.\n*   **Hit Condition:** The current read time ($T_{read}$) is **strictly less than** $T_{expire}$ ($T_{read} < T_{expire}$).\n*   **Miss Condition:** The current read time ($T_{read}$) is **greater than or equal to** $T_{expire}$ ($T_{read} \\ge T_{expire}$).\n*   **Note:** The problem states \"Assume expiration occurs exactly at the deadline.\" This means at exactly 15 minutes past creation, the entry is considered expired (Miss).\n\n---\n\n### **Timeline Analysis**\n\n#### **1. 12:00 – Entry Created**\n*   $T_{create} = 12:00$\n*   $T_{expire} = 12:15$\n*   The entry is now valid until 12:15.\n\n#### **2. 12:14 – Read without refresh**\n*   $T_{read} = 12:14$\n*   Check: Is $12:14 < 12:15$? **Yes.**\n*   **Result: HIT**\n*   *Explanation:* The read occurs 1 minute before expiration. The entry is still valid.\n\n#### **3. 12:15 – Read; on a miss it is recreated**\n*   $T_{read} = 12:15$\n*   Check: Is $12:15 < 12:15$? **No.** ($12:15 = 12:15$)\n*   **Result: MISS**\n*   *Action:* Since it is a miss, the entry is **recreated** at 12:15.\n*   *New State:*\n    *   $T_{create} = 12:15$\n    *   $T_{expire} = 12:30",
+        "finish_reason": "length",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 111,
+          "prompt_ms": 1351.234,
+          "prompt_per_token_ms": 12.173279279279278,
+          "prompt_per_second": 82.14713365708678,
+          "predicted_n": 500,
+          "predicted_ms": 12738.732,
+          "predicted_per_token_ms": 25.477464,
+          "predicted_per_second": 39.250374370070745
+        }
+      }
+    ]
+  },
+  "qwen38-iq2": {
+    "label": "qwen3.8-iq2",
+    "port": 8092,
+    "cases": [
+      {
+        "name": "code",
+        "prompt": "Write only Python code for `parse_ranges(text: str) -> list[int]`. Input is comma-separated integers or inclusive ranges like `-2--1,3,5-7`. Reject malformed pieces with ValueError, reject descending ranges, deduplicate and return sorted integers. Use the standard library only.",
+        "elapsed_s": 62.42,
+        "output_tokens": 500,
+        "input_tokens": 72,
+        "text": "The user wants a Python function `parse_ranges` that takes a string and returns a sorted list of unique integers. The input format is comma-separated integers or inclusive ranges like `-2--1,3,5-7`.\n\nLet me break down the requirements:\n1. Parse comma-separated pieces\n2. Each piece is either a single integer or a range like `a-b` (inclusive)\n3. Reject malformed pieces with `ValueError`\n4. Reject descending ranges (where start > end) with `ValueError`\n5. Deduplicate and return sorted integers\n\nLet me think about the parsing:\n- Split by comma\n- For each piece, strip whitespace\n- If it contains `-`, it's a range. But wait, negative numbers like `-2` also contain `-`. So I need to be careful.\n\nActually, let me re-read: \"inclusive ranges like `-2--1,3,5-7`\". So `-2--1` means range from -2 to -1. And `5-7` means range from 5 to 7.\n\nSo the format is: `start-end` where both can be negative. The tricky part is distinguishing a negative number from a range.\n\nLet me think about this more carefully. The pieces are comma-separated. Each piece is either:\n- A single integer (e.g., `3`, `-2`)\n- A range (e.g., `-2--1`, `5-7`)\n\nFor a range, the format is `start-end`. But how do we parse `-2--1`? It's `-2` to `-1`. So the range is from -2 to -1.\n\nI think the approach is:\n- Split by comma\n- For each piece, try to parse it as either a single integer or a range\n- If it looks like a range (has a `-` that's not part of a negative number), parse it as `start-end`\n\nActually, let me think about this differently. The pieces are separated by commas. Each piece is either:\n- An integer: `3`, `-2`, `0`\n- A range: `-2--1`, `5-7`, `1-3`\n\nFor a range, the format is `start-end`. The challenge is that negative numbers have a `-` prefix.\n\nI think the best approach is:\n- For each",
+        "finish_reason": "length",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 72,
+          "prompt_ms": 938.02,
+          "prompt_per_token_ms": 13.028055555555556,
+          "prompt_per_second": 76.75742521481418,
+          "predicted_n": 500,
+          "predicted_ms": 61457.22,
+          "predicted_per_token_ms": 123.16076152304609,
+          "predicted_per_second": 8.119469120145688
+        }
+      },
+      {
+        "name": "planning",
+        "prompt": "새 Python 프로젝트에서 파일 단어 수 CLI를 만든다. 구현 전에 3개 이하의 번호 매긴 하위 작업만 제시하라. 각 작업에 검증 가능한 완료 기준을 한 줄씩 쓰고, 지금은 코드를 작성하지 마라. 180단어 이내로 답하라.",
+        "elapsed_s": 15.632,
+        "output_tokens": 128,
+        "input_tokens": 73,
+        "text": "1. CLI 파서: `argparse`로 `--file` 인자 및 `--verbose` 플래그를 정의하고, `--help` 출력 시 설명이 정확히 표시되는지 확인한다.\n2. 로직: `Counter`로 단어 빈도 계산 후 `most_common(3)`으로 상위 3개 추출하고, 빈 파일 입력 시 빈 리스트 반환을 검증한다.\n3. 출력: `print`로 결과 형식화 및 `sys.exit` 코드 설정하고, `main()` 진입점 및 `if __name__ == \"__main__\"` 블록을 확인한다.",
+        "finish_reason": "stop",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 73,
+          "prompt_ms": 757.894,
+          "prompt_per_token_ms": 10.382109589041097,
+          "prompt_per_second": 96.31953808843981,
+          "predicted_n": 128,
+          "predicted_ms": 14684.534,
+          "predicted_per_token_ms": 115.62625196850394,
+          "predicted_per_second": 8.648555003515943
+        }
+      },
+      {
+        "name": "reasoning",
+        "prompt": "A cache stores an entry for 15 minutes after creation. At 12:00 an entry is created. At 12:14 it is read without refresh. At 12:15 it is read; on a miss it is recreated. At 12:29 it is read without refresh. At 12:30 it is read. List hit/miss at each read and explain briefly. Assume expiration occurs exactly at the deadline.",
+        "elapsed_s": 58.878,
+        "output_tokens": 500,
+        "input_tokens": 111,
+        "text": "**Timeline Analysis**\n\n1.  **12:00 (Creation):**\n    *   The entry is created.\n    *   **Expiration Time:** 12:00 + 15 minutes = **12:15**.\n    *   The entry is valid from 12:00 to 12:15 (inclusive of the deadline, as per the assumption \"expiration occurs exactly at the deadline\").\n\n2.  **12:14 (Read 1):**\n    *   **Status:** The current time (12:14) is before the expiration time (12:15).\n    *   **Result:** **Hit**.\n    *   **Explanation:** The entry is still valid. Since the prompt specifies \"read without refresh,\" the entry is not recreated, and its expiration time remains 12:15.\n\n3.  **12:15 (Read 2):**\n    *   **Status:** The current time (12:15) is exactly the expiration time.\n    *   **Result:** **Miss**.\n    *   **Explanation:** The entry has expired. The prompt states \"on a miss it is recreated.\" Therefore, a new entry is created at 12:15.\n    *   **New Expiration Time:** 12:15 + 15 minutes = **12:30**.\n\n4.  **12:29 (Read 3):**\n    *   **Status:** The current time (12:29) is before the new expiration time (12:30).\n    *   **Result:** **Hit**.\n    *   **Explanation:** The entry created at 12:15 is still valid. The read occurs without refresh, so the expiration time remains 12:30.\n\n5.  **12:30 (Read 4):**\n    *   **Status:** The current time (12:30) is exactly the expiration time.\n    *   **Result:** **Miss**.\n    *   **Explanation:** The entry created at 12:15 has expired.\n\n**Summary of Results**\n\n| Time | Read Status | Explanation |\n| :--- | :--- | :--- |\n| 12:14 | **",
+        "finish_reason": "length",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 111,
+          "prompt_ms": 769.2,
+          "prompt_per_token_ms": 6.92972972972973,
+          "prompt_per_second": 144.30577223088923,
+          "predicted_n": 500,
+          "predicted_ms": 57925.582,
+          "predicted_per_token_ms": 116.08333066132265,
+          "predicted_per_second": 8.61450127510156
+        }
+      }
+    ]
+  },
+  "qwen38-q4-mtp": {
+    "label": "qwen3.8-q4-mtp",
+    "port": 8092,
+    "cases": [
+      {
+        "name": "code",
+        "prompt": "Write only Python code for `parse_ranges(text: str) -> list[int]`. Input is comma-separated integers or inclusive ranges like `-2--1,3,5-7`. Reject malformed pieces with ValueError, reject descending ranges, deduplicate and return sorted integers. Use the standard library only.",
+        "elapsed_s": 108.155,
+        "output_tokens": 500,
+        "input_tokens": 72,
+        "text": "```python\ndef parse_ranges(text: str) -> list[int]:\n    if not text or not text.strip():\n        return []\n    \n    pieces = text.split(',')\n    result = set()\n    \n    for piece in pieces:\n        piece = piece.strip()\n        if not piece:\n            raise ValueError(f\"Empty piece in input: {text!r}\")\n        \n        # Check if it's a range (contains '-')\n        # We need to be careful: negative numbers also contain '-'\n        # A range has the form \"a-b\" where a and b are integers\n        # A single integer may be negative like \"-2\"\n        \n        # Strategy: try to split on '-' but handle negative numbers\n        # If the piece starts with '-', it might be a negative number or a range starting with negative\n        \n        # Let's try to parse as a single integer first\n        try:\n            val = int(piece)\n            result.add(val)\n            continue\n        except ValueError:\n            pass\n        \n        # Now try to parse as a range\n        # Find the split point: we need to find a '-' that separates two integers\n        # The first part can be negative, the second part can be negative\n        # So we look for a '-' that is not at position 0 (unless the first part is empty, which is invalid)\n        \n        # Find all positions of '-'\n        # The range format is: [optional '-'][digits]-[optional '-'][digits]\n        # So we need to find a '-' such that the left part is a valid integer and the right part is a valid integer\n        \n        # Let's iterate through possible split points\n        found = False\n        for i in range(1, len(piece)):\n            if piece[i] == '-':\n                left = piece[:i]\n                right = piece[i+1:]\n                if not left or not right:\n                    continue\n                try:\n                    a = int(left)\n                    b = int(right)\n                except ValueError:\n                    continue\n                # Check that left and right are valid integer representations\n                # int() accepts things like \"  12 \" but we already stripped\n                # Also int() accepts \"+5\", \"-5\", \"5\"\n                # But we should ensure no extra characters\n                # Let's verify by checking that left and",
+        "finish_reason": "length",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 72,
+          "prompt_ms": 2221.111,
+          "prompt_per_token_ms": 30.848763888888886,
+          "prompt_per_second": 32.416209725673326,
+          "predicted_n": 500,
+          "predicted_ms": 105908.858,
+          "predicted_per_token_ms": 212.24220040080158,
+          "predicted_per_second": 4.711598344304686,
+          "draft_n": 404,
+          "draft_n_accepted": 297
+        }
+      },
+      {
+        "name": "planning",
+        "prompt": "새 Python 프로젝트에서 파일 단어 수 CLI를 만든다. 구현 전에 3개 이하의 번호 매긴 하위 작업만 제시하라. 각 작업에 검증 가능한 완료 기준을 한 줄씩 쓰고, 지금은 코드를 작성하지 마라. 180단어 이내로 답하라.",
+        "elapsed_s": 38.631,
+        "output_tokens": 170,
+        "input_tokens": 73,
+        "text": "1. **CLI 인터페이스 정의**: `argparse`를 사용해 파일 경로 인수를 받아들이는 구조를 설계한다.\n   - 완료 기준: `python main.py <file>` 명령이 실행될 때 인자 파싱 오류 없이 실행된다.\n\n2. **텍스트 읽기 및 단어 분할 로직 구현**: 파일 내용을 UTF-8로 읽고 공백 기준으로 단어를 분리한다.\n   - 완료 기준: 샘플 텍스트 파일 입력 시 공백과 특수문자를 제외하고 정확한 단어 개수를 반환한다.\n\n3. **결과 출력 및 예외 처리**: 최종 단어 수를 콘솔에 출력하고, 파일 없음 등 오류를 처리한다.\n   - 완료 기준: 존재하지 않는 파일 입력 시 명확한 에러 메시지가 표시되고 프로그램이 정상 종료된다.",
+        "finish_reason": "stop",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 73,
+          "prompt_ms": 2108.403,
+          "prompt_per_token_ms": 28.882232876712326,
+          "prompt_per_second": 34.62336185254907,
+          "predicted_n": 170,
+          "predicted_ms": 36330.354,
+          "predicted_per_token_ms": 214.97250887573963,
+          "predicted_per_second": 4.651757590911445,
+          "draft_n": 146,
+          "draft_n_accepted": 96
+        }
+      },
+      {
+        "name": "reasoning",
+        "prompt": "A cache stores an entry for 15 minutes after creation. At 12:00 an entry is created. At 12:14 it is read without refresh. At 12:15 it is read; on a miss it is recreated. At 12:29 it is read without refresh. At 12:30 it is read. List hit/miss at each read and explain briefly. Assume expiration occurs exactly at the deadline.",
+        "elapsed_s": 92.308,
+        "output_tokens": 500,
+        "input_tokens": 111,
+        "text": "Here is the step-by-step logical deduction for each read operation, followed by the final summary.\n\n### Logical Deduction\n\n**1. Initial State**\n*   **12:00**: An entry is created.\n*   **TTL (Time To Live)**: 15 minutes.\n*   **Expiration Deadline**: $12:00 + 15 \\text{ min} = 12:15$.\n*   **Rule**: The entry is valid for any time $t$ where $12:00 \\le t < 12:15$. At exactly $12:15$, the entry is expired.\n\n**2. Read at 12:14**\n*   **Time**: 12:14.\n*   **Check**: Is $12:14 < 12:15$? Yes.\n*   **Status**: The entry is still valid.\n*   **Result**: **Hit**.\n*   **Note**: The prompt states \"without refresh,\" so the expiration time remains 12:15.\n\n**3. Read at 12:15**\n*   **Time**: 12:15.\n*   **Check**: Is $12:15 < 12:15$? No.\n*   **Status**: The entry has expired exactly at the deadline.\n*   **Result**: **Miss**.\n*   **Action**: The entry is recreated.\n*   **New State**: A new entry is created at 12:15.\n*   **New Expiration Deadline**: $12:15 + 15 \\text{ min} = 12:30$.\n\n**4. Read at 12:29**\n*   **Time**: 12:29.\n*   **Check**: Is $12:29 < 12:30$? Yes.\n*   **Status**: The entry (created at 12:15) is still valid.\n*   **Result**: **Hit**.\n*   **Note**: \"Without refresh,\" so the expiration time remains 12:30.\n\n**5. Read at 12:30**\n*   **Time**: 12:",
+        "finish_reason": "length",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 111,
+          "prompt_ms": 2176.313,
+          "prompt_per_token_ms": 19.606423423423426,
+          "prompt_per_second": 51.00369294306471,
+          "predicted_n": 500,
+          "predicted_ms": 89950.267,
+          "predicted_per_token_ms": 180.26105611222445,
+          "predicted_per_second": 5.547509936796518,
+          "draft_n": 356,
+          "draft_n_accepted": 320
+        }
+      }
+    ]
+  },
+  "qwen38-q4-no-mtp": {
+    "label": "qwen3.8-q4-no-mtp",
+    "port": 8092,
+    "cases": [
+      {
+        "name": "planning",
+        "prompt": "새 Python 프로젝트에서 파일 단어 수 CLI를 만든다. 구현 전에 3개 이하의 번호 매긴 하위 작업만 제시하라. 각 작업에 검증 가능한 완료 기준을 한 줄씩 쓰고, 지금은 코드를 작성하지 마라. 180단어 이내로 답하라.",
+        "elapsed_s": 35.451,
+        "output_tokens": 101,
+        "input_tokens": 73,
+        "text": "1. 파일 경로 인수를 받는 CLI 인터페이스 정의\n   완료 기준: `--help` 실행 시 파일 경로 옵션이 명확히 표시된다.\n\n2. 텍스트 파일 읽기 및 단어 분할 로직 구현\n   완료 기준: 공백과 구두점을 기준으로 정확히 분리된 단어 리스트를 반환한다.\n\n3. 단어 수 계산 및 결과 출력 기능 완성\n   완료 기준: 지정된 파일의 총 단어 수가 표준 출력으로 정확히 표시된다.",
+        "finish_reason": "stop",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 73,
+          "prompt_ms": 1886.73,
+          "prompt_per_token_ms": 25.845616438356164,
+          "prompt_per_second": 38.69128068139055,
+          "predicted_n": 101,
+          "predicted_ms": 33547.384,
+          "predicted_per_token_ms": 335.47384,
+          "predicted_per_second": 2.980858358434148
+        }
+      }
+    ]
+  }
+}
