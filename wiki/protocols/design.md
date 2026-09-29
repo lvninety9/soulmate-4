@@ -3,13 +3,15 @@
 > No real `/design` command exists in Kilo yet (see AGENTS.md "Known gap") — self-serve this
 > file the moment you see the word "design" after a discussion has converged.
 
-Produce a plan the user explicitly approves before any file is touched, split into sub-tasks
-small enough to each plausibly finish well under this project's context ceiling (see
-`AGENTS.md`'s "Sub-task budget" — sizing happens here, not at runtime, since there is no live
-token-usage signal to poll mid-session).
+Produce a plan the user explicitly approves before any file is touched. Split it into sub-tasks
+that fit a **45,000-token working budget** inside the model's 65,536-token context. Treat 50,000
+as the latest point to save a handoff and end the session; 60,000 is a ceiling, not a target.
+Kilo's context indicator may show usage, but it is not a reliable per-sub-task estimator: size
+the work before starting and use the indicator only as a stop signal.
 
-Use this for multi-sub-task work, anything touching 3+ files, or a new subsystem — same trigger
-as `discuss.md`. Skip for a small, clearly-scoped task: go straight to `build.md`, no ceremony.
+Use this for work with multiple goals, anything touching 3+ files, a new subsystem, or any task
+whose first session might exceed 45,000 tokens — even if it touches only one file. Skip it only
+for a small, clearly-scoped task that can be finished and verified in one short session.
 
 Method:
 1. State the plan in plain language: what changes, in which files, in what order. No separate
@@ -18,8 +20,11 @@ Method:
 2. Split into sub-tasks. Each needs, at minimum:
    - one concrete goal (a single committable unit)
    - the exact files/sections to touch (grep targets, not "read the whole file")
-   - a rough size estimate (small/medium — a gut-check against past sub-tasks of similar shape,
-     not a token count)
+   - a rough size estimate (small/medium) and an explicit context estimate: starting context,
+     expected reads/tool output, implementation, verification, and 10,000 tokens of contingency,
+     with the total at or below 45,000. If you cannot estimate that, split again.
+   - no more than two implementation files (a test file counts) and one observable acceptance
+     check. If the change needs a third file, make the integration a separate sub-task.
 3. Bias toward more, smaller sub-tasks over fewer, larger ones. An oversized sub-task is the
    single biggest cause of a session running out of budget mid-work with nothing committed.
 4. Write the sub-task list into `SESSION_PRIMER.md`'s "Current sub-task" block, same shape every
@@ -28,6 +33,8 @@ Method:
    시작: <exact files/greps, not "read everything">
    목표: <this sub-task's one concrete goal>
    작업 사이클: <2-4 step loop for this sub-task>
+   완료 기준: <one observable check and its exact command or manual action>
+   예산: <starting context + expected reads/tool output + work + verification <= 45,000>
    참고: <constraints, prior decisions, what NOT to redo>
    ```
    Also write the **whole numbered list** into the primer, one line per sub-task, in exactly
