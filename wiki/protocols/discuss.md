@@ -1,14 +1,13 @@
 # discuss
 
-> No real `/discuss` command exists in Kilo yet (see AGENTS.md "Known gap") — self-serve this
-> file the moment you see the word "discuss" (or an ambiguous multi-file ask) in a message.
+> Read this automatically when a decision required for the next step is genuinely missing.
 
 Converge an ambiguous or underspecified ask into a small set of concrete decisions through
 direct question-and-answer — not by silently picking an interpretation.
 
-Use this when the ask is ambiguous, touches 3+ files, introduces a new subsystem, or the user
-explicitly asks to discuss first. Skip it for a clearly-scoped one-file fix — go straight to
-`build.md`.
+Use this when the ask is ambiguous in a way that changes the next implementation decision, or
+the user explicitly asks to discuss first. File count alone does not require a Q&A round;
+ordinary multi-file requests proceed to `design.md` with stated assumptions.
 
 Method:
 1. Rule zero applies first: grep `wiki/handoffs/SESSION_PRIMER.md`, `wiki/PROJECT_BACKGROUND.md`,
