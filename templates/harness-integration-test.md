@@ -21,14 +21,30 @@ git clone --quiet https://github.com/lvninety9/soulmate-4 /tmp/soulmate-4-seed \
 (cd ~/soulmate4-test && scripts/check-caps.sh --bootstrap-check)
 ```
 
-Expect: bootstrap succeeds, `--bootstrap-check` passes every line except the last
-(`AGENTS.md still has the literal placeholder "[project name]"` — that FAIL is correct/expected
-on an unfilled template, not a bug).
+Expect: bootstrap and `--bootstrap-check` both pass without editing a placeholder.
+
+## Short-request acceptance — the default workflow
+
+Open the new project in a fresh Kilo session and send one ordinary request, with no protocol
+names or token instructions:
+
+```
+Python으로 파일의 단어 수를 세는 CLI를 만들어 주세요. 차근차근 진행해 주세요.
+```
+
+Pass condition: the first turn reads the relevant protocol, records a numbered, testable plan in
+`wiki/handoffs/SESSION_PRIMER.md`, commits that handoff, and stops before implementation. The
+next ordinary `계속` request builds only the active sub-task; the gate may require one checkpoint
+turn first. At completion, inspect the actual commits and test output rather than its own report.
+After the final sub-task, the agent runs verification and updates project documentation.
+
+The steps below exercise individual mechanisms and older failure cases; they are not words a
+normal project request must contain.
 
 ## Step 1 — confirm AGENTS.md actually auto-loads (no UI to check, unlike Continue's `/` list)
 
-Kilo has no reliable custom-command autocomplete to check (see AGENTS.md "Known gap" — verified
-not to work). Instead, confirm the file that matters actually loads:
+Kilo has no reliable custom-command autocomplete to check (see AGENTS.md Learned Rules L01-L04).
+Instead, confirm the file that matters actually loads:
 
 ```
 Without me telling you anything about this project, what does your AGENTS.md say your Language
